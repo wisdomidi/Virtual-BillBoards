@@ -1,0 +1,6 @@
+{
+  "name": "World First Virtual Billboard",
+  "description": "The World's First Real-Time Virtual Billboard Platform. Watch global ad streams or place instant billboard bids in seconds across top world cities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

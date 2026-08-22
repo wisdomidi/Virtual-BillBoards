@@ -1,0 +1,34 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profiles",
+      "description": "Registered user accounts with real authentication, assigned role, and ad wallet balance.",
+      "properties": {
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "role": { "type": "string", "description": "Assigned role: advertiser, streamer, paid_watcher, admin" },
+        "walletBalanceCents": { "type": "number", "description": "User wallet balance in cents" },
+        "createdAt": { "type": "string", "description": "Account registration timestamp" }
+      },
+      "required": ["email", "role"]
+    },
+    "campaigns": {
+      "title": "Ad Campaigns",
+      "description": "Advertiser ad creatives, CTA links, target city geofences, and bid amounts.",
+      "properties": {
+        "advertiserId": { "type": "string", "description": "UID of campaign owner" },
+        "advertiserName": { "type": "string", "description": "Display name of advertiser" },
+        "title": { "type": "string", "description": "Campaign title" },
+        "imageUrl": { "type": "string", "description": "Ad creative banner URL" },
+        "landingPageUrl": { "type": "string", "description": "Interactive landing page URL" },
+        "whatsappLink": { "type": "string", "description": "WhatsApp contact or order link" },
+        "qrCodeUrl": { "type": "string", "description": "Uploaded or generated QR code URL" },
+        "targetCityCode": { "type": "string", "description": "Target city geofence code (e.g. KUL, TYO, NYC)" },
+        "targetCountryCode": { "type": "string", "description": "Target country code" },
+        "bidAmountCents": { "type": "number", "description": "Slot bid amount in cents" },
+        "createdAt": { "type": "string", "description": "Submission timestamp" }
+      },
+      "required": ["title", "imageUrl", "targetCityCode", "bidAmountCents"]
+    }
+  }
+}

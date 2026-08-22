@@ -1,0 +1,680 @@
+import React, { useState, useEffect } from 'react';
+import { ActiveBillboardSlot, CityConfig, UserRole } from '../types';
+import { LandmarkFrame } from './LandmarkFrame';
+import { SmartOverlay } from './SmartOverlay';
+import { CITY_LIVE_UPDATES } from '../data/cityLiveUpdates';
+import {
+  Clock,
+  MapPin,
+  ShieldCheck,
+  Award,
+  Zap,
+  Tag,
+  Eye,
+  AlertTriangle,
+  Maximize2,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Globe,
+  Radio,
+  Search,
+  Wallet,
+  Megaphone,
+  CheckCircle2,
+  Bot,
+  Plus,
+  Upload,
+  Info,
+  DollarSign,
+  HelpCircle,
+  FileImage,
+  Car,
+  ChevronDown,
+  Sparkle,
+  MessageSquare,
+  LogIn
+} from 'lucide-react';
+
+interface LiveBillboardProps {
+  slotData: ActiveBillboardSlot | null;
+  selectedCity: string;
+  selectedCountry: string;
+  onCityChange: (city: string, country: string) => void;
+  viewerPoints: number;
+  userRole?: UserRole;
+  isPureViewerMode?: boolean;
+  walletBalanceDollars?: string;
+  onOpenWalletModal?: () => void;
+  currentUser?: { uid: string; email: string; displayName: string; role: UserRole } | null;
+  onOpenAuthModal?: () => void;
+  onPlaceBidQuick?: (
+    title: string,
+    imageUrl: string,
+    amountDollars: number,
+    cityCode: string,
+    countryCode: string,
+    landingPageUrl?: string,
+    whatsappLink?: string,
+    qrCodeUrl?: string,
+    mediaType?: 'image' | 'video',
+    ctaType?: 'website' | 'whatsapp' | 'none',
+    ctaUrl?: string
+  ) => Promise<{ success: boolean; message: string }>;
+}
+
+export const LiveBillboard: React.FC<LiveBillboardProps> = ({
+  slotData,
+  selectedCity,
+  selectedCountry,
+  onCityChange,
+  viewerPoints,
+  userRole = 'guest',
+  isPureViewerMode = false,
+  walletBalanceDollars = '0.00',
+  onOpenWalletModal,
+  currentUser,
+  onOpenAuthModal,
+  onPlaceBidQuick
+}) => {
+  const [fullscreen, setFullscreen] = useState(false);
+  const [ambientGlow, setAmbientGlow] = useState(true);
+  const [glassGlare, setGlassGlare] = useState(true);
+  const [imageError, setImageError] = useState(false);
+  const [showPaidWatcherWorkflow, setShowPaidWatcherWorkflow] = useState(false);
+  const [showCityPickerDropdown, setShowCityPickerDropdown] = useState(false);
+
+  // Dynamic City Search State
+  const [citySearchTerm, setCitySearchTerm] = useState('');
+  const [isSearchingCity, setIsSearchingCity] = useState(false);
+
+  // Fast Bid Form State
+  const [bidTitle, setBidTitle] = useState('Cyberpunk Neon Wearable Smart Specs Launch');
+  const [bidImageUrl, setBidImageUrl] = useState('https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1200&q=80');
+  const [bidMediaType, setBidMediaType] = useState<'image' | 'video'>('image');
+  const [bidCtaType, setBidCtaType] = useState<'website' | 'whatsapp' | 'none'>('website');
+  const [bidCtaUrl, setBidCtaUrl] = useState('https://ocularar.com');
+  const [bidAmountDollars, setBidAmountDollars] = useState<number>(1.00);
+  const [isSubmittingBid, setIsSubmittingBid] = useState(false);
+  const [bidFeedback, setBidFeedback] = useState<{ success: boolean; message: string } | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
+  // Dynamic Cities List loaded from API
+  const [cities, setCities] = useState<CityConfig[]>([
+    { cityCode: 'TYO', countryCode: 'JP', cityName: 'Tokyo Shibuya', countryName: 'Japan', flagEmoji: '🇯🇵', active: true, reserveFloorCents: 100 },
+    { cityCode: 'NYC', countryCode: 'US', cityName: 'Times Square NYC', countryName: 'United States', flagEmoji: '🇺🇸', active: true, reserveFloorCents: 100 },
+    { cityCode: 'LON', countryCode: 'UK', cityName: 'London City', countryName: 'United Kingdom', flagEmoji: '🇬🇧', active: true, reserveFloorCents: 100 },
+    { cityCode: 'PAR', countryCode: 'FR', cityName: 'Paris Champs-Élysées', countryName: 'France', flagEmoji: '🇫🇷', active: true, reserveFloorCents: 100 },
+    { cityCode: 'KUL', countryCode: 'MY', cityName: 'Kuala Lumpur', countryName: 'Malaysia', flagEmoji: '🇲🇾', active: true, reserveFloorCents: 100 },
+    { cityCode: 'SIN', countryCode: 'SG', cityName: 'Singapore Marina', countryName: 'Singapore', flagEmoji: '🇸🇬', active: true, reserveFloorCents: 100 },
+    { cityCode: 'DXB', countryCode: 'AE', cityName: 'Dubai Downtown', countryName: 'United Arab Emirates', flagEmoji: '🇦🇪', active: true, reserveFloorCents: 100 },
+    { cityCode: 'SEL', countryCode: 'KR', cityName: 'Seoul Gangnam', countryName: 'South Korea', flagEmoji: '🇰🇷', active: true, reserveFloorCents: 100 },
+    { cityCode: 'SYD', countryCode: 'AU', cityName: 'Sydney Harbour', countryName: 'Australia', flagEmoji: '🇦🇺', active: true, reserveFloorCents: 100 },
+    { cityCode: 'YTO', countryCode: 'CA', cityName: 'Toronto Downtown', countryName: 'Canada', flagEmoji: '🇨🇦', active: true, reserveFloorCents: 100 },
+    { cityCode: 'HKG', countryCode: 'HK', cityName: 'Hong Kong Central', countryName: 'Hong Kong', flagEmoji: '🇭🇰', active: true, reserveFloorCents: 100 },
+    { cityCode: 'LAX', countryCode: 'US', cityName: 'Los Angeles Sunset', countryName: 'United States', flagEmoji: '🇺🇸', active: true, reserveFloorCents: 100 },
+    { cityCode: 'SHA', countryCode: 'CN', cityName: 'Shanghai The Bund', countryName: 'China', flagEmoji: '🇨🇳', active: true, reserveFloorCents: 100 },
+    { cityCode: 'BER', countryCode: 'DE', cityName: 'Berlin Alexanderplatz', countryName: 'Germany', flagEmoji: '🇩🇪', active: true, reserveFloorCents: 100 },
+    { cityCode: 'SAO', countryCode: 'BR', cityName: 'São Paulo Paulista', countryName: 'Brazil', flagEmoji: '🇧🇷', active: true, reserveFloorCents: 100 }
+  ]);
+
+  const loadCities = () => {
+    fetch('/api/cities')
+      .then(res => res.json())
+      .then(data => {
+        if (data.cities && Array.isArray(data.cities)) {
+          setCities(data.cities.filter((c: CityConfig) => c.active));
+        }
+      })
+      .catch(err => console.error('Failed to load active cities:', err));
+  };
+
+  useEffect(() => {
+    loadCities();
+  }, []);
+
+  // Handle File Upload for 15s Ad Creative (Image or MP4 Video)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isVideo = file.type.startsWith('video/') || file.name.toLowerCase().endsWith('.mp4') || file.name.toLowerCase().endsWith('.webm');
+    const isImage = file.type.startsWith('image/');
+
+    if (!isImage && !isVideo) {
+      alert('Please select an image (PNG, JPG, WebP) or video file (.mp4, .webm).');
+      return;
+    }
+
+    setBidMediaType(isVideo ? 'video' : 'image');
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setBidImageUrl(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle searching/adding custom city dynamically
+  const handleCustomCitySearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!citySearchTerm.trim()) return;
+    setIsSearchingCity(true);
+    try {
+      const res = await fetch('/api/cities/ensure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cityName: citySearchTerm.trim() })
+      });
+      const data = await res.json();
+      if (data.success && data.city) {
+        setCities(data.cities);
+        onCityChange(data.city.cityCode, data.city.countryCode);
+        setCitySearchTerm('');
+      }
+    } catch (err) {
+      console.error('Error ensuring custom city:', err);
+    } finally {
+      setIsSearchingCity(false);
+    }
+  };
+
+  // Handle Fast Bidding
+  const handleQuickBidSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) {
+      if (onOpenAuthModal) onOpenAuthModal();
+      setBidFeedback({ success: false, message: 'Please sign in or create an account to place bids on live billboards.' });
+      return;
+    }
+    if (!onPlaceBidQuick) return;
+    setIsSubmittingBid(true);
+    setBidFeedback(null);
+
+    const landingPageUrl = bidCtaType === 'website' ? bidCtaUrl : undefined;
+    const whatsappLink = bidCtaType === 'whatsapp' ? bidCtaUrl : undefined;
+
+    const result = await onPlaceBidQuick(
+      bidTitle,
+      bidImageUrl,
+      bidAmountDollars,
+      selectedCity,
+      selectedCountry,
+      landingPageUrl,
+      whatsappLink,
+      undefined,
+      bidMediaType,
+      bidCtaType,
+      bidCtaUrl
+    );
+    setIsSubmittingBid(false);
+    setBidFeedback(result);
+  };
+
+  if (!slotData) {
+    return (
+      <div className="bg-slate-950 border border-slate-800 rounded-3xl p-16 text-center text-slate-400 font-sans shadow-2xl">
+        <div className="animate-spin w-10 h-10 border-3 border-cyan-500 border-t-transparent rounded-full mx-auto mb-4" />
+        <p className="text-base font-bold text-white">Connecting to World First 24/7 Virtual Billboard Stream [{selectedCity}]...</p>
+        <p className="text-xs text-slate-500 mt-1">Synchronizing real-time global screen network</p>
+      </div>
+    );
+  }
+
+  const { remainingSeconds, winningAd } = slotData;
+  const progressPercent = ((15 - remainingSeconds) / 15) * 100;
+
+  const currentCityConfig = cities.find(c => c.cityCode === selectedCity) || {
+    cityName: selectedCity === 'GLOBAL' ? 'Global 24/7 Stream' : selectedCity,
+    flagEmoji: selectedCity === 'GLOBAL' ? '🌐' : '🌍'
+  };
+
+  const currentTopCents = winningAd ? winningAd.bidAmountCents : 1000;
+  const currentTopDollars = (currentTopCents / 100).toFixed(2);
+
+  return (
+    <div className={`space-y-6 ${fullscreen ? 'fixed inset-0 z-50 bg-slate-950 p-4 sm:p-8 overflow-y-auto' : ''}`}>
+      {/* Primary Headline Value Pitch */}
+      <div className="bg-gradient-to-r from-cyan-950/90 via-slate-900 to-indigo-950/90 border border-cyan-500/30 p-5 rounded-3xl shadow-xl space-y-2 text-white">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-cyan-400 font-mono text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+            <Zap className="w-4 h-4 text-amber-400 animate-pulse" />
+            Instant Digital Billboard Network
+          </span>
+          <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
+            No Contracts • Go Live Instantly
+          </span>
+        </div>
+        <h1 className="text-xl sm:text-2xl font-black text-white leading-snug">
+          Target local storefront audiences in real-time.
+        </h1>
+        <p className="text-xs text-slate-300 font-sans leading-relaxed">
+          Select your target city geofence ({currentCityConfig.flagEmoji} {currentCityConfig.cityName}), upload your ad creative, and broadcast immediately across high-impact digital billboard displays.
+        </p>
+      </div>
+
+      {/* Smart City Overlay (Weather, Traffic Flow, News Headlines) */}
+      <SmartOverlay cityCode={selectedCity} cityName={currentCityConfig.cityName} />
+
+      {/* Real-Life Physical Billboard Display Wrapped in Landmark Frame */}
+      <LandmarkFrame cityCode={selectedCity} cityName={currentCityConfig.cityName}>
+        {/* Physical Billboard Metal Bezel Frame */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border-b border-slate-800/80 px-6 py-2.5 flex items-center justify-between text-xs font-sans">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-slate-300 font-bold">24/7 VIRTUAL BILLBOARD SCREEN</span>
+            </div>
+            <span className="text-slate-700 hidden sm:inline">|</span>
+            <span className="text-cyan-400 font-bold hidden sm:inline">
+              {currentCityConfig.flagEmoji} {currentCityConfig.cityName} Feed
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAmbientGlow(!ambientGlow)}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                ambientGlow ? 'bg-cyan-950 text-cyan-400 border-cyan-800' : 'bg-slate-900 text-slate-500 border-slate-800'
+              }`}
+            >
+              Glow Effect
+            </button>
+            <button
+              onClick={() => setGlassGlare(!glassGlare)}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                glassGlare ? 'bg-indigo-950 text-indigo-400 border-indigo-800' : 'bg-slate-900 text-slate-500 border-slate-800'
+              }`}
+            >
+              Reflection
+            </button>
+            <button
+              onClick={() => setFullscreen(!fullscreen)}
+              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-all"
+              title="Full Screen View"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* 15-Second Progress Bar */}
+        <div className="w-full bg-slate-900 h-1.5">
+          <div
+            className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 h-1.5 transition-all duration-1000 ease-linear"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
+        {/* Real Billboard High-Res Canvas */}
+        <div className="relative aspect-video max-h-[520px] w-full bg-slate-950 flex items-center justify-center overflow-hidden group">
+          {/* Glass Glare Overlay Shader */}
+          {glassGlare && (
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none z-10" />
+          )}
+
+          {winningAd.imageUrl && !imageError ? (
+            (winningAd as any).mediaType === 'video' || winningAd.imageUrl.startsWith('data:video/') || winningAd.imageUrl.toLowerCase().includes('.mp4') ? (
+              <video
+                src={winningAd.imageUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+              />
+            ) : (
+              <img
+                src={winningAd.imageUrl}
+                alt={winningAd.title}
+                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                onError={() => setImageError(true)}
+              />
+            )
+          ) : (
+            <div className="p-8 text-center text-slate-500">
+              <AlertTriangle className="w-12 h-12 mx-auto mb-2 text-amber-500" />
+              <p className="font-bold text-white">{winningAd.title}</p>
+            </div>
+          )}
+
+          {/* Top Floating Badge - Countdown Timer & Watcher Points */}
+          <div className="absolute top-4 inset-x-4 flex items-center justify-between z-20 pointer-events-none">
+            <div className="bg-slate-950/85 backdrop-blur-md border border-slate-800/80 px-3 py-1.5 rounded-2xl flex items-center gap-2 text-xs font-mono shadow-xl pointer-events-auto">
+              <Clock className="w-4 h-4 text-cyan-400 animate-spin" />
+              <span className="font-black text-white text-sm">{remainingSeconds}s remaining</span>
+            </div>
+
+            {(userRole === 'paid_watcher' || userRole === 'admin') ? (
+              <div className="bg-slate-950/85 backdrop-blur-md border border-amber-500/40 px-3.5 py-1.5 rounded-2xl flex items-center gap-2 text-xs font-mono shadow-xl pointer-events-auto">
+                <Award className="w-4 h-4 text-amber-400" />
+                <span className="text-slate-300">Watcher Balance:</span>
+                <span className="text-amber-400 font-black">{viewerPoints} pts</span>
+              </div>
+            ) : (
+              <div className="bg-slate-950/85 backdrop-blur-md border border-cyan-500/30 px-3 py-1.5 rounded-2xl flex items-center gap-1.5 text-xs font-mono shadow-xl pointer-events-auto text-cyan-300">
+                <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="font-bold text-[11px] tracking-wider uppercase">SPECTATOR STREAM</span>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Floating Banner - Advertiser Title & Winning Price */}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent p-6 sm:p-8 flex flex-wrap items-end justify-between gap-4 z-20">
+            <div className="max-w-2xl space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="bg-slate-900/95 text-cyan-300 border border-cyan-500/40 px-3 py-1 rounded-xl text-xs font-mono font-bold shadow-lg">
+                  {winningAd.advertiserName}
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-lg leading-tight">
+                {winningAd.title}
+              </h2>
+
+              {/* Single CTA Button Overlay (Website or WhatsApp only) */}
+              {((winningAd as any).ctaType !== 'none') && (
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  {((winningAd as any).ctaType === 'whatsapp' || (!(winningAd as any).ctaType && !(winningAd as any).landingPageUrl && (winningAd as any).whatsappLink)) ? (
+                    <a
+                      href={(winningAd as any).ctaUrl || ((winningAd as any).whatsappLink?.startsWith('http') ? (winningAd as any).whatsappLink : `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}`)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg transition-transform hover:scale-105"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                      <span>WhatsApp Contact</span>
+                      <span className="text-[10px]">↗</span>
+                    </a>
+                  ) : ((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl) ? (
+                    <a
+                      href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg transition-transform hover:scale-105"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>Visit Website</span>
+                      <span className="text-[10px]">↗</span>
+                    </a>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/40 px-5 py-3 rounded-2xl text-right shadow-2xl">
+              <div className="text-[10px] text-slate-400 uppercase tracking-widest font-extrabold">Active Winning Bid</div>
+              <div className="text-2xl font-black text-cyan-400 font-mono">
+                ${(winningAd.bidAmountCents / 100).toFixed(2)}
+                <span className="text-xs font-normal text-slate-400"> / 15s</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Real-Life Physical Frame Base */}
+        <div className="bg-slate-900 border-t border-slate-800/80 px-6 py-2.5 flex flex-wrap items-center justify-between text-xs font-sans text-slate-400">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1 text-slate-300 font-semibold">
+              <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+              Active Feed: <strong className="text-white">{currentCityConfig.cityName}</strong>
+            </span>
+          </div>
+
+          <div className="text-slate-500 text-[11px] font-mono">
+            15s Slot ID: <strong className="text-slate-300">{slotData.slotId}</strong>
+          </div>
+        </div>
+      </LandmarkFrame>
+
+      {/* Fast Bidding Console with 15-Sec Creative File Upload */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/30 border border-slate-800 p-6 rounded-3xl space-y-4 shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-cyan-500/15 border border-cyan-500/30 rounded-2xl text-cyan-400">
+              <Megaphone className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                Fast Billboard Bidding & Creative Upload
+                <span className="text-[10px] bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded-full font-mono font-bold">
+                  Bids in Seconds
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Upload your 15-second ad creative image and place your bid for <strong className="text-cyan-400">{currentCityConfig.cityName}</strong>
+              </p>
+            </div>
+          </div>
+
+          {/* Wallet Balance Widget (Only shown if logged in) */}
+          {currentUser && userRole !== 'guest' ? (
+            <div className="flex items-center gap-3">
+              <div className="bg-slate-950 border border-emerald-500/30 px-3.5 py-1.5 rounded-2xl flex items-center gap-2 text-xs font-mono">
+                <Wallet className="w-4 h-4 text-emerald-400" />
+                <div>
+                  <div className="text-[9px] text-slate-500 uppercase">Ad Wallet</div>
+                  <div className="font-black text-emerald-400 text-sm">${walletBalanceDollars}</div>
+                </div>
+              </div>
+              <button
+                onClick={onOpenWalletModal}
+                className="px-3.5 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Top Up
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuthModal}
+              className="px-3.5 py-2 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 border border-cyan-500/40 text-cyan-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <LogIn className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Sign In to Deposit & Bid</span>
+            </button>
+          )}
+        </div>
+
+        {bidFeedback && (
+          <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+            bidFeedback.success
+              ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-300'
+              : 'bg-rose-950/80 border border-rose-500/40 text-rose-300'
+          }`}>
+            {bidFeedback.success ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
+            <span>{bidFeedback.message}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleQuickBidSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                Ad Headline / Title
+              </label>
+              <input
+                type="text"
+                value={bidTitle}
+                onChange={(e) => setBidTitle(e.target.value)}
+                placeholder="Enter compelling headline..."
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-cyan-500"
+                required
+              />
+            </div>
+
+            {/* 15s Ad Creative File Upload */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                Upload 15s Ad Creative (Image / MP4 Video)
+              </label>
+              <label className="w-full bg-slate-950 border border-dashed border-slate-700 hover:border-cyan-500 rounded-xl px-4 py-2 cursor-pointer flex items-center justify-between text-xs text-slate-400 hover:text-white transition-all">
+                <span className="truncate flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span className="font-semibold text-slate-200">{uploadedFileName || 'Choose local file (PNG, JPG, MP4)...'}</span>
+                </span>
+                <span className="bg-slate-900 border border-slate-800 text-[10px] text-cyan-400 px-2.5 py-1 rounded-lg font-mono">
+                  PNG, JPG, MP4
+                </span>
+                <input
+                  type="file"
+                  accept="image/*,video/mp4,video/webm"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Interactive CTA Selector: Choose 1 CTA */}
+          <div className="space-y-2 bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800/80">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-300 uppercase flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Call-To-Action (Pick 1 CTA)</span>
+              </span>
+              <span className="text-[10px] text-slate-400">Website or WhatsApp</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBidCtaType('website');
+                  if (!bidCtaUrl || bidCtaUrl.includes('wa.me')) setBidCtaUrl('https://yourbrand.com/promo');
+                }}
+                className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  bidCtaType === 'website'
+                    ? 'bg-cyan-950 border-cyan-500 text-cyan-300'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Website</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBidCtaType('whatsapp');
+                  if (!bidCtaUrl || !bidCtaUrl.includes('wa.me')) setBidCtaUrl('https://wa.me/60123456789?text=Hi%20Brand');
+                }}
+                className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  bidCtaType === 'whatsapp'
+                    ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                <span>WhatsApp</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBidCtaType('none');
+                  setBidCtaUrl('');
+                }}
+                className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  bidCtaType === 'none'
+                    ? 'bg-slate-800 border-slate-600 text-white'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>No CTA</span>
+              </button>
+            </div>
+
+            {bidCtaType !== 'none' && (
+              <div className="pt-1">
+                <input
+                  type="text"
+                  value={bidCtaUrl}
+                  onChange={(e) => setBidCtaUrl(e.target.value)}
+                  placeholder={bidCtaType === 'website' ? 'https://yourbrand.com/promo' : 'https://wa.me/60123456789'}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
+                  required
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Creative Media Preview Thumb */}
+          {bidImageUrl && (
+            <div className="flex items-center gap-3 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              {bidMediaType === 'video' || bidImageUrl.startsWith('data:video/') || bidImageUrl.toLowerCase().includes('.mp4') ? (
+                <video
+                  src={bidImageUrl}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-20 h-12 object-cover rounded-lg border border-slate-700"
+                />
+              ) : (
+                <img
+                  src={bidImageUrl}
+                  alt="Ad Creative Preview"
+                  className="w-20 h-12 object-cover rounded-lg border border-slate-700"
+                  onError={() => console.log('Preview image error')}
+                />
+              )}
+              <div className="text-xs">
+                <div className="text-slate-400 font-bold flex items-center gap-1">
+                  <FileImage className="w-3.5 h-3.5 text-cyan-400" />
+                  {bidMediaType === 'video' ? '🎬 MP4 Video Loaded' : '🖼️ Image Creative Loaded'}
+                </div>
+                <p className="text-[11px] text-slate-500 truncate max-w-md">{bidTitle}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-300 uppercase">Bid Amount:</span>
+              <div className="relative w-32">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                <input
+                  type="number"
+                  min="1.00"
+                  step="0.50"
+                  value={bidAmountDollars}
+                  onChange={(e) => setBidAmountDollars(Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 pl-7 pr-2 text-xs text-cyan-400 font-mono font-bold focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              {/* Quick Outbid Presets */}
+              <div className="flex items-center gap-1.5 ml-2">
+                {[
+                  Number(currentTopDollars) + 1,
+                  Number(currentTopDollars) + 2,
+                  Number(currentTopDollars) + 5
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setBidAmountDollars(preset)}
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono font-bold border border-slate-700"
+                  >
+                    ${preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmittingBid}
+              className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center gap-2"
+            >
+              <Zap className="w-4 h-4 fill-current" />
+              <span>{isSubmittingBid ? 'Submitting Creative...' : 'Place Bid in 2 Secs'}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
