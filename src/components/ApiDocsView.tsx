@@ -27,7 +27,7 @@ interface ApiDocsViewProps {
   onNavigateToAgentsHub?: () => void;
   userRole?: string;
 }
-
+ 
 export const ApiDocsView: React.FC<ApiDocsViewProps> = ({
   selectedCity = 'TYO',
   onNavigateToAgentsHub,
