@@ -684,10 +684,10 @@ export const StreamerBillboardView: React.FC<StreamerBillboardViewProps> = ({
                           href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs px-3 py-1 rounded-lg shadow-md transition-transform hover:scale-105"
+                          className="inline-flex items-center gap-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs px-3 py-1 rounded-lg shadow-md transition-transform hover:scale-105 font-mono"
                         >
                           <Globe className="w-3.5 h-3.5" />
-                          <span>Visit Website</span>
+                          <span>{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
                           <span className="text-[10px]">↗</span>
                         </a>
                       ) : null}

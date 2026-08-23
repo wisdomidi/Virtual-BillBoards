@@ -16,6 +16,7 @@ import {
   Eye,
   Megaphone,
   Wallet,
+  Coins,
   Plus,
   Sparkles,
   Globe,
@@ -40,6 +41,7 @@ interface NavbarProps {
   onCityChange: (city: string, country: string) => void;
   onOpenWalletModal?: () => void;
   walletBalanceDollars?: string;
+  tokensBalance?: number;
   currentUser?: { uid: string; email: string; displayName: string; role: UserRole } | null;
   onOpenAuthModal?: () => void;
   onSignOut?: () => void;
@@ -80,6 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onCityChange,
   onOpenWalletModal,
   walletBalanceDollars = '250.00',
+  tokensBalance = 25000,
   currentUser,
   onOpenAuthModal,
   onSignOut
@@ -184,19 +187,26 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Wallet Button - Visible only for authenticated users */}
+            {/* Arcade Tokens & Ad Wallet Button */}
             {currentUser && userRole !== 'guest' && (
               <button
+                id="navbar-arcade-token-wallet-btn"
                 onClick={onOpenWalletModal}
-                className="px-3 py-1.5 bg-gradient-to-r from-emerald-500/15 via-emerald-500/20 to-cyan-500/15 hover:from-emerald-500/25 hover:to-cyan-500/25 border border-emerald-500/40 rounded-xl text-xs font-mono font-bold text-emerald-300 transition-all flex items-center gap-2 shadow-sm group"
-                title="Secure Ad Wallet System"
+                className="px-3 py-1.5 bg-gradient-to-r from-amber-500/15 via-emerald-500/15 to-cyan-500/15 hover:from-amber-500/25 hover:to-emerald-500/25 border border-amber-500/40 rounded-xl text-xs font-mono font-bold text-amber-300 transition-all flex items-center gap-2 shadow-sm group cursor-pointer"
+                title="Arcade Tokens & Ad Wallet (0.1¢ / Play Live RTB)"
               >
-                <Wallet className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                <Coins className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
                 <div className="text-left hidden xs:block">
-                  <div className="text-[9px] text-emerald-500 uppercase font-sans tracking-wider leading-none">Ad Wallet</div>
-                  <div className="text-xs font-black text-emerald-400">${walletBalanceDollars}</div>
+                  <div className="text-[9px] text-amber-400 uppercase font-sans tracking-wider leading-none flex items-center gap-1 font-extrabold">
+                    <span>Ad Tokens</span>
+                    <span className="text-[8px] bg-amber-950 text-amber-400 px-1 rounded">0.1¢</span>
+                  </div>
+                  <div className="text-xs font-black text-white flex items-baseline gap-1">
+                    <span className="text-amber-400 font-mono">{(tokensBalance ?? 25000).toLocaleString()}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">(${(walletBalanceDollars || '25.00')})</span>
+                  </div>
                 </div>
-                <span className="bg-emerald-500 text-slate-950 p-1 rounded-lg group-hover:bg-emerald-400 transition-colors">
+                <span className="bg-amber-400 text-slate-950 p-1 rounded-lg group-hover:bg-amber-300 transition-colors">
                   <Plus className="w-3 h-3 stroke-[3]" />
                 </span>
               </button>

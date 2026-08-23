@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import { ActiveBillboardSlot, CityConfig, UserRole } from '../types';
 import { LandmarkFrame } from './LandmarkFrame';
 import { SmartOverlay } from './SmartOverlay';
@@ -33,7 +34,9 @@ import {
   ChevronDown,
   Sparkle,
   MessageSquare,
-  LogIn
+  LogIn,
+  Flame,
+  Coins
 } from 'lucide-react';
 
 interface LiveBillboardProps {
@@ -181,6 +184,51 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
     }
   };
 
+  // Canvas-based Confetti Explosion Effect for Successful Bids
+  const triggerConfettiExplosion = () => {
+    try {
+      // Primary burst
+      confetti({
+        particleCount: 100,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ['#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#ffffff']
+      });
+
+      // Side angle bursts for maximum visual impact
+      setTimeout(() => {
+        confetti({
+          particleCount: 60,
+          angle: 60,
+          spread: 60,
+          origin: { x: 0.1, y: 0.65 },
+          colors: ['#06b6d4', '#38bdf8', '#34d399', '#fbbf24']
+        });
+        confetti({
+          particleCount: 60,
+          angle: 120,
+          spread: 60,
+          origin: { x: 0.9, y: 0.65 },
+          colors: ['#10b981', '#8b5cf6', '#ec4899', '#f43f5e']
+        });
+      }, 200);
+    } catch (err) {
+      console.warn('Canvas confetti execution error:', err);
+    }
+  };
+
+  // Listen for global user bid placed events across all console components
+  useEffect(() => {
+    const handleGlobalBidSuccess = () => {
+      triggerConfettiExplosion();
+    };
+
+    window.addEventListener('user-bid-placed', handleGlobalBidSuccess);
+    return () => {
+      window.removeEventListener('user-bid-placed', handleGlobalBidSuccess);
+    };
+  }, []);
+
   // Handle Fast Bidding
   const handleQuickBidSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,6 +259,11 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
     );
     setIsSubmittingBid(false);
     setBidFeedback(result);
+
+    if (result.success) {
+      triggerConfettiExplosion();
+      window.dispatchEvent(new CustomEvent('user-bid-placed', { detail: { city: selectedCity } }));
+    }
   };
 
   if (!slotData) {
@@ -393,10 +446,10 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                       href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg transition-transform hover:scale-105"
+                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg transition-transform hover:scale-105 font-mono"
                     >
                       <Globe className="w-3.5 h-3.5" />
-                      <span>Visit Website</span>
+                      <span>{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
                       <span className="text-[10px]">↗</span>
                     </a>
                   ) : null}
@@ -428,6 +481,34 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
           </div>
         </div>
       </LandmarkFrame>
+
+      {/* Real-Time Token Burn Ticker */}
+      <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-400 animate-pulse shrink-0">
+            <Flame className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-amber-400 font-mono uppercase tracking-wide">
+                🔥 Live Token Burn Ticker [{currentCityConfig.cityCode}]
+              </span>
+              <span className="text-[10px] bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded-full font-mono">
+                1 Token = 15s Play
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Slot <strong className="text-white font-mono">{slotData?.slotId || 'SLOT-ACTIVE'}</strong> filled by <strong className="text-cyan-400">"{winningAd.title}"</strong> — <strong className="text-amber-400 font-mono">{(winningAd as any).bidAmountTokens || Math.max(1, Math.round(winningAd.bidAmountCents * 10))} Tokens Burned</strong> ($
+              {winningAd.bidAmountDollars || (winningAd.bidAmountCents / 100).toFixed(2)})
+            </p>
+          </div>
+        </div>
+        <div className="hidden sm:block text-right">
+          <div className="text-xs font-mono text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-3 py-1.5 rounded-xl shadow-inner">
+            ⚡ 100% Slot Fill Velocity
+          </div>
+        </div>
+      </div>
 
       {/* Fast Bidding Console with 15-Sec Creative File Upload */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/30 border border-slate-800 p-6 rounded-3xl space-y-4 shadow-xl">

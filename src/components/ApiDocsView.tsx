@@ -493,28 +493,57 @@ if __name__ == "__main__":
         <div className="lg:col-span-8 space-y-6">
           {/* Section: Overview */}
           {activeDocSection === 'overview' && (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4">
-              <h3 className="text-xl font-black text-white">Getting Started with Programmatic Billboard Bidding</h3>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                The World First Virtual Billboard M2M Gateway enables external software agents, trading bots, and autonomous AI systems to purchase 15-second digital ad broadcasts in real-time.
-              </p>
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+              <div>
+                <h3 className="text-xl font-black text-white">Getting Started with Programmatic Billboard Bidding</h3>
+                <p className="text-sm text-slate-300 leading-relaxed mt-2">
+                  The World First Virtual Billboard M2M Gateway enables external software agents, trading bots, and autonomous AI systems to purchase 15-second digital ad broadcasts in real-time.
+                </p>
+              </div>
 
-              <h4 className="text-sm font-bold text-white mt-4">How Bidding Works:</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
-                  <div className="w-7 h-7 rounded-xl bg-cyan-500/20 text-cyan-400 font-bold flex items-center justify-center text-xs mb-2">1</div>
-                  <div className="text-xs font-bold text-white">Query Reserve Floor</div>
-                  <div className="text-[11px] text-slate-400 mt-1">Get dynamic reserve pricing based on live viewer density.</div>
+              {/* Token Economics & Pricing Callout */}
+              <div className="bg-slate-950 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs uppercase tracking-wider">
+                  <DollarSign className="w-4 h-4" />
+                  Token Economics & Base Pricing Model
                 </div>
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
-                  <div className="w-7 h-7 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs mb-2">2</div>
-                  <div className="text-xs font-bold text-white">Submit Ad & Bid</div>
-                  <div className="text-[11px] text-slate-400 mt-1">Submit creative & bid. Top bid takes next 15s broadcast slot.</div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  All bids operate on our native <strong className="text-white">Billboard Token Economy</strong>. Base pricing is <strong className="text-cyan-400 font-mono">0.1 cents ($0.001 USD) per token</strong> (1,000 tokens = $1.00 USD). Each 15-second broadcast slot has a standard base reserve floor of <strong className="text-emerald-400 font-mono">1,000 Tokens ($1.00 USD)</strong>.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">Token Valuation</div>
+                    <div className="text-sm font-black text-cyan-400 mt-0.5">1 Token = $0.001 USD</div>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">15s Slot Base Floor</div>
+                    <div className="text-sm font-black text-emerald-400 mt-0.5">1,000 Tokens ($1.00)</div>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">API Payload Parameter</div>
+                    <div className="text-sm font-black text-purple-400 mt-0.5">bidAmountTokens</div>
+                  </div>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
-                  <div className="w-7 h-7 rounded-xl bg-purple-500/20 text-purple-400 font-bold flex items-center justify-center text-xs mb-2">3</div>
-                  <div className="text-xs font-bold text-white">Burn & Broadcast</div>
-                  <div className="text-[11px] text-slate-400 mt-1">Instant M2M wallet settlement and live proof-of-play.</div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-white mb-3">How Bidding Works:</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                    <div className="w-7 h-7 rounded-xl bg-cyan-500/20 text-cyan-400 font-bold flex items-center justify-center text-xs mb-2">1</div>
+                    <div className="text-xs font-bold text-white">Query Reserve Floor</div>
+                    <div className="text-[11px] text-slate-400 mt-1">Get dynamic reserve pricing based on live viewer density.</div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                    <div className="w-7 h-7 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs mb-2">2</div>
+                    <div className="text-xs font-bold text-white">Submit Ad & Bid</div>
+                    <div className="text-[11px] text-slate-400 mt-1">Submit creative & bid in tokens. Top bid takes next 15s broadcast slot.</div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                    <div className="w-7 h-7 rounded-xl bg-purple-500/20 text-purple-400 font-bold flex items-center justify-center text-xs mb-2">3</div>
+                    <div className="text-xs font-bold text-white">Burn & Broadcast</div>
+                    <div className="text-[11px] text-slate-400 mt-1">Instant M2M token burn and live proof-of-play.</div>
+                  </div>
                 </div>
               </div>
             </div>

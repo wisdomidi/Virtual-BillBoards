@@ -367,30 +367,36 @@ export const LOCAL_CITY_ADS: Record<string, Array<{ title: string; advertiser: s
   ]
 };
 
+export const CATEGORY_AD_TEMPLATES = [
+  { category: 'web3', title: 'Solana ZK-Rollup Protocol: Ultra-Fast On-Chain Settlement', advertiser: 'Solana ZK Labs', img: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80', bidTokens: 12000 },
+  { category: 'tech', title: 'Quantum Neural AI Processor & Edge Compute Node', advertiser: 'Quantum Neural Inc', img: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80', bidTokens: 15000 },
+  { category: 'crypto', title: 'Ethereum Layer-2 Gasless Swap & Liquidity Pool', advertiser: 'EtherSwap DEX', img: 'https://images.unsplash.com/photo-1622979135225-d2ba269bc1df?auto=format&fit=crop&w=1200&q=80', bidTokens: 11000 },
+  { category: 'startup', title: 'YC S26 Autonomous AI SDR Agent for B2B Growth', advertiser: 'AutoSDR AI', img: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80', bidTokens: 10000 },
+  { category: 'meme', title: 'DogeToTheMoon: Certified Space Doge Meme Token', advertiser: 'DogeArmy DAO', img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80', bidTokens: 8500 },
+  { category: 'dev', title: 'Rust & TypeScript Universal Compiler CLI for Cloud Run', advertiser: 'DevStack CLI', img: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80', bidTokens: 9500 },
+  { category: 'gamers', title: 'Apex Legends World Championship & Esports Arena Pass', advertiser: 'Esports Pro League', img: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80', bidTokens: 9000 },
+  { category: 'streamers', title: 'Kick & Twitch Streamer Overlay Pro Studio', advertiser: 'StreamerFX Studio', img: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1200&q=80', bidTokens: 8000 },
+  { category: 'memecoins', title: 'PepeSol & Bonk Inu Community Pump Protocol', advertiser: 'PepeSol Memes', img: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?auto=format&fit=crop&w=1200&q=80', bidTokens: 7500 },
+  { category: 'web3', title: 'Decentralized Identity & Zero-Knowledge Passport', advertiser: 'ZK ID Network', img: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80', bidTokens: 10500 },
+];
+
 export function generate10AdsForCity(cityCode: string, countryCode: string, cityName: string): QueueItem[] {
+  return generate20AdsForCity(cityCode, countryCode, cityName);
+}
+
+export function generate20AdsForCity(cityCode: string, countryCode: string, cityName: string): QueueItem[] {
   const code = cityCode.toUpperCase();
-  const rawList = LOCAL_CITY_ADS[code] || [];
-  const globalList = LOCAL_CITY_ADS['GLOBAL'];
-
-  // Combine city-specific ads with global ads to reach exactly 10 house ads per city
-  const combinedList = [...rawList];
-  let gIndex = 0;
-  while (combinedList.length < 10 && gIndex < globalList.length) {
-    combinedList.push(globalList[gIndex]);
-    gIndex++;
-  }
-  if (combinedList.length > 10) {
-    combinedList.length = 10;
-  }
-
-  const ads: QueueItem[] = combinedList.map((item, index) => {
+  const rawLocalAds = LOCAL_CITY_ADS[code] || LOCAL_CITY_ADS['GLOBAL'] || [];
+  
+  // 1. Map old local ads (10 ads)
+  const localAds: QueueItem[] = rawLocalAds.map((item, index) => {
     const slug = item.advertiser.toLowerCase().replace(/[^a-z0-9]/g, '');
     const landingUrl = `https://${slug || 'brand'}.com`;
-    const waLink = `https://wa.me/1555${(1000000 + (index * 123456) % 8999999)}?text=Hi%20${encodeURIComponent(item.advertiser)}%2C%20I%20saw%20your%20billboard%20ad`;
-    const isWebsiteCta = index % 2 === 0;
+    const bidTokens = 1000; // Base price: 1,000 tokens ($1.00)
+    const bidCents = 100;   // Base price: $1.00 (100 cents)
 
     return {
-      id: `house_ad_${code.toLowerCase()}_${index}`,
+      id: `local_ad_${code.toLowerCase()}_${index}`,
       advertiserId: `house_network_${code.toLowerCase()}_${index}`,
       userId: 'house_ad',
       isHouseAd: true,
@@ -398,21 +404,48 @@ export function generate10AdsForCity(cityCode: string, countryCode: string, city
       title: item.title,
       imageUrl: item.img,
       mediaType: 'image',
-      ctaType: isWebsiteCta ? 'website' : 'whatsapp',
-      ctaUrl: isWebsiteCta ? landingUrl : waLink,
-      landingPageUrl: isWebsiteCta ? landingUrl : undefined,
-      whatsappLink: isWebsiteCta ? undefined : waLink,
+      ctaType: 'website',
+      ctaUrl: landingUrl,
+      landingPageUrl: landingUrl,
       targetCountryCode: countryCode,
       targetCityCode: cityCode,
-      bidAmountCents: 100, // $1.00 base floor for house ad fallbacks
-      safetyScore: 98 + (index % 3),
+      industry: 'Local & Global',
+      bidAmountCents: bidCents,
+      bidAmountTokens: bidTokens,
+      safetyScore: 99,
+      createdAt: new Date(Date.now() - (20 - index) * 60000).toISOString()
+    };
+  });
+
+  // 2. Map new category ads (10 ads: web3, tech, crypto, startup, meme, dev, gamers, streamers, memecoins)
+  const categoryAds: QueueItem[] = CATEGORY_AD_TEMPLATES.map((item, index) => {
+    const slug = item.advertiser.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const landingUrl = `https://${slug || 'brand'}.com`;
+    const bidTokens = 1000; // Base price: 1,000 tokens ($1.00)
+    const bidCents = 100;   // Base price: $1.00 (100 cents)
+
+    return {
+      id: `cat_ad_${code.toLowerCase()}_${index}`,
+      advertiserId: `house_network_cat_${code.toLowerCase()}_${index}`,
+      userId: 'house_ad',
+      isHouseAd: true,
+      advertiserName: item.advertiser,
+      title: item.title,
+      imageUrl: item.img,
+      mediaType: 'image',
+      ctaType: 'website',
+      ctaUrl: landingUrl,
+      landingPageUrl: landingUrl,
+      targetCountryCode: countryCode,
+      targetCityCode: cityCode,
+      industry: item.category,
+      bidAmountCents: bidCents,
+      bidAmountTokens: bidTokens,
+      safetyScore: 98,
       createdAt: new Date(Date.now() - (10 - index) * 60000).toISOString()
     };
   });
 
-  return ads;
-}
-
-export function generate20AdsForCity(cityCode: string, countryCode: string, cityName: string): QueueItem[] {
-  return generate10AdsForCity(cityCode, countryCode, cityName);
+  // Combine old local ads + new category ads = 20 diverse ads rotating per city
+  return [...localAds, ...categoryAds];
 }

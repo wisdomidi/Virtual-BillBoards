@@ -16,6 +16,7 @@ import { WatcherDashboard } from './components/WatcherDashboard';
 import { AiAgentsHub } from './components/AiAgentsHub';
 import { ApiDocsView } from './components/ApiDocsView';
 import { SystemTelemetry } from './components/SystemTelemetry';
+import { GlobalCityLeaders } from './components/GlobalCityLeaders';
 import { CaptchaDropModal } from './components/CaptchaDropModal';
 import { WalletModal } from './components/WalletModal';
 import { ToastContainer } from './components/ToastNotification';
@@ -77,6 +78,8 @@ export default function App() {
 
   // Toast Notification State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const tokensBalance = currentUser?.tokensBalance ?? Math.round(walletBalanceCents * 10);
 
   // Firebase Auth State Listener
   useEffect(() => {
@@ -402,6 +405,7 @@ export default function App() {
         onCityChange={handleCityChange}
         onOpenWalletModal={() => setIsWalletModalOpen(true)}
         walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
+        tokensBalance={tokensBalance}
         currentUser={currentUser}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
@@ -477,16 +481,26 @@ export default function App() {
 
             {/* Show Bidding Console ONLY for Advertisers or Admin */}
             {(userRole === 'advertiser' || userRole === 'admin') && (
-              <BiddingConsole
-                selectedCity={selectedCity}
-                selectedCountry={selectedCountry}
-                currentUser={currentUser}
-                onBidSubmitted={() => {
-                  fetchActiveSlot(selectedCity, selectedCountry);
-                  fetchWallet(currentUser?.uid);
-                }}
-                addToast={(toast) => addToast(toast.type, toast.title, toast.message)}
-              />
+              <div className="space-y-8">
+                <BiddingConsole
+                  selectedCity={selectedCity}
+                  selectedCountry={selectedCountry}
+                  currentUser={currentUser}
+                  onBidSubmitted={() => {
+                    fetchActiveSlot(selectedCity, selectedCountry);
+                    fetchWallet(currentUser?.uid);
+                  }}
+                  addToast={(toast) => addToast(toast.type, toast.title, toast.message)}
+                />
+
+                {/* Global City Leaders Board */}
+                <div className="max-w-3xl mx-auto">
+                  <GlobalCityLeaders
+                    currentSelectedCity={selectedCity}
+                    onSelectCity={handleCityChange}
+                  />
+                </div>
+              </div>
             )}
           </div>
         )}

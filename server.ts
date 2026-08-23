@@ -247,12 +247,97 @@ redisQueues['billboard:queue:GLOBAL'] = globalAds;
 // Track round-robin rotation pointers for city/regional fallback loops
 const queueRotationPointers: Record<string, number> = {};
 
-// Fallback in-memory wallet ledger if offline (starts at real $0.00)
-let userWalletBalanceCents = 0;
-const walletTransactionsLedger: Array<{ id: string; type: 'topup' | 'bid_deduction' | 'refund'; amountCents: number; description: string; timestamp: string }> = [];
+// ------------------------------------------------------------------------------
+// APP STORE ARCADE TOKEN ECONOMY ENGINE & PACKAGES
+// ------------------------------------------------------------------------------
+// 1 USD = 1,000 Billboard Tokens
+// 1 Token = $0.001 (0.1 cents / 0.1¢) = 1 x 15-second billboard play at Quiet Hours floor
+export interface TokenPackageServer {
+  id: string;
+  name: string;
+  tagline: string;
+  priceDollars: number;
+  baseTokens: number;
+  bonusTokens: number;
+  totalTokens: number;
+  playsCount: number;
+  badge?: string;
+  isPopular?: boolean;
+  iconName: string;
+  colorTheme: string;
+}
+
+const TOKEN_PACKAGES: TokenPackageServer[] = [
+  {
+    id: 'pack_starter',
+    name: 'Arcade Starter Pack',
+    tagline: 'Frictionless 0.1¢ entry — test creative files, jokes & triggers',
+    priceDollars: 1.00,
+    baseTokens: 1000,
+    bonusTokens: 0,
+    totalTokens: 1000,
+    playsCount: 1000,
+    badge: 'STARTER (0.1¢/PLAY)',
+    iconName: 'Sparkles',
+    colorTheme: 'cyan'
+  },
+  {
+    id: 'pack_creator_pro',
+    name: 'Creator Pro Pack',
+    tagline: 'Run continuous city campaigns & test high-impact creatives',
+    priceDollars: 5.00,
+    baseTokens: 5000,
+    bonusTokens: 500,
+    totalTokens: 5500,
+    playsCount: 5500,
+    badge: 'POPULAR (+10% BONUS)',
+    isPopular: true,
+    iconName: 'Zap',
+    colorTheme: 'emerald'
+  },
+  {
+    id: 'pack_growth_brand',
+    name: 'Growth Brand Pack',
+    tagline: 'Dominate prime launch windows & outbid competitors with scale',
+    priceDollars: 20.00,
+    baseTokens: 20000,
+    bonusTokens: 5000,
+    totalTokens: 25000,
+    playsCount: 25000,
+    badge: '25% BONUS TOKENS',
+    iconName: 'Flame',
+    colorTheme: 'purple'
+  },
+  {
+    id: 'pack_megacity_takeover',
+    name: 'Megacity Takeover Pack',
+    tagline: 'High-frequency AI agent bidding & non-stop billboard takeover',
+    priceDollars: 50.00,
+    baseTokens: 50000,
+    bonusTokens: 20000,
+    totalTokens: 70000,
+    playsCount: 70000,
+    badge: 'MAX VALUE (+40% BONUS)',
+    iconName: 'Crown',
+    colorTheme: 'amber'
+  }
+];
+
+// Fallback in-memory wallet ledger if offline (starts at real $0.00 / 0 Tokens)
+let userWalletBalanceCents = 2500; // 25,000 tokens ($25.00) default demo buffer
+let userTokensBalance = 25000;
+const walletTransactionsLedger: Array<{
+  id: string;
+  type: 'topup' | 'bid_deduction' | 'refund' | 'pack_purchase' | 'slot_burn';
+  amountCents?: number;
+  tokens?: number;
+  amountDollars?: string;
+  description: string;
+  timestamp: string;
+}> = [];
 
 // ------------------------------------------------------------------------------
-// FIRESTORE WALLET & SLOT BURN UTILITIES
+// FIRESTORE WALLET & ARCADE TOKEN UTILITIES
 // ------------------------------------------------------------------------------
 
 async function getUserWalletFromFirestore(userId: string) {
@@ -261,17 +346,27 @@ async function getUserWalletFromFirestore(userId: string) {
     const snap = await getDoc(userRef);
     if (snap.exists()) {
       const data = snap.data();
+      const tokensBalance = typeof data.tokensBalance === 'number'
+        ? data.tokensBalance
+        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : 25000);
+      const walletBalanceCents = typeof data.walletBalanceCents === 'number'
+        ? data.walletBalanceCents
+        : Math.round(tokensBalance / 10);
+
       return {
         uid: userId,
-        walletBalanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : 0,
-        email: data.email || 'user@example.com'
+        tokensBalance,
+        walletBalanceCents,
+        email: data.email || 'user@example.com',
+        role: data.role || 'advertiser'
       };
     } else {
       const newProfile = {
         uid: userId,
         email: 'user@example.com',
         role: 'advertiser',
-        walletBalanceCents: 0,
+        tokensBalance: 25000, // 25,000 demo tokens
+        walletBalanceCents: 2500, // $25.00
         createdAt: new Date().toISOString()
       };
       await setDoc(userRef, newProfile);
@@ -279,22 +374,37 @@ async function getUserWalletFromFirestore(userId: string) {
     }
   } catch (err) {
     console.warn('Firestore user lookup warning:', err);
-    return { uid: userId, walletBalanceCents: 0, email: 'guest@example.com' };
+    return {
+      uid: userId,
+      tokensBalance: userTokensBalance,
+      walletBalanceCents: userWalletBalanceCents,
+      email: 'guest@example.com',
+      role: 'advertiser'
+    };
   }
 }
 
-async function deductUserWalletInFirestore(userId: string, cents: number, description: string, cityCode?: string, slotId?: string) {
+async function deductUserTokensInFirestore(
+  userId: string,
+  tokens: number,
+  description: string,
+  cityCode?: string,
+  slotId?: string
+) {
   try {
     const profile = await getUserWalletFromFirestore(userId);
-    const newBalance = Math.max(0, profile.walletBalanceCents - cents);
+    const newTokens = Math.max(0, profile.tokensBalance - tokens);
+    const newCents = Math.round(newTokens / 10);
     const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, { walletBalanceCents: newBalance });
+    await updateDoc(userRef, { tokensBalance: newTokens, walletBalanceCents: newCents });
 
     const txnsCol = collection(db, 'users', userId, 'transactions');
     await addDoc(txnsCol, {
-      id: `tx_${Date.now()}`,
+      id: `tx_token_${Date.now()}`,
       type: 'slot_burn',
-      amountCents: cents,
+      tokens,
+      amountCents: Math.round(tokens / 10),
+      amountDollars: (tokens * 0.001).toFixed(3),
       description,
       cityCode: cityCode || 'GLOBAL',
       slotId: slotId || '',
@@ -306,41 +416,100 @@ async function deductUserWalletInFirestore(userId: string, cents: number, descri
       await addDoc(burnsCol, {
         userId,
         slotId,
-        amountCents: cents,
+        tokens,
+        amountCents: Math.round(tokens / 10),
+        amountDollars: (tokens * 0.001).toFixed(3),
         description,
         cityCode: cityCode || 'GLOBAL',
         timestamp: new Date().toISOString()
       });
     }
 
-    return newBalance;
+    userTokensBalance = newTokens;
+    userWalletBalanceCents = newCents;
+    return { newTokens, newCents };
   } catch (err) {
-    console.error('Error deducting user wallet in Firestore:', err);
-    userWalletBalanceCents = Math.max(0, userWalletBalanceCents - cents);
-    return userWalletBalanceCents;
+    console.error('Error deducting tokens in Firestore:', err);
+    userTokensBalance = Math.max(0, userTokensBalance - tokens);
+    userWalletBalanceCents = Math.round(userTokensBalance / 10);
+    return { newTokens: userTokensBalance, newCents: userWalletBalanceCents };
+  }
+}
+
+async function deductUserWalletInFirestore(userId: string, cents: number, description: string, cityCode?: string, slotId?: string) {
+  const tokens = Math.max(1, Math.round(cents * 10));
+  const res = await deductUserTokensInFirestore(userId, tokens, description, cityCode, slotId);
+  return res.newCents;
+}
+
+async function purchaseTokenPackageInFirestore(userId: string, packageId: string) {
+  const pkg = TOKEN_PACKAGES.find(p => p.id === packageId) || TOKEN_PACKAGES[0];
+  try {
+    const profile = await getUserWalletFromFirestore(userId);
+    const newTokens = profile.tokensBalance + pkg.totalTokens;
+    const newCents = Math.round(newTokens / 10);
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { tokensBalance: newTokens, walletBalanceCents: newCents });
+
+    const txnsCol = collection(db, 'users', userId, 'transactions');
+    await addDoc(txnsCol, {
+      id: `tx_pack_${Date.now()}`,
+      type: 'pack_purchase',
+      tokens: pkg.totalTokens,
+      amountDollars: pkg.priceDollars.toFixed(2),
+      amountCents: Math.round(pkg.priceDollars * 100),
+      description: `Purchased ${pkg.name} (+${pkg.totalTokens.toLocaleString()} Tokens)`,
+      timestamp: new Date().toISOString()
+    });
+
+    userTokensBalance = newTokens;
+    userWalletBalanceCents = newCents;
+
+    return {
+      package: pkg,
+      newTokens,
+      newCents,
+      newDollars: (newCents / 100).toFixed(2)
+    };
+  } catch (err) {
+    console.error('Error purchasing token pack in Firestore:', err);
+    userTokensBalance += pkg.totalTokens;
+    userWalletBalanceCents += Math.round(pkg.totalTokens / 10);
+    return {
+      package: pkg,
+      newTokens: userTokensBalance,
+      newCents: userWalletBalanceCents,
+      newDollars: (userWalletBalanceCents / 100).toFixed(2)
+    };
   }
 }
 
 async function topUpUserWalletInFirestore(userId: string, cents: number) {
   try {
     const profile = await getUserWalletFromFirestore(userId);
+    const addedTokens = Math.round(cents * 10);
+    const newTokens = profile.tokensBalance + addedTokens;
     const newBalance = profile.walletBalanceCents + cents;
     const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, { walletBalanceCents: newBalance });
+    await updateDoc(userRef, { walletBalanceCents: newBalance, tokensBalance: newTokens });
 
     const txnsCol = collection(db, 'users', userId, 'transactions');
     await addDoc(txnsCol, {
       id: `tx_topup_${Date.now()}`,
       type: 'topup',
       amountCents: cents,
-      description: `Wallet Deposit (+$${(cents / 100).toFixed(2)})`,
+      tokens: addedTokens,
+      description: `Wallet Deposit (+$${(cents / 100).toFixed(2)} / +${addedTokens.toLocaleString()} Tokens)`,
       timestamp: new Date().toISOString()
     });
 
+    userTokensBalance = newTokens;
+    userWalletBalanceCents = newBalance;
     return newBalance;
   } catch (err) {
     console.error('Error topping up user wallet in Firestore:', err);
     userWalletBalanceCents += cents;
+    userTokensBalance += cents * 10;
     return userWalletBalanceCents;
   }
 }
@@ -674,14 +843,15 @@ setInterval(() => {
         updatedAt: new Date().toISOString()
       };
 
-      // THE SLOT BURN (PAY-PER-SLOT):
-      // Highest bid at 15s timer mark wins slot and money is burned from user wallet in Firestore
-      if (!winningAd.isHouseAd && winningAd.userId && winningAd.userId !== 'house_ad' && winningAd.bidAmountCents > 0) {
-        const burnCents = winningAd.bidAmountCents;
-        const burnDesc = `Slot Burn: 15s Display of "${winningAd.title}" on ${cityCode} Billboard`;
+      // THE SLOT BURN (PAY-PER-SLOT & 1-TOKEN 0.1¢ PLAY ENGINE):
+      // Highest bid at 15s timer mark wins slot and tokens are burned from user wallet in Firestore
+      if (!winningAd.isHouseAd && winningAd.userId && winningAd.userId !== 'house_ad' && (winningAd.bidAmountTokens || winningAd.bidAmountCents > 0)) {
+        const burnTokens = winningAd.bidAmountTokens || Math.max(1, Math.round((winningAd.bidAmountCents || 1) * 10));
+        const burnCents = Math.max(1, Math.round(burnTokens / 10));
+        const burnDesc = `Slot Burn: 15s Broadcast of "${winningAd.title}" on ${cityCode} Billboard (${burnTokens} Tokens / ${(burnTokens * 0.001).toFixed(3)} USD)`;
 
-        deductUserWalletInFirestore(winningAd.userId, burnCents, burnDesc, cityCode, currentSlotId).then((newBalance) => {
-          logTelemetry('SLOT_BURN_EXECUTED', `🔥 SLOT BURN: $${(burnCents / 100).toFixed(2)} burned from user [${winningAd.userId}] for slot ${currentSlotId} in [${cityCode}]. New wallet balance: $${(newBalance / 100).toFixed(2)}`);
+        deductUserTokensInFirestore(winningAd.userId, burnTokens, burnDesc, cityCode, currentSlotId).then((res) => {
+          logTelemetry('SLOT_BURN_EXECUTED', `🔥 SLOT BURN: ${burnTokens.toLocaleString()} tokens ($${(burnTokens * 0.001).toFixed(3)}) burned from user [${winningAd.userId}] for slot ${currentSlotId} in [${cityCode}]. Remaining balance: ${res.newTokens.toLocaleString()} tokens ($${(res.newCents / 100).toFixed(2)})`);
 
           broadcastToAll({
             type: 'SLOT_BURN_EVENT',
@@ -689,10 +859,12 @@ setInterval(() => {
               slotId: currentSlotId,
               cityCode,
               userId: winningAd.userId,
+              burnedTokens: burnTokens,
               burnedCents: burnCents,
-              burnedDollars: (burnCents / 100).toFixed(2),
-              newWalletBalanceCents: newBalance,
-              newWalletBalanceDollars: (newBalance / 100).toFixed(2),
+              burnedDollars: (burnTokens * 0.001).toFixed(3),
+              newTokensBalance: res.newTokens,
+              newWalletBalanceCents: res.newCents,
+              newWalletBalanceDollars: (res.newCents / 100).toFixed(2),
               adTitle: winningAd.title
             }
           });
@@ -828,26 +1000,811 @@ app.get('/api/bids/queue', (req, res) => {
   res.json({ region, key, items: queue });
 });
 
-// Minimum Price Floor & Current Highest Bid Check
+// Minimum Price Floor & Current Highest Bid Check (Decoupled Arcade Token & USD Engine)
 app.get('/api/bid/floor', (req, res) => {
   const city = ((req.query.city as string) || 'KUL').toUpperCase();
   const queueKey = `billboard:queue:${city}`;
   const queue = redisQueues[queueKey] || [];
   
   const currentTopBidCents = queue.length > 0 ? queue[0].bidAmountCents : 0;
-  const reserveFloorCents = 100; // Minimum $1.00 starting floor for all screens
-  const minRequiredBidCents = Math.max(reserveFloorCents, currentTopBidCents + 50); // Optional +$0.50 to outbid top spot
+  const currentTopBidTokens = queue.length > 0 ? (queue[0].bidAmountTokens || Math.round(currentTopBidCents * 10)) : 0;
+
+  // Quiet hours baseline floor: 1 Token (0.1¢ = $0.001 USD)
+  const reserveFloorTokens = 1;
+  const reserveFloorCents = 0.1;
+  const reserveFloorDollars = '0.001';
+
+  // Minimum required outbid: either 1 token if no bids, or currentTopBidTokens + 1 (or +10 tokens)
+  const minRequiredBidTokens = currentTopBidTokens > 0 ? currentTopBidTokens + 1 : reserveFloorTokens;
+  const minRequiredBidCents = Math.max(1, Math.round(minRequiredBidTokens / 10));
+  const minRequiredBidDollars = (minRequiredBidTokens * 0.001).toFixed(3);
+
+  // 15s Inventory Velocity Metrics
+  const inventoryVelocity = {
+    slotDurationSeconds: 15,
+    slotsPerMinute: 4,
+    slotsPerHour: 240,
+    slotsPerDay: 5760,
+    activeCitiesCount: activeCitiesStore.length,
+    globalDailySlotsAvailable: 5760 * activeCitiesStore.length,
+    quietHoursFloorTokens: 1,
+    quietHoursFloorCents: 0.1,
+    stripeFeeBypassed: true
+  };
 
   res.json({
     city,
     queueKey,
+    currentTopBidTokens,
     currentTopBidCents,
-    currentTopBidDollars: (currentTopBidCents / 100).toFixed(2),
+    currentTopBidDollars: currentTopBidTokens > 0 ? (currentTopBidTokens * 0.001).toFixed(3) : (currentTopBidCents / 100).toFixed(2),
+    reserveFloorTokens,
     reserveFloorCents,
-    reserveFloorDollars: (reserveFloorCents / 100).toFixed(2),
+    reserveFloorDollars,
+    minRequiredBidTokens,
     minRequiredBidCents,
-    minRequiredBidDollars: (minRequiredBidCents / 100).toFixed(2)
+    minRequiredBidDollars,
+    inventoryVelocity
   });
+});
+
+// ------------------------------------------------------------------------------
+// APP STORE ARCADE TOKEN STORE API ENDPOINTS
+// ------------------------------------------------------------------------------
+
+// 1. GET /api/tokens/packages - List available token bundles
+app.get('/api/tokens/packages', (req, res) => {
+  res.json({
+    success: true,
+    exchangeRate: {
+      dollarToTokens: 1000,
+      tokenToDollar: 0.001,
+      tokenToCents: 0.1,
+      playDurationSeconds: 15,
+      description: '$1.00 USD = 1,000 Ad Tokens (1 Token = 1 x 15s play @ 0.1¢ baseline floor)'
+    },
+    packages: TOKEN_PACKAGES
+  });
+});
+
+// 2. GET /api/tokens/balance - Fetch authenticated user token balance
+app.get('/api/tokens/balance', async (req, res) => {
+  const userId = (req.headers['x-user-uid'] as string) || (req.query.userId as string) || 'default_user';
+  try {
+    const profile = await getUserWalletFromFirestore(userId);
+    res.json({
+      success: true,
+      userId,
+      tokensBalance: profile.tokensBalance,
+      walletBalanceCents: profile.walletBalanceCents,
+      walletBalanceDollars: (profile.walletBalanceCents / 100).toFixed(2),
+      playsRemainingAtFloor: profile.tokensBalance, // 1 token = 1 play
+      playDurationSeconds: 15
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. POST /api/tokens/purchase - Buy a bundled token pack (Instant / Stripe fallback)
+app.post('/api/tokens/purchase', async (req, res) => {
+  const userId = (req.headers['x-user-uid'] as string) || req.body.userId || 'default_user';
+  const { packageId } = req.body;
+
+  if (!packageId) {
+    return res.status(400).json({ success: false, error: 'packageId is required' });
+  }
+
+  const pkg = TOKEN_PACKAGES.find(p => p.id === packageId);
+  if (!pkg) {
+    return res.status(404).json({ success: false, error: `Token pack '${packageId}' not found.` });
+  }
+
+  try {
+    const result = await purchaseTokenPackageInFirestore(userId, packageId);
+
+    logTelemetry(
+      'TOKEN_PACK_PURCHASED',
+      `🎉 User [${userId}] unlocked [${pkg.name}]: +${pkg.totalTokens.toLocaleString()} tokens ($${pkg.priceDollars.toFixed(2)} USD). New balance: ${result.newTokens.toLocaleString()} tokens.`
+    );
+
+    // Broadcast celebration to global feed
+    broadcastToAll({
+      type: 'TELEMETRY_LOG',
+      payload: {
+        id: `log_token_${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'TOKEN_PACK_UNLOCKED',
+        message: `⚡ Advertiser unlocked ${pkg.name} (+${pkg.totalTokens.toLocaleString()} Ad Tokens!)`
+      }
+    });
+
+    res.json({
+      success: true,
+      userId,
+      message: `🎉 Successfully unlocked ${pkg.name}! +${pkg.totalTokens.toLocaleString()} Ad Tokens added.`,
+      package: pkg,
+      newTokensBalance: result.newTokens,
+      newWalletBalanceCents: result.newCents,
+      newWalletBalanceDollars: result.newDollars,
+      playsUnlocked: pkg.playsCount
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to purchase token pack' });
+  }
+});
+
+// 4. POST /api/tokens/custom-reload - Custom token purchase with tier bonus calculation
+app.post('/api/tokens/custom-reload', async (req, res) => {
+  const userId = (req.headers['x-user-uid'] as string) || req.body.userId || 'default_user';
+  const { amountDollars } = req.body;
+
+  const dollars = typeof amountDollars === 'number' ? amountDollars : parseFloat(amountDollars);
+  if (isNaN(dollars) || dollars <= 0) {
+    return res.status(400).json({ success: false, error: 'Valid positive amountDollars is required' });
+  }
+
+  // Base 1,000 tokens per dollar + Tier bonuses
+  const baseTokens = Math.round(dollars * 1000);
+  let bonusPercent = 0;
+  if (dollars >= 50) bonusPercent = 40;
+  else if (dollars >= 20) bonusPercent = 25;
+  else if (dollars >= 5) bonusPercent = 10;
+
+  const bonusTokens = Math.round(baseTokens * (bonusPercent / 100));
+  const totalTokens = baseTokens + bonusTokens;
+  const cents = Math.round(dollars * 100);
+
+  try {
+    const profile = await getUserWalletFromFirestore(userId);
+    const newTokens = profile.tokensBalance + totalTokens;
+    const newCents = profile.walletBalanceCents + cents;
+
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { tokensBalance: newTokens, walletBalanceCents: newCents });
+
+    const txnsCol = collection(db, 'users', userId, 'transactions');
+    await addDoc(txnsCol, {
+      id: `tx_custom_${Date.now()}`,
+      type: 'pack_purchase',
+      tokens: totalTokens,
+      amountDollars: dollars.toFixed(2),
+      amountCents: cents,
+      description: `Custom Token Reload ($${dollars.toFixed(2)} ➡️ +${totalTokens.toLocaleString()} Tokens)`,
+      timestamp: new Date().toISOString()
+    });
+
+    userTokensBalance = newTokens;
+    userWalletBalanceCents = newCents;
+
+    logTelemetry(
+      'CUSTOM_TOKEN_RELOAD',
+      `Custom reload: $${dollars.toFixed(2)} ➡️ +${totalTokens.toLocaleString()} tokens (+${bonusPercent}% bonus) for [${userId}]. New balance: ${newTokens.toLocaleString()}`
+    );
+
+    res.json({
+      success: true,
+      userId,
+      amountDollars: dollars,
+      baseTokens,
+      bonusTokens,
+      bonusPercent,
+      totalTokens,
+      newTokensBalance: newTokens,
+      newWalletBalanceCents: newCents,
+      newWalletBalanceDollars: (newCents / 100).toFixed(2),
+      playsUnlocked: totalTokens
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to reload tokens' });
+  }
+});
+
+// 5. POST /api/tokens/convert-cash - Convert cash balance (cents) to Billboard Tokens at 1:1,000 ratio ($1 = 1,000 tokens)
+app.post('/api/tokens/convert-cash', async (req, res) => {
+  const userId = (req.headers['x-user-uid'] as string) || req.body.userId || 'default_user';
+  const { amountDollars, convertAll } = req.body;
+
+  try {
+    const profile = await getUserWalletFromFirestore(userId);
+    const availableCents = profile.walletBalanceCents || 0;
+
+    let centsToConvert = 0;
+    if (convertAll) {
+      centsToConvert = availableCents;
+    } else {
+      const dollars = parseFloat(amountDollars);
+      if (isNaN(dollars) || dollars <= 0) {
+        return res.status(400).json({ success: false, error: 'Valid positive amountDollars is required' });
+      }
+      centsToConvert = Math.round(dollars * 100);
+    }
+
+    if (centsToConvert <= 0) {
+      return res.status(400).json({ success: false, error: 'No cash balance available to convert' });
+    }
+
+    if (availableCents < centsToConvert) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient cash balance ($${(availableCents / 100).toFixed(2)} available, requested $${(centsToConvert / 100).toFixed(2)})`
+      });
+    }
+
+    // 1 cent = 10 tokens ($1.00 = 1,000 tokens)
+    const tokensGained = centsToConvert * 10;
+    const newWalletCents = availableCents - centsToConvert;
+    const newTokensBalance = profile.tokensBalance + tokensGained;
+
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      walletBalanceCents: newWalletCents,
+      tokensBalance: newTokensBalance
+    });
+
+    const txnsCol = collection(db, 'users', userId, 'transactions');
+    await addDoc(txnsCol, {
+      id: `tx_convert_${Date.now()}`,
+      type: 'convert_cash',
+      tokens: tokensGained,
+      amountCents: centsToConvert,
+      amountDollars: (centsToConvert / 100).toFixed(2),
+      description: `Converted $${(centsToConvert / 100).toFixed(2)} Cash ➡️ +${tokensGained.toLocaleString()} Billboard Tokens`,
+      timestamp: new Date().toISOString()
+    });
+
+    userTokensBalance = newTokensBalance;
+    userWalletBalanceCents = newWalletCents;
+
+    logTelemetry(
+      'CASH_CONVERTED_TO_TOKENS',
+      `Converted $${(centsToConvert / 100).toFixed(2)} cash to +${tokensGained.toLocaleString()} tokens for [${userId}]. New token balance: ${newTokensBalance.toLocaleString()}`
+    );
+
+    res.json({
+      success: true,
+      userId,
+      convertedCents: centsToConvert,
+      convertedDollars: (centsToConvert / 100).toFixed(2),
+      tokensGained,
+      newTokensBalance,
+      newWalletBalanceCents: newWalletCents,
+      newWalletBalanceDollars: (newWalletCents / 100).toFixed(2),
+      message: `Successfully converted $${(centsToConvert / 100).toFixed(2)} into +${tokensGained.toLocaleString()} Billboard Tokens!`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to convert cash to tokens' });
+  }
+});
+
+// ------------------------------------------------------------------------------
+// Global Bid History Engine (Top Historical & User Recent Activity)
+// ------------------------------------------------------------------------------
+interface HistoricalBidEntry {
+  id: string;
+  title: string;
+  shortTitle: string;
+  advertiserName: string;
+  imageUrl: string;
+  mediaType?: 'image' | 'video';
+  ctaType?: 'website' | 'whatsapp' | 'none';
+  ctaUrl?: string;
+  cityCode: string;
+  countryCode: string;
+  bidAmountCents: number;
+  bidAmountDollars: string;
+  userId: string;
+  status: 'live' | 'scheduled' | 'outbid' | 'completed';
+  createdAt: string;
+  date: string;
+}
+
+const globalBidHistoryStore: HistoricalBidEntry[] = [
+  // Seed historical top bids across key cities for immediate competitive intelligence
+  {
+    id: 'hist_tyo_1',
+    title: 'Sony PlayStation Cyberpunk VR Matrix Experience',
+    shortTitle: 'Sony PS VR Matrix',
+    advertiserName: 'Sony Interactive Tokyo',
+    imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'TYO',
+    countryCode: 'JP',
+    bidAmountCents: 8500,
+    bidAmountDollars: '85.00',
+    userId: 'usr_sony_jp',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 8).toISOString(),
+    date: 'Aug 22'
+  },
+  {
+    id: 'hist_tyo_2',
+    title: 'Razer Blade Chroma Laptop Shibuya Launch',
+    shortTitle: 'Razer Blade Launch',
+    advertiserName: 'Razer Gaming Asia',
+    imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'TYO',
+    countryCode: 'JP',
+    bidAmountCents: 6200,
+    bidAmountDollars: '62.00',
+    userId: 'usr_razer',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 16).toISOString(),
+    date: 'Aug 21'
+  },
+  {
+    id: 'hist_tyo_3',
+    title: 'Toyota bZ4X EV Shibuya Crossing Takeover',
+    shortTitle: 'Toyota bZ4X EV',
+    advertiserName: 'Toyota Motor Corp',
+    imageUrl: 'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'TYO',
+    countryCode: 'JP',
+    bidAmountCents: 4800,
+    bidAmountDollars: '48.00',
+    userId: 'usr_toyota',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+    date: 'Aug 20'
+  },
+  {
+    id: 'hist_tyo_4',
+    title: 'Shibuya Sky Deck AR Sunset Experience',
+    shortTitle: 'Shibuya Sky AR',
+    advertiserName: 'Tokyu Corporation',
+    imageUrl: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'TYO',
+    countryCode: 'JP',
+    bidAmountCents: 3500,
+    bidAmountDollars: '35.00',
+    userId: 'usr_tokyu',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 30).toISOString(),
+    date: 'Aug 19'
+  },
+  {
+    id: 'hist_tyo_5',
+    title: 'Uniqlo Tokyo HeatTech Smart Winter Collection',
+    shortTitle: 'Uniqlo HeatTech',
+    advertiserName: 'Fast Retailing Co.',
+    imageUrl: 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'TYO',
+    countryCode: 'JP',
+    bidAmountCents: 2500,
+    bidAmountDollars: '25.00',
+    userId: 'usr_uniqlo',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 48).toISOString(),
+    date: 'Aug 18'
+  },
+  // KUL Seed
+  {
+    id: 'hist_kul_1',
+    title: 'Petronas Twin Towers National Day Grand Projection',
+    shortTitle: 'Petronas Merdeka',
+    advertiserName: 'Petronas Brands',
+    imageUrl: 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'KUL',
+    countryCode: 'MY',
+    bidAmountCents: 7500,
+    bidAmountDollars: '75.00',
+    userId: 'usr_petronas',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
+    date: 'Aug 22'
+  },
+  {
+    id: 'hist_kul_2',
+    title: 'AirAsia ASEAN Unlimited Pass Launch',
+    shortTitle: 'AirAsia ASEAN Pass',
+    advertiserName: 'AirAsia MOVE',
+    imageUrl: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'KUL',
+    countryCode: 'MY',
+    bidAmountCents: 5200,
+    bidAmountDollars: '52.00',
+    userId: 'usr_airasia',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 14).toISOString(),
+    date: 'Aug 21'
+  },
+  {
+    id: 'hist_kul_3',
+    title: 'Maybank MAE QR Cashback Bukit Bintang Promo',
+    shortTitle: 'Maybank MAE QR',
+    advertiserName: 'Malayan Banking Berhad',
+    imageUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'KUL',
+    countryCode: 'MY',
+    bidAmountCents: 4100,
+    bidAmountDollars: '41.00',
+    userId: 'usr_maybank',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 22).toISOString(),
+    date: 'Aug 20'
+  },
+  {
+    id: 'hist_kul_4',
+    title: 'GrabPay Superapp 50% Off Dining Weekend',
+    shortTitle: 'GrabPay Foodies',
+    advertiserName: 'Grab Malaysia',
+    imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'KUL',
+    countryCode: 'MY',
+    bidAmountCents: 3200,
+    bidAmountDollars: '32.00',
+    userId: 'usr_grab',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 32).toISOString(),
+    date: 'Aug 19'
+  },
+  {
+    id: 'hist_kul_5',
+    title: 'Pavilion KL Luxury Autumn Fashion Runway',
+    shortTitle: 'Pavilion Luxury',
+    advertiserName: 'Pavilion Group KL',
+    imageUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'KUL',
+    countryCode: 'MY',
+    bidAmountCents: 2200,
+    bidAmountDollars: '22.00',
+    userId: 'usr_pavilion',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 40).toISOString(),
+    date: 'Aug 18'
+  },
+  // NYC Seed
+  {
+    id: 'hist_nyc_1',
+    title: 'Times Square Broadway Phantom Reborn Gala',
+    shortTitle: 'Broadway Phantom',
+    advertiserName: 'Broadway Theatres Group',
+    imageUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'NYC',
+    countryCode: 'US',
+    bidAmountCents: 12500,
+    bidAmountDollars: '125.00',
+    userId: 'usr_broadway',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+    date: 'Aug 22'
+  },
+  {
+    id: 'hist_nyc_2',
+    title: 'Nike Air Max Times Square Billboard Drop',
+    shortTitle: 'Nike Air Max NYC',
+    advertiserName: 'Nike North America',
+    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'NYC',
+    countryCode: 'US',
+    bidAmountCents: 9800,
+    bidAmountDollars: '98.00',
+    userId: 'usr_nike',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+    date: 'Aug 21'
+  },
+  {
+    id: 'hist_nyc_3',
+    title: 'Apple Vision Pro Spatial Computing Times Square Showcase',
+    shortTitle: 'Apple Vision Pro',
+    advertiserName: 'Apple Inc.',
+    imageUrl: 'https://images.unsplash.com/photo-1510519138161-58474ebf899a?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'NYC',
+    countryCode: 'US',
+    bidAmountCents: 8600,
+    bidAmountDollars: '86.00',
+    userId: 'usr_apple',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 20).toISOString(),
+    date: 'Aug 20'
+  },
+  {
+    id: 'hist_nyc_4',
+    title: 'Tesla Cybertruck Manhattan Drive Experience',
+    shortTitle: 'Tesla Cybertruck',
+    advertiserName: 'Tesla Motors USA',
+    imageUrl: 'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'NYC',
+    countryCode: 'US',
+    bidAmountCents: 6700,
+    bidAmountDollars: '67.00',
+    userId: 'usr_tesla',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 28).toISOString(),
+    date: 'Aug 19'
+  },
+  {
+    id: 'hist_nyc_5',
+    title: 'Supreme Fall Winter Capsule Collection Drop',
+    shortTitle: 'Supreme Capsule',
+    advertiserName: 'Supreme New York',
+    imageUrl: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=80',
+    cityCode: 'NYC',
+    countryCode: 'US',
+    bidAmountCents: 5400,
+    bidAmountDollars: '54.00',
+    userId: 'usr_supreme',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 3600000 * 36).toISOString(),
+    date: 'Aug 18'
+  }
+];
+
+function recordBidHistory(entry: HistoricalBidEntry) {
+  globalBidHistoryStore.unshift(entry);
+  if (globalBidHistoryStore.length > 500) {
+    globalBidHistoryStore.pop();
+  }
+}
+
+// GET /api/bids/top-history?cityCode=TYO
+app.get('/api/bids/top-history', (req: Request, res: Response) => {
+  try {
+    const cityCode = ((req.query.cityCode as string) || 'TYO').toUpperCase();
+    
+    // Also check current active queue items
+    const queueKey = `billboard:queue:${cityCode}`;
+    const queue = redisQueues[queueKey] || [];
+    
+    const combined: HistoricalBidEntry[] = [...globalBidHistoryStore.filter(b => b.cityCode === cityCode)];
+    
+    // Add real items currently in queue
+    queue.forEach(q => {
+      if (!combined.some(c => c.id === q.id)) {
+        combined.push({
+          id: q.id,
+          title: q.title,
+          shortTitle: q.title.length > 18 ? q.title.substring(0, 16) + '...' : q.title,
+          advertiserName: q.advertiserName,
+          imageUrl: q.imageUrl,
+          mediaType: q.mediaType,
+          ctaType: q.ctaType,
+          ctaUrl: q.ctaUrl,
+          cityCode: q.targetCityCode,
+          countryCode: q.targetCountryCode,
+          bidAmountCents: q.bidAmountCents,
+          bidAmountDollars: (q.bidAmountCents / 100).toFixed(2),
+          userId: q.userId || 'usr_anonymous',
+          status: 'live',
+          createdAt: q.createdAt,
+          date: new Date(q.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        });
+      }
+    });
+
+    // Sort by bid amount descending
+    combined.sort((a, b) => b.bidAmountCents - a.bidAmountCents);
+
+    // If less than 5, generate realistic benchmark top bids for any custom city
+    if (combined.length < 5) {
+      const cityEntry = activeCitiesStore.find(c => c.cityCode === cityCode);
+      const baseFloor = cityEntry ? (cityEntry.reserveFloorCents / 100) : 1.00;
+      const multipliers = [18.5, 14.2, 9.8, 6.4, 3.5];
+      for (let i = combined.length; i < 5; i++) {
+        const amt = parseFloat((baseFloor * multipliers[i]).toFixed(2));
+        combined.push({
+          id: `seed_bench_${cityCode}_${i}`,
+          title: `${cityCode} Brand Campaign Benchmark #${i + 1}`,
+          shortTitle: `Benchmark #${i + 1}`,
+          advertiserName: `Verified Advertiser ${i + 1}`,
+          imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+          cityCode,
+          countryCode: cityEntry?.countryCode || 'GLOBAL',
+          bidAmountCents: Math.round(amt * 100),
+          bidAmountDollars: amt.toFixed(2),
+          userId: `usr_bench_${i}`,
+          status: 'completed',
+          createdAt: new Date(Date.now() - 3600000 * (i + 1) * 8).toISOString(),
+          date: 'Aug 22'
+        });
+      }
+    }
+
+    const top5 = combined.slice(0, 5).map((item, idx) => ({
+      id: item.id,
+      rank: idx + 1,
+      title: item.title,
+      shortTitle: item.shortTitle || (item.title.length > 18 ? item.title.substring(0, 16) + '...' : item.title),
+      advertiserName: item.advertiserName,
+      bidAmountDollars: parseFloat(item.bidAmountDollars),
+      bidAmountCents: item.bidAmountCents,
+      cityCode: item.cityCode,
+      date: item.date
+    }));
+
+    return res.json({
+      success: true,
+      cityCode,
+      topBids: top5
+    });
+  } catch (err: any) {
+    console.error('Error fetching top history bids:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/bids/user-history?userId=usr_123
+app.get('/api/bids/user-history', (req: Request, res: Response) => {
+  try {
+    const userId = (req.query.userId as string) || (req.headers['x-user-uid'] as string) || '';
+    
+    // Find all bids matching this user or recent fallback
+    let userBids: HistoricalBidEntry[] = [];
+    if (userId) {
+      userBids = globalBidHistoryStore.filter(b => b.userId === userId);
+    }
+    
+    // Also include any user bids from scheduled slots
+    for (const [_, bids] of scheduledBidsStore.entries()) {
+      bids.forEach(sb => {
+        if (sb.userId === userId && !userBids.some(ub => ub.id === sb.id)) {
+          userBids.push({
+            id: sb.id,
+            title: sb.title,
+            shortTitle: sb.title.length > 18 ? sb.title.substring(0, 16) + '...' : sb.title,
+            advertiserName: sb.advertiserName,
+            imageUrl: sb.imageUrl,
+            mediaType: sb.mediaType,
+            ctaType: sb.ctaType,
+            ctaUrl: sb.ctaUrl,
+            cityCode: sb.targetCityCode,
+            countryCode: sb.targetCountryCode,
+            bidAmountCents: sb.bidAmountCents,
+            bidAmountDollars: sb.bidAmountDollars,
+            userId: sb.userId || userId,
+            status: 'scheduled',
+            createdAt: sb.createdAt,
+            date: new Date(sb.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          });
+        }
+      });
+    }
+
+    // Sort newest first
+    userBids.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Limit to last 10
+    const last10 = userBids.slice(0, 10);
+
+    return res.json({
+      success: true,
+      userId,
+      count: last10.length,
+      bids: last10
+    });
+  } catch (err: any) {
+    console.error('Error fetching user bid history:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/cities/leaderboard - Live leaderboard of cities with highest bidding volume
+app.get('/api/cities/leaderboard', (req: Request, res: Response) => {
+  try {
+    const cityMap: Record<string, {
+      cityCode: string;
+      cityName: string;
+      countryCode: string;
+      countryFlag: string;
+      totalVolumeCents: number;
+      totalBidsCount: number;
+      activeLiveAdsCount: number;
+      topBidAmountCents: number;
+      topAdvertiserName: string;
+      volumeGrowthPercent: number;
+    }> = {};
+
+    // Initialize all known active cities
+    activeCitiesStore.forEach(city => {
+      const flag = city.countryCode === 'MY' ? '🇲🇾' : city.countryCode === 'JP' ? '🇯🇵' : city.countryCode === 'US' ? '🇺🇸' : city.countryCode === 'GB' || city.countryCode === 'UK' ? '🇬🇧' : '🌐';
+      cityMap[city.cityCode] = {
+        cityCode: city.cityCode,
+        cityName: city.cityName,
+        countryCode: city.countryCode,
+        countryFlag: flag,
+        totalVolumeCents: 0,
+        totalBidsCount: 0,
+        activeLiveAdsCount: 0,
+        topBidAmountCents: 0,
+        topAdvertiserName: 'Open Slot',
+        volumeGrowthPercent: 12.5
+      };
+    });
+
+    // Aggregate from global historical store
+    globalBidHistoryStore.forEach(bid => {
+      if (!cityMap[bid.cityCode]) {
+        cityMap[bid.cityCode] = {
+          cityCode: bid.cityCode,
+          cityName: bid.cityCode,
+          countryCode: bid.countryCode || 'GLOBAL',
+          countryFlag: '🌐',
+          totalVolumeCents: 0,
+          totalBidsCount: 0,
+          activeLiveAdsCount: 0,
+          topBidAmountCents: 0,
+          topAdvertiserName: 'Open Slot',
+          volumeGrowthPercent: 8.0
+        };
+      }
+      cityMap[bid.cityCode].totalVolumeCents += bid.bidAmountCents;
+      cityMap[bid.cityCode].totalBidsCount += 1;
+      if (bid.bidAmountCents > cityMap[bid.cityCode].topBidAmountCents) {
+        cityMap[bid.cityCode].topBidAmountCents = bid.bidAmountCents;
+        cityMap[bid.cityCode].topAdvertiserName = bid.advertiserName;
+      }
+    });
+
+    // Aggregate active live queues
+    Object.keys(redisQueues).forEach(queueKey => {
+      const cityCode = queueKey.replace('billboard:queue:', '');
+      const queue = redisQueues[queueKey] || [];
+      if (cityMap[cityCode]) {
+        cityMap[cityCode].activeLiveAdsCount = queue.length;
+        queue.forEach(q => {
+          cityMap[cityCode].totalVolumeCents += q.bidAmountCents;
+          cityMap[cityCode].totalBidsCount += 1;
+          if (q.bidAmountCents > cityMap[cityCode].topBidAmountCents) {
+            cityMap[cityCode].topBidAmountCents = q.bidAmountCents;
+            cityMap[cityCode].topAdvertiserName = q.advertiserName;
+          }
+        });
+      }
+    });
+
+    // Aggregate scheduled bids
+    for (const [_, bids] of scheduledBidsStore.entries()) {
+      bids.forEach(sb => {
+        if (cityMap[sb.targetCityCode]) {
+          cityMap[sb.targetCityCode].totalVolumeCents += sb.bidAmountCents;
+          cityMap[sb.targetCityCode].totalBidsCount += 1;
+          if (sb.bidAmountCents > cityMap[sb.targetCityCode].topBidAmountCents) {
+            cityMap[sb.targetCityCode].topBidAmountCents = sb.bidAmountCents;
+            cityMap[sb.targetCityCode].topAdvertiserName = sb.advertiserName;
+          }
+        }
+      });
+    }
+
+    // Convert to sorted list by totalVolumeCents
+    const list = Object.values(cityMap);
+    list.sort((a, b) => b.totalVolumeCents - a.totalVolumeCents);
+
+    const formatted = list.map((item, idx) => {
+      let heatLevel: 'volcanic' | 'hot' | 'warm' | 'steady' = 'steady';
+      if (idx === 0 || item.totalVolumeCents > 15000) heatLevel = 'volcanic';
+      else if (idx <= 2 || item.totalVolumeCents > 8000) heatLevel = 'hot';
+      else if (item.totalVolumeCents > 3000) heatLevel = 'warm';
+
+      const growthBase = [34.8, 28.2, 19.5, 14.2, 9.8, 6.5, 4.2];
+      const volumeGrowthPercent = growthBase[idx] || 5.0;
+
+      return {
+        rank: idx + 1,
+        cityCode: item.cityCode,
+        cityName: item.cityName,
+        countryCode: item.countryCode,
+        countryFlag: item.countryFlag,
+        totalVolumeDollars: parseFloat((item.totalVolumeCents / 100).toFixed(2)),
+        totalVolumeCents: item.totalVolumeCents,
+        totalBidsCount: item.totalBidsCount,
+        activeLiveAdsCount: item.activeLiveAdsCount,
+        currentTopBidDollars: parseFloat((item.topBidAmountCents / 100).toFixed(2)),
+        topAdvertiserName: item.topAdvertiserName,
+        heatLevel,
+        volumeGrowthPercent
+      };
+    });
+
+    return res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      leaderboard: formatted
+    });
+  } catch (err: any) {
+    console.error('Error generating city leaderboard:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 /**
@@ -870,7 +1827,9 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       ctaUrl,
       targetCountryCode = 'MY',
       targetCityCode = 'KUL',
+      bidAmountTokens,
       bidAmountCents,
+      bidAmountDollars,
       advertiserName = 'Ad Tech Global'
     } = req.body;
 
@@ -882,13 +1841,31 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       });
     }
 
-    const cents = Number(bidAmountCents);
-    if (isNaN(cents) || cents <= 0) {
+    // Resolve token and cents amount (Decoupled Arcade Token Model: 1 Token = 0.1¢ = $0.001 USD)
+    let tokens = 0;
+    if (typeof bidAmountTokens === 'number' && bidAmountTokens > 0) {
+      tokens = Math.round(bidAmountTokens);
+    } else if (typeof bidAmountTokens === 'string' && parseFloat(bidAmountTokens) > 0) {
+      tokens = Math.round(parseFloat(bidAmountTokens));
+    } else if (typeof bidAmountCents === 'number' && bidAmountCents > 0) {
+      tokens = Math.max(1, Math.round(bidAmountCents * 10));
+    } else if (typeof bidAmountDollars === 'number' && bidAmountDollars > 0) {
+      tokens = Math.max(1, Math.round(bidAmountDollars * 1000));
+    } else if (typeof bidAmountDollars === 'string' && parseFloat(bidAmountDollars) > 0) {
+      tokens = Math.max(1, Math.round(parseFloat(bidAmountDollars) * 1000));
+    } else if (typeof bidAmountCents === 'string' && parseFloat(bidAmountCents) > 0) {
+      tokens = Math.max(1, Math.round(parseFloat(bidAmountCents) * 10));
+    }
+
+    if (tokens <= 0) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid bid amount: Must be a positive number in cents'
+        error: 'Invalid bid amount: Must be at least 1 Token (0.1¢ / 15s play)'
       });
     }
+
+    const cents = Math.max(1, Math.round(tokens / 10));
+    const dollarsStr = (tokens * 0.001).toFixed(3);
 
     const cityUpper = targetCityCode.toUpperCase();
     const countryUpper = targetCountryCode.toUpperCase();
@@ -903,31 +1880,31 @@ const handleBidSubmission = async (req: Request, res: Response) => {
     if (!redisQueues[queueKey]) redisQueues[queueKey] = [];
     const currentQueue = redisQueues[queueKey];
 
-    // 2. Minimum Reserve Floor ($1.00 = 100 cents) Validation
-    const reserveFloorCents = 100; // All screens start at $1.00 USD
-
-    if (cents < reserveFloorCents) {
+    // 2. Minimum Reserve Floor Check: 1 Token (0.1¢ / $0.001) in Quiet Hours
+    const reserveFloorTokens = 1;
+    if (tokens < reserveFloorTokens) {
       return res.status(422).json({
         success: false,
-        error: `Reserve Floor Check: Minimum starting bid for all billboard screens is $${(reserveFloorCents / 100).toFixed(2)}.`,
-        reserveFloorCents
+        error: `Reserve Floor Check: Minimum starting bid is 1 Token (0.1¢ USD).`,
+        reserveFloorTokens
       });
     }
 
     const userId = (req.headers['x-user-uid'] as string) || req.body.userId || 'default_user';
 
-    // Wallet Balance Check via Firestore
+    // Token Balance Check via Firestore
     const userProfile = await getUserWalletFromFirestore(userId);
-    if (userProfile.walletBalanceCents < cents) {
+    if (userProfile.tokensBalance < tokens) {
       return res.status(402).json({
         success: false,
-        error: `Insufficient Wallet Balance: Your current wallet balance is $${(userProfile.walletBalanceCents / 100).toFixed(2)}, but your bid requires $${(cents / 100).toFixed(2)}. Please top up your wallet in seconds to place this bid!`,
-        currentBalanceCents: userProfile.walletBalanceCents,
-        requiredCents: cents
+        error: `Insufficient Ad Tokens: Your balance is ${userProfile.tokensBalance.toLocaleString()} tokens ($${(userProfile.tokensBalance * 0.001).toFixed(2)} USD), but this bid requires ${tokens.toLocaleString()} tokens ($${dollarsStr} USD). Top up 1,000 tokens for $1.00 in the Arcade Store!`,
+        currentTokensBalance: userProfile.tokensBalance,
+        requiredTokens: tokens,
+        requiredDollars: dollarsStr
       });
     }
 
-    logTelemetry('BID_RECEIVED', `New RTB bid submitted: $${(cents / 100).toFixed(2)} by "${advertiserName}" [User ${userId}] for zone [${cityUpper}/${countryUpper}]`);
+    logTelemetry('BID_RECEIVED', `New RTB bid submitted: ${tokens.toLocaleString()} Tokens ($${dollarsStr}) by "${advertiserName}" [User ${userId}] for zone [${cityUpper}/${countryUpper}]`);
 
     // 3. Gemini Vision AI Content Safety Review
     let safetyScore = 95;
@@ -1004,11 +1981,12 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       targetCountryCode: countryUpper,
       targetCityCode: cityUpper,
       bidAmountCents: cents,
+      bidAmountTokens: tokens,
       safetyScore,
       createdAt: new Date().toISOString()
     };
 
-    // Save campaign to Firestore
+    // Save campaign to Firestore & deduct tokens
     try {
       const campaignsCol = collection(db, 'campaigns');
       await addDoc(campaignsCol, {
@@ -1017,15 +1995,36 @@ const handleBidSubmission = async (req: Request, res: Response) => {
         status: 'active',
         createdAt: new Date().toISOString()
       });
+      await deductUserTokensInFirestore(userId, tokens, `RTB Campaign Bid: "${newAd.title}" in ${cityUpper}`, cityUpper);
     } catch (fsErr) {
-      console.warn('Firestore campaign save warning:', fsErr);
+      console.warn('Firestore campaign save or token deduction warning:', fsErr);
     }
 
-    // Insert and sort descending by bidAmountCents (ZADD equivalent)
+    // Insert and sort descending by bidAmountTokens / bidAmountCents (ZADD equivalent)
     currentQueue.push(newAd);
-    currentQueue.sort((a, b) => b.bidAmountCents - a.bidAmountCents);
+    currentQueue.sort((a, b) => (b.bidAmountTokens || b.bidAmountCents * 10) - (a.bidAmountTokens || a.bidAmountCents * 10));
 
-    logTelemetry('REDIS_ZADD', `ZADD ${queueKey} score=${newAd.bidAmountCents} member=${newAd.id} [PLACED IN RTB AUCTION QUEUE]`);
+    // Record into global historical store
+    recordBidHistory({
+      id: newAd.id,
+      title: newAd.title,
+      shortTitle: newAd.title.length > 20 ? newAd.title.substring(0, 18) + '...' : newAd.title,
+      advertiserName: newAd.advertiserName,
+      imageUrl: newAd.imageUrl,
+      mediaType: newAd.mediaType,
+      ctaType: newAd.ctaType,
+      ctaUrl: newAd.ctaUrl,
+      cityCode: cityUpper,
+      countryCode: countryUpper,
+      bidAmountCents: cents,
+      bidAmountDollars: (tokens * 0.001).toFixed(3),
+      userId: userId || 'usr_anonymous',
+      status: currentQueue[0].id === newAd.id ? 'live' : 'outbid',
+      createdAt: new Date().toISOString(),
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    });
+
+    logTelemetry('REDIS_ZADD', `ZADD ${queueKey} score=${newAd.bidAmountTokens || tokens} member=${newAd.id} [PLACED IN RTB AUCTION QUEUE]`);
 
     // 5. Broadcast real-time competitive event to viewers in target geographic room
     const targetRoomId = `room_${countryUpper}_${cityUpper}`;
@@ -1052,6 +2051,8 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       roomId: targetRoomId,
       isTopBid: currentQueue[0].id === newAd.id,
       ad: newAd,
+      bidAmountTokens: tokens,
+      bidAmountDollars: dollarsStr,
       safetyScore,
       safetyReason
     });
@@ -1065,6 +2066,238 @@ const handleBidSubmission = async (req: Request, res: Response) => {
 // Map both POST /api/bid and POST /api/bids/submit
 app.post('/api/bid', handleBidSubmission);
 app.post('/api/bids/submit', handleBidSubmission);
+
+// -----------------------------------------------------------------------------
+// Future Slot Auction & Pre-Scheduling Engine
+// -----------------------------------------------------------------------------
+interface ScheduledBidRecordServer {
+  id: string;
+  slotId: string;
+  targetCityCode: string;
+  targetCountryCode: string;
+  userId?: string;
+  advertiserName: string;
+  title: string;
+  imageUrl: string;
+  mediaType?: 'image' | 'video';
+  ctaType?: 'website' | 'whatsapp' | 'none';
+  ctaUrl?: string;
+  landingPageUrl?: string;
+  whatsappLink?: string;
+  qrCodeUrl?: string;
+  bidAmountCents: number;
+  bidAmountDollars: string;
+  scheduledStartTime: number;
+  scheduledEndTime: number;
+  status: 'scheduled' | 'executed' | 'outbid' | 'refunded';
+  createdAt: string;
+}
+
+const scheduledBidsStore: Map<string, ScheduledBidRecordServer[]> = new Map();
+
+// Helper to generate next 8 future time slots (in 15-minute intervals) for a city
+function generateFutureSlots(cityCode: string) {
+  const cityUpper = (cityCode || 'TYO').toUpperCase();
+  const cityEntry = activeCitiesStore.find(c => c.cityCode === cityUpper);
+  const baseFloorCents = cityEntry ? cityEntry.reserveFloorCents : 100;
+  const now = Date.now();
+  const slotIntervalMs = 15 * 60 * 1000; // 15-min windows
+  
+  // Align to next whole 15-min boundary
+  const currentWindowStart = Math.ceil(now / slotIntervalMs) * slotIntervalMs;
+
+  const slots = [];
+  for (let i = 1; i <= 8; i++) {
+    const startTime = currentWindowStart + (i - 1) * slotIntervalMs;
+    const endTime = startTime + slotIntervalMs;
+    const slotId = `fslot_${cityUpper}_${startTime}`;
+
+    const startDate = new Date(startTime);
+    const endDate = new Date(endTime);
+    const timeLabel = `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (+${i * 15}m)`;
+
+    // Calculate dynamic floor based on time multiplier
+    const peakMultiplier = i <= 2 ? 1.2 : i <= 4 ? 1.0 : 0.9;
+    const floorCents = Math.round(baseFloorCents * peakMultiplier);
+    
+    // Check existing scheduled bids for this slot
+    const bidsForSlot = scheduledBidsStore.get(slotId) || [];
+    const topBid = bidsForSlot.length > 0 ? bidsForSlot[0] : null;
+
+    slots.push({
+      slotId,
+      targetCityCode: cityUpper,
+      startTime,
+      endTime,
+      timeLabel,
+      slotIndex: i,
+      reserveFloorCents: floorCents,
+      reserveFloorDollars: (floorCents / 100).toFixed(2),
+      currentTopBidCents: topBid ? topBid.bidAmountCents : undefined,
+      currentTopBidDollars: topBid ? topBid.bidAmountDollars : undefined,
+      topBidderName: topBid ? topBid.advertiserName : undefined,
+      bidsCount: bidsForSlot.length,
+      status: i === 1 ? 'closing_soon' : 'open'
+    });
+  }
+  return slots;
+}
+
+// GET /api/slots/future?cityCode=TYO
+app.get('/api/slots/future', (req: Request, res: Response) => {
+  try {
+    const cityCode = (req.query.cityCode as string || 'TYO').toUpperCase();
+    const futureSlots = generateFutureSlots(cityCode);
+    return res.json({
+      success: true,
+      cityCode,
+      slots: futureSlots
+    });
+  } catch (err: any) {
+    console.error('Error fetching future slots:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/bids/schedule
+app.post('/api/bids/schedule', async (req: Request, res: Response) => {
+  try {
+    const {
+      slotId,
+      startTime,
+      endTime,
+      targetCityCode,
+      targetCountryCode,
+      title,
+      imageUrl,
+      mediaType,
+      ctaType,
+      ctaUrl,
+      landingPageUrl,
+      whatsappLink,
+      qrCodeUrl,
+      advertiserName,
+      bidAmountCents,
+      userId
+    } = req.body;
+
+    if (!slotId || !targetCityCode || !title || !imageUrl) {
+      return res.status(400).json({ success: false, error: 'Missing required schedule fields (slotId, targetCityCode, title, imageUrl)' });
+    }
+
+    const cityUpper = targetCityCode.toUpperCase();
+    const countryUpper = (targetCountryCode || 'GLOBAL').toUpperCase();
+    const cents = parseInt(bidAmountCents, 10);
+
+    if (isNaN(cents) || cents <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid bidAmountCents' });
+    }
+
+    // Safety verification using Gemini AI if available
+    let safetyScore = 95;
+    let safetyReason = 'Passed automated brand safety rules';
+
+    if (ai) {
+      try {
+        const prompt = `Analyze this scheduled billboard ad proposal: Title "${title}", Image URL "${imageUrl}". Rate brand safety and suitability 0-100. Respond in JSON with keys "safetyScore" (number 0-100) and "reason" (string).`;
+        const geminiRes = await ai.models.generateContent({
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: { responseMimeType: 'application/json' }
+        });
+        const parsed = JSON.parse(geminiRes.text || '{}');
+        if (typeof parsed.safetyScore === 'number') {
+          safetyScore = parsed.safetyScore;
+          safetyReason = parsed.reason || safetyReason;
+        }
+      } catch (e: any) {
+        // Fallback
+      }
+    }
+
+    if (safetyScore < 70) {
+      return res.status(422).json({
+        success: false,
+        error: 'Scheduled creative rejected by AI brand safety audit',
+        safetyScore,
+        safetyReason
+      });
+    }
+
+    const scheduledBid: ScheduledBidRecordServer = {
+      id: `sch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      slotId,
+      targetCityCode: cityUpper,
+      targetCountryCode: countryUpper,
+      userId: userId || 'usr_anonymous',
+      advertiserName: advertiserName || 'Verified Advertiser',
+      title,
+      imageUrl,
+      mediaType: mediaType || 'image',
+      ctaType: ctaType || 'none',
+      ctaUrl: ctaUrl || landingPageUrl || whatsappLink,
+      landingPageUrl,
+      whatsappLink,
+      qrCodeUrl,
+      bidAmountCents: cents,
+      bidAmountDollars: (cents / 100).toFixed(2),
+      scheduledStartTime: startTime || (Date.now() + 15 * 60 * 1000),
+      scheduledEndTime: endTime || (Date.now() + 30 * 60 * 1000),
+      status: 'scheduled',
+      createdAt: new Date().toISOString()
+    };
+
+    const existingSlotBids = scheduledBidsStore.get(slotId) || [];
+    existingSlotBids.push(scheduledBid);
+    existingSlotBids.sort((a, b) => b.bidAmountCents - a.bidAmountCents);
+    scheduledBidsStore.set(slotId, existingSlotBids);
+
+    recordBidHistory({
+      id: scheduledBid.id,
+      title: scheduledBid.title,
+      shortTitle: scheduledBid.title.length > 20 ? scheduledBid.title.substring(0, 18) + '...' : scheduledBid.title,
+      advertiserName: scheduledBid.advertiserName,
+      imageUrl: scheduledBid.imageUrl,
+      mediaType: scheduledBid.mediaType,
+      ctaType: scheduledBid.ctaType,
+      ctaUrl: scheduledBid.ctaUrl,
+      cityCode: cityUpper,
+      countryCode: countryUpper,
+      bidAmountCents: cents,
+      bidAmountDollars: (cents / 100).toFixed(2),
+      userId: userId || 'usr_anonymous',
+      status: 'scheduled',
+      createdAt: new Date().toISOString(),
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    });
+
+    logTelemetry('BID_RECEIVED', `Scheduled future bid booked: $${(cents / 100).toFixed(2)} on slot [${slotId}] by "${advertiserName}"`);
+
+    // Broadcast scheduled bid event to connected WebSocket clients
+    broadcastToAll({
+      type: 'SCHEDULED_BID_BOOKED',
+      payload: {
+        slotId,
+        cityCode: cityUpper,
+        bid: scheduledBid,
+        isTopBid: existingSlotBids[0].id === scheduledBid.id,
+        totalBids: existingSlotBids.length
+      }
+    });
+
+    return res.json({
+      success: true,
+      scheduledBid,
+      isTopBid: existingSlotBids[0].id === scheduledBid.id,
+      totalSlotBids: existingSlotBids.length,
+      safetyScore,
+      safetyReason
+    });
+  } catch (err: any) {
+    console.error('Error scheduling bid:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+  }
+});
 
 // Ad Library Database Store & Endpoints
 const adLibraryStore = [
@@ -1426,8 +2659,10 @@ app.get('/api/wallet', async (req, res) => {
     res.json({
       success: true,
       userId,
+      tokensBalance: userProfile.tokensBalance,
       balanceCents: userProfile.walletBalanceCents,
       balanceDollars: (userProfile.walletBalanceCents / 100).toFixed(2),
+      playsRemainingAtFloor: userProfile.tokensBalance,
       transactions: txns
     });
   } catch (err: any) {
@@ -1453,8 +2688,10 @@ app.post('/api/wallet/topup', async (req, res) => {
 
   try {
     const newBalanceCents = await topUpUserWalletInFirestore(userId, addedCents);
+    const addedTokens = addedCents * 10;
+    const userProfile = await getUserWalletFromFirestore(userId);
 
-    logTelemetry('WALLET_TOPUP', `Secure Wallet topped up +$${(addedCents / 100).toFixed(2)} for [${userId}]. New balance: $${(newBalanceCents / 100).toFixed(2)}`);
+    logTelemetry('WALLET_TOPUP', `Secure Wallet topped up +$${(addedCents / 100).toFixed(2)} (+${addedTokens.toLocaleString()} Tokens) for [${userId}]. New balance: ${userProfile.tokensBalance.toLocaleString()} tokens ($${(newBalanceCents / 100).toFixed(2)})`);
 
     let txns = [...walletTransactionsLedger];
     try {
@@ -1472,9 +2709,11 @@ app.post('/api/wallet/topup', async (req, res) => {
     res.json({
       success: true,
       userId,
-      message: `Successfully added $${(addedCents / 100).toFixed(2)} to your ad wallet!`,
+      message: `Successfully added $${(addedCents / 100).toFixed(2)} (+${addedTokens.toLocaleString()} tokens) to your ad wallet!`,
+      tokensBalance: userProfile.tokensBalance,
       balanceCents: newBalanceCents,
       balanceDollars: (newBalanceCents / 100).toFixed(2),
+      playsRemainingAtFloor: userProfile.tokensBalance,
       transactions: txns
     });
   } catch (err: any) {

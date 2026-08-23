@@ -66,6 +66,7 @@ export interface QueueItem {
   targetCountryCode: string;
   targetCityCode: string;
   bidAmountCents: number;
+  bidAmountTokens?: number;
   safetyScore: number;
   createdAt?: string;
   industry?: string;
@@ -74,6 +75,34 @@ export interface QueueItem {
   landingPageUrl?: string;
   whatsappLink?: string;
   qrCodeUrl?: string;
+}
+
+export interface TokenPackage {
+  id: string;
+  name: string;
+  tagline: string;
+  priceDollars: number;
+  baseTokens: number;
+  bonusTokens: number;
+  totalTokens: number;
+  playsCount: number; // calculated at 1 token/play floor
+  badge?: string;
+  isPopular?: boolean;
+  iconName: string;
+  colorTheme: string;
+}
+
+export interface TokenTransaction {
+  id: string;
+  type: 'pack_purchase' | 'slot_burn' | 'outbid_refund' | 'bonus_grant' | 'm2m_burn' | 'topup';
+  tokens: number;
+  tokenBalanceAfter?: number;
+  amountDollars?: string;
+  amountCents?: number;
+  description: string;
+  cityCode?: string;
+  slotId?: string;
+  timestamp: string;
 }
 
 export interface ActiveBillboardSlot {
@@ -379,4 +408,84 @@ export interface M2MTransactionItem {
   cityCode?: string;
   slotId?: string;
   status: 'succeeded' | 'processing' | 'failed';
+}
+
+export interface ScheduledTimeSlot {
+  slotId: string;
+  targetCityCode: string;
+  startTime: number; // Unix timestamp in ms
+  endTime: number; // Unix timestamp in ms
+  timeLabel: string; // e.g. "+15m (14:30 - 14:45)"
+  slotIndex: number; // relative offset
+  reserveFloorDollars: string;
+  reserveFloorCents: number;
+  currentTopBidDollars?: string;
+  currentTopBidCents?: number;
+  bidsCount: number;
+  topBidderName?: string;
+  status: 'open' | 'active' | 'closing_soon';
+}
+
+export interface ScheduledBidRecord {
+  id: string;
+  slotId: string;
+  targetCityCode: string;
+  targetCountryCode: string;
+  userId?: string;
+  advertiserName: string;
+  title: string;
+  imageUrl: string;
+  mediaType?: 'image' | 'video';
+  ctaType?: 'website' | 'whatsapp' | 'none';
+  ctaUrl?: string;
+  bidAmountCents: number;
+  bidAmountDollars: string;
+  scheduledStartTime: number;
+  scheduledEndTime: number;
+  status: 'scheduled' | 'executed' | 'outbid' | 'refunded';
+  createdAt: string;
+}
+
+export interface HistoricalCityBid {
+  id: string;
+  rank: number;
+  title: string;
+  shortTitle: string;
+  advertiserName: string;
+  bidAmountDollars: number;
+  bidAmountCents: number;
+  cityCode: string;
+  date: string;
+}
+
+export interface UserBidActivity {
+  id: string;
+  title: string;
+  imageUrl: string;
+  cityCode: string;
+  countryCode: string;
+  bidAmountDollars: string;
+  bidAmountCents: number;
+  mediaType?: 'image' | 'video';
+  ctaType?: 'website' | 'whatsapp' | 'none';
+  ctaUrl?: string;
+  createdAt: string;
+  status: 'live' | 'scheduled' | 'outbid' | 'completed';
+  isTopBid?: boolean;
+}
+
+export interface CityLeaderboardEntry {
+  rank: number;
+  cityCode: string;
+  cityName: string;
+  countryCode: string;
+  countryFlag: string;
+  totalVolumeDollars: number;
+  totalVolumeCents: number;
+  totalBidsCount: number;
+  activeLiveAdsCount: number;
+  currentTopBidDollars: number;
+  topAdvertiserName: string;
+  heatLevel: 'volcanic' | 'hot' | 'warm' | 'steady';
+  volumeGrowthPercent: number;
 }
