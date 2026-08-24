@@ -18,6 +18,7 @@ import {
   where,
   getDocs,
   orderBy,
+  limit
 } from 'firebase/firestore';
 import {
   ARCHITECTURE_ASCII,
