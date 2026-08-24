@@ -596,7 +596,7 @@ export default function App() {
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       <footer className="border-t border-slate-900 bg-slate-950/80 py-6 text-center text-xs text-slate-500 font-sans">
-        <p>World First Virtual Billboard • Real-Life Global Billboard Network</p>
+        <p>Virtual BillBoard • World First 24/7 Virtual Billboard</p>
       </footer>
     </div>
   );

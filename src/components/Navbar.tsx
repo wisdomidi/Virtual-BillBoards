@@ -121,7 +121,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div>
               <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
                 <span className="bg-gradient-to-r from-white via-slate-100 to-cyan-300 bg-clip-text text-transparent">
-                  World First Virtual Billboard
+                  Virtual BillBoard
                 </span>
                 {/* Global Network Status Badge */}
                 <span className="bg-gradient-to-r from-cyan-950 via-slate-900 to-emerald-950 text-cyan-300 border border-cyan-500/40 px-2.5 py-0.5 rounded-full font-mono text-[10px] font-black tracking-wider flex items-center gap-1.5 shadow-inner">
@@ -130,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               </h1>
               <p className="text-[11px] text-slate-400 font-sans hidden md:block">
-                True virtual 24/7 billboard space with real-time global bidding & local city feeds
+                World First 24/7 Virtual Billboard with real-time bidding & local city streams
               </p>
             </div>
           </div>

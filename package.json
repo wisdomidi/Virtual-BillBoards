@@ -1,5 +1,6 @@
 {
-  "name": "virtual-billboard-platform",
+  "name": "virtual-billboard",
+  "description": "World First 24/7 Virtual Billboard",
   "private": true,
   "version": "1.0.0",
   "type": "module",
