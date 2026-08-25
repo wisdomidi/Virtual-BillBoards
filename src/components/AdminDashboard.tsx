@@ -46,8 +46,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   selectedCity,
   selectedCountry
 }) => {
-  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'overrides' | 'cities' | 'tech_tools'>('settings');
+  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
   const [techTool, setTechTool] = useState<'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger'>('architecture');
+  const [creatorFilter, setCreatorFilter] = useState('');
 
   // Platform Settings State
   const [settings, setSettings] = useState<PlatformSettings>({
@@ -271,6 +272,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="flex space-x-2 border-t border-slate-800/80 pt-4 mt-6 overflow-x-auto scrollbar-none">
           {[
             { id: 'settings', label: '⚙️ Platform Settings & Safety', icon: Settings },
+            { id: 'creators', label: '👑 Creator Handles & Verification', icon: Crown },
             { id: 'overrides', label: '⚡ Emergency Ad Injector & Ejector', icon: Zap },
             { id: 'cities', label: '🌍 Geofenced Billboard Cities', icon: Globe },
             { id: 'tech_tools', label: '🛠️ Developer & Architecture Tools', icon: Server }
@@ -482,6 +484,105 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span>{savingSettings ? 'Updating System...' : 'Apply & Save Settings'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: CREATOR HANDLES & VERIFICATION MANAGEMENT */}
+      {activeAdminSubTab === 'creators' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Crown className="w-5 h-5 text-amber-400" />
+                  <h3 className="font-bold text-white text-base">Creator & Event Billboard Handles Directory</h3>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Manage creator handles, verify profiles, configure minimum bid floors, and review accrued 80% payouts.
+                </p>
+              </div>
+
+              <input
+                type="text"
+                value={creatorFilter}
+                onChange={(e) => setCreatorFilter(e.target.value)}
+                placeholder="Search creator handle (e.g. elonmusk, mrbeast)..."
+                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono focus:outline-none focus:border-cyan-500 w-64"
+              />
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400">
+                    <th className="pb-3 font-bold">CREATOR / EVENT</th>
+                    <th className="pb-3 font-bold">CATEGORY</th>
+                    <th className="pb-3 font-bold">VERIFIED STATUS</th>
+                    <th className="pb-3 font-bold">MIN BID FLOOR</th>
+                    <th className="pb-3 font-bold">ACCRUED BIDS</th>
+                    <th className="pb-3 font-bold text-right">ADMIN ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {[
+                    { handle: 'elonmusk', name: 'Elon Musk', cat: 'Tech & Space', verified: true, minBid: 25.00, earned: 14850.00 },
+                    { handle: 'mrbeast', name: 'MrBeast', cat: 'Entertainment', verified: true, minBid: 50.00, earned: 42300.00 },
+                    { handle: 'kaicenat', name: 'Kai Cenat', cat: 'Live Streamer', verified: true, minBid: 15.00, earned: 28400.00 },
+                    { handle: 'ishowspeed', name: 'IShowSpeed', cat: 'Gaming & IRL', verified: true, minBid: 20.00, earned: 31200.00 },
+                    { handle: 'marquesbrownlee', name: 'Marques Brownlee', cat: 'Consumer Tech', verified: true, minBid: 30.00, earned: 18900.00 },
+                    { handle: 'naval', name: 'Naval Ravikant', cat: 'Startups & AI', verified: true, minBid: 10.00, earned: 9200.00 },
+                    { handle: 'raveparty', name: 'Rave & DJ Stage', cat: 'Nightlife Events', verified: true, minBid: 5.00, earned: 6800.00 },
+                    { handle: 'ethdenver', name: 'ETHDenver Stage', cat: 'Web3 Conferences', verified: true, minBid: 10.00, earned: 12400.00 }
+                  ]
+                    .filter((c) => !creatorFilter || c.handle.toLowerCase().includes(creatorFilter.toLowerCase()) || c.name.toLowerCase().includes(creatorFilter.toLowerCase()))
+                    .map((c) => (
+                      <tr key={c.handle} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="font-bold text-white">{c.name}</span>
+                            <span className="text-cyan-400">@{c.handle}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-slate-400">{c.cat}</td>
+                        <td className="py-3">
+                          {c.verified ? (
+                            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full text-[10px] font-bold">
+                              ✓ VERIFIED
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-full text-[10px] font-bold">
+                              UNVERIFIED
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 text-amber-300 font-bold">${c.minBid.toFixed(2)}</td>
+                        <td className="py-3 text-emerald-400 font-bold">${c.earned.toLocaleString()}</td>
+                        <td className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                window.open(`/@${c.handle}`, '_blank');
+                              }}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-lg text-[10px] font-bold transition-all"
+                            >
+                              View Live Screen ↗
+                            </button>
+                            <button
+                              onClick={() => {
+                                addToast('success', 'Profile Status Updated', `@${c.handle} verification status synchronized.`);
+                              }}
+                              className="px-2.5 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-lg text-[10px] font-bold transition-all"
+                            >
+                              Verify Profile
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
