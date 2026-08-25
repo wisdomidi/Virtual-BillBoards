@@ -55,7 +55,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           </div>
           {showSubtitle && (
             <p className="text-[10px] text-slate-400 font-sans hidden sm:block leading-tight mt-0.5">
-              World's First Infinite 24/7 Virtual Billboard
+              Now Anyone Can Have a Billboard • 24/7 Global Network
             </p>
           )}
         </div>

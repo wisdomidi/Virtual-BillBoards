@@ -124,9 +124,29 @@ function detectCreatorHandleFromUrl(): string | null {
   const creatorParam = search.get('creator');
   if (creatorParam) return creatorParam.replace(/^@/, '');
 
-  if (path.startsWith('/@')) {
-    const handle = path.substring(2).split('/')[0];
-    if (handle) return handle;
+  const reservedPaths = [
+    '',
+    '/',
+    '/overlay',
+    '/screen',
+    '/live-preview',
+    '/blog',
+    '/leaderboard',
+    '/api_docs',
+    '/ai_agents',
+    '/robots.txt',
+    '/sitemap.xml',
+    '/llms.txt',
+    '/llms-full.txt',
+    '/favicon.svg',
+    '/favicon.ico'
+  ];
+
+  if (path && !reservedPaths.includes(path.toLowerCase())) {
+    const raw = path.replace(/^\/@?/, '').split('/')[0].toLowerCase();
+    if (raw && !reservedPaths.includes(`/${raw}`)) {
+      return raw;
+    }
   }
   return null;
 }
@@ -769,7 +789,66 @@ export default function App() {
           }}
         />
 
-        {/* Telemetry Log Footer Bar (REMOVED from public pages, ONLY shown in admin/architecture) */}
+        {/* Trending Creator Billboards Carousel & Social Discovery */}
+        <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                <h3 className="text-base font-black text-white">
+                  Trending Creator & Event Billboards
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400">
+                Now anyone can have a billboard. Bid live on top creator handles, streams & event screens.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsClaimModalOpen(true)}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 hover:from-purple-500/30 hover:to-indigo-500/30 border border-purple-500/40 text-purple-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Claim Your @Handle</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { handle: 'elonmusk', name: 'Elon Musk', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200', tag: '$14.8K Bids' },
+              { handle: 'mrbeast', name: 'MrBeast', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200', tag: '$42.3K Bids' },
+              { handle: 'kaicenat', name: 'Kai Cenat', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200', tag: '$28.4K Bids' },
+              { handle: 'raveparty', name: 'Rave DJ Stage', avatar: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=200', tag: 'Live Event' },
+              { handle: 'ethdenver', name: 'ETHDenver Stage', avatar: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=200', tag: 'Web3 Screen' },
+              { handle: 'naval', name: 'Naval', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200', tag: '$9.2K Bids' }
+            ].map((c) => (
+              <button
+                key={c.handle}
+                onClick={() => {
+                  setSelectedCreatorHandle(c.handle);
+                  window.history.pushState({}, '', `/@${c.handle}`);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="p-3 bg-slate-950/80 hover:bg-slate-850 border border-slate-800 hover:border-cyan-500/50 rounded-2xl text-left transition-all group cursor-pointer shadow-md flex flex-col items-center text-center space-y-2"
+              >
+                <img
+                  src={c.avatar}
+                  alt={c.name}
+                  className="w-12 h-12 rounded-2xl object-cover border border-cyan-500/30 group-hover:scale-105 transition-transform"
+                />
+                <div>
+                  <div className="font-black text-white text-xs truncate max-w-[100px]">{c.name}</div>
+                  <div className="text-[10px] text-cyan-400 font-mono">@{c.handle}</div>
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-slate-900 border border-slate-700 text-amber-300 text-[9px] font-mono font-bold rounded-full">
+                    {c.tag}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Telemetry Log Footer Bar */}
         {(activeTab === 'admin' || activeTab === 'architecture') && (
           <SystemTelemetry logs={telemetryLogs} />
         )}

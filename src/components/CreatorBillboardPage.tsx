@@ -37,6 +37,14 @@ interface CreatorProfile {
   minBidDollars: number;
   totalEarnedDollars: number;
   payoutSplitPercent: number; // e.g. 80
+  socials?: {
+    x?: string;
+    youtube?: string;
+    twitch?: string;
+    tiktok?: string;
+    instagram?: string;
+    website?: string;
+  };
 }
 
 const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
@@ -50,7 +58,11 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     verified: true,
     minBidDollars: 25.00,
     totalEarnedDollars: 14850.00,
-    payoutSplitPercent: 80
+    payoutSplitPercent: 80,
+    socials: {
+      x: 'https://x.com/elonmusk',
+      website: 'https://x.com/elonmusk'
+    }
   },
   mrbeast: {
     handle: 'mrbeast',
@@ -62,19 +74,29 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     verified: true,
     minBidDollars: 50.00,
     totalEarnedDollars: 42300.00,
-    payoutSplitPercent: 80
+    payoutSplitPercent: 80,
+    socials: {
+      youtube: 'https://youtube.com/@mrbeast',
+      x: 'https://x.com/MrBeast',
+      tiktok: 'https://tiktok.com/@mrbeast'
+    }
   },
   kaicenat: {
     handle: 'kaicenat',
     displayName: 'Kai Cenat',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300',
     category: 'Live Broadcast & Comedy',
-    bio: 'Streamer of the Year. Live every day.',
+    bio: 'Streamer of the Year. Live broadcasting every day.',
     followerCount: '15M+ Followers',
     verified: true,
     minBidDollars: 15.00,
     totalEarnedDollars: 28400.00,
-    payoutSplitPercent: 80
+    payoutSplitPercent: 80,
+    socials: {
+      twitch: 'https://twitch.tv/kaicenat',
+      youtube: 'https://youtube.com/@KaiCenat',
+      x: 'https://x.com/KaiCenat'
+    }
   },
   ishowspeed: {
     handle: 'ishowspeed',
@@ -86,7 +108,11 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     verified: true,
     minBidDollars: 20.00,
     totalEarnedDollars: 31200.00,
-    payoutSplitPercent: 80
+    payoutSplitPercent: 80,
+    socials: {
+      youtube: 'https://youtube.com/@IShowSpeed',
+      x: 'https://x.com/ishowspeedsui'
+    }
   },
   marquesbrownlee: {
     handle: 'marquesbrownlee',
@@ -98,7 +124,11 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     verified: true,
     minBidDollars: 30.00,
     totalEarnedDollars: 18900.00,
-    payoutSplitPercent: 80
+    payoutSplitPercent: 80,
+    socials: {
+      youtube: 'https://youtube.com/@mkbhd',
+      x: 'https://x.com/MKBHD'
+    }
   },
   naval: {
     handle: 'naval',
@@ -110,7 +140,43 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     verified: true,
     minBidDollars: 10.00,
     totalEarnedDollars: 9200.00,
-    payoutSplitPercent: 80
+    payoutSplitPercent: 80,
+    socials: {
+      x: 'https://x.com/naval',
+      website: 'https://nav.al'
+    }
+  },
+  raveparty: {
+    handle: 'raveparty',
+    displayName: 'Underground Rave & DJ Stage',
+    avatarUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=300',
+    category: 'Live Music & Nightlife Events',
+    bio: 'Electronic Music Festival 24/7 Screen. Taking over club LED walls worldwide.',
+    followerCount: '50K+ Party Crowd',
+    verified: true,
+    minBidDollars: 5.00,
+    totalEarnedDollars: 6800.00,
+    payoutSplitPercent: 80,
+    socials: {
+      instagram: 'https://instagram.com',
+      website: 'https://livebillboards.lol/raveparty'
+    }
+  },
+  ethdenver: {
+    handle: 'ethdenver',
+    displayName: 'ETHDenver & Web3 Stage',
+    avatarUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=300',
+    category: 'Web3 & Tech Conferences',
+    bio: 'The largest Web3 innovation festival stage screen. Open for global sponsor bids & AI agents.',
+    followerCount: '25K+ Conference Attendees',
+    verified: true,
+    minBidDollars: 10.00,
+    totalEarnedDollars: 12400.00,
+    payoutSplitPercent: 80,
+    socials: {
+      x: 'https://x.com',
+      website: 'https://livebillboards.lol/ethdenver'
+    }
   }
 };
 
@@ -134,7 +200,7 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
   tokensBalance
 }) => {
   const cleanHandle = creatorHandle.replace(/^@/, '').toLowerCase();
-  const creator = DEFAULT_CREATORS[cleanHandle] || {
+  const creator: CreatorProfile = DEFAULT_CREATORS[cleanHandle] || {
     handle: cleanHandle,
     displayName: `@${cleanHandle}`,
     avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanHandle}`,
@@ -144,7 +210,10 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
     verified: false,
     minBidDollars: 5.00,
     totalEarnedDollars: 0.00,
-    payoutSplitPercent: 80
+    payoutSplitPercent: 80,
+    socials: {
+      x: `https://x.com/${cleanHandle}`
+    }
   };
 
   const [activeSlot, setActiveSlot] = useState<ActiveBillboardSlot | null>(null);
@@ -333,6 +402,56 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
                 {creator.bio}
               </p>
 
+              {/* Official Social Media Badges */}
+              {creator.socials && (
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  {creator.socials.x && (
+                    <a
+                      href={creator.socials.x}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 bg-slate-950/80 hover:bg-slate-850 border border-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-colors"
+                    >
+                      <span>𝕏 Official Feed</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                  {creator.socials.youtube && (
+                    <a
+                      href={creator.socials.youtube}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 bg-rose-950/40 hover:bg-rose-950/80 border border-rose-800/60 text-rose-300 hover:text-rose-200 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-colors"
+                    >
+                      <span>▶ YouTube</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                  {creator.socials.twitch && (
+                    <a
+                      href={creator.socials.twitch}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 bg-purple-950/40 hover:bg-purple-950/80 border border-purple-800/60 text-purple-300 hover:text-purple-200 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-colors"
+                    >
+                      <span>🟣 Twitch</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                  {creator.socials.tiktok && (
+                    <a
+                      href={creator.socials.tiktok}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 bg-slate-950/80 hover:bg-slate-850 border border-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-colors"
+                    >
+                      <span>🎵 TikTok</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center gap-3 pt-1 text-xs text-slate-400 font-mono">
                 <span>{creator.followerCount}</span>
                 <span>•</span>
@@ -362,6 +481,36 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Unclaimed Creator Bounty Banner */}
+      <div className="bg-gradient-to-r from-purple-950/80 via-slate-900 to-indigo-950/80 border border-purple-500/50 p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 text-xs shadow-xl">
+        <div className="flex items-center gap-3.5">
+          <div className="p-3 bg-purple-500/20 text-purple-300 rounded-2xl border border-purple-500/40 shrink-0">
+            <Sparkles className="w-6 h-6 text-purple-300 animate-pulse" />
+          </div>
+          <div className="space-y-0.5">
+            <div className="font-black text-white text-sm sm:text-base flex items-center gap-2 flex-wrap">
+              <span>Are you @{creator.handle}?</span>
+              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold">
+                ${creator.totalEarnedDollars.toLocaleString()} ACCRUED
+              </span>
+            </div>
+            <p className="text-slate-300 text-xs">
+              This 24/7 Virtual Billboard is live! Claim your handle to broadcast it on your live stream or venue TV screen and withdraw your 80% creator payouts.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            const claimModal = document.getElementById('claim-handle-btn');
+            if (claimModal) claimModal.click();
+          }}
+          className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-black rounded-xl transition-all shadow-lg shrink-0 cursor-pointer text-center"
+        >
+          Claim @{creator.handle} (80% Payout)
+        </button>
       </div>
 
       {/* Main Grid: Live Screen Preview & Action Console */}
