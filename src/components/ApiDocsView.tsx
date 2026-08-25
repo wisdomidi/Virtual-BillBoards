@@ -69,7 +69,7 @@ export const ApiDocsView: React.FC<ApiDocsViewProps> = ({
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const curlExample = `curl -X POST https://ais-pre-iazlo24tw3ughic4ltpk5r-624987754422.asia-southeast1.run.app/api/v1/agents/bids/buy-slot \\
+  const curlExample = `curl -X POST https://livebillboards.lol/api/v1/agents/bids/buy-slot \\
   -H "Authorization: Bearer m2m_live_YOUR_AGENT_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -89,7 +89,7 @@ export const ApiDocsView: React.FC<ApiDocsViewProps> = ({
 import json
 
 AGENT_API_KEY = "m2m_live_YOUR_AGENT_API_KEY"
-BASE_URL = "https://ais-pre-iazlo24tw3ughic4ltpk5r-624987754422.asia-southeast1.run.app/api/v1"
+BASE_URL = "https://livebillboards.lol/api/v1"
 
 headers = {
     "Authorization": f"Bearer {AGENT_API_KEY}",

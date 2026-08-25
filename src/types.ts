@@ -273,7 +273,7 @@ export interface CityConfig {
   reserveFloorCents: number;
 }
 
-export type TabType = 'live' | 'watcher' | 'streamer' | 'ad_library' | 'analytics' | 'admin' | 'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger' | 'ai_agents' | 'api_docs';
+export type TabType = 'live' | 'leaderboard' | 'watcher' | 'streamer' | 'ad_library' | 'blog' | 'analytics' | 'admin' | 'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger' | 'ai_agents' | 'api_docs';
 
 // ==============================================================================
 // AUTONOMOUS AI AGENTS & DYNAMIC YIELD & M2M PAYMENT TYPES

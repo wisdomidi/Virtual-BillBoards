@@ -22,7 +22,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
   return (
     <div
       id="toast-notification-container"
-      className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0"
+      className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none px-3 sm:px-0"
     >
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => (
@@ -39,13 +39,16 @@ interface ToastCardProps {
 }
 
 const ToastCard: React.FC<ToastCardProps> = ({ toast, onDismiss }) => {
-  // Auto-dismiss after 6 seconds
+  const onDismissRef = React.useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
+  // Auto-dismiss after 3.5 seconds reliably
   useEffect(() => {
     const timer = setTimeout(() => {
-      onDismiss(toast.id);
-    }, 6000);
+      onDismissRef.current(toast.id);
+    }, 3500);
     return () => clearTimeout(timer);
-  }, [toast.id, onDismiss]);
+  }, [toast.id]);
 
   const isSuccess = toast.type === 'success';
   const isOutbid = toast.type === 'outbid';
@@ -54,23 +57,23 @@ const ToastCard: React.FC<ToastCardProps> = ({ toast, onDismiss }) => {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 40, scale: 0.88, filter: 'blur(4px)' }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, scale: 0.8, x: 80, filter: 'blur(8px)', transition: { duration: 0.25 } }}
-      transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-      className={`pointer-events-auto relative overflow-hidden rounded-2xl border p-4 shadow-2xl backdrop-blur-xl font-mono text-xs ${
+      initial={{ opacity: 0, y: 30, scale: 0.92 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.85, x: 60, transition: { duration: 0.2 } }}
+      transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+      className={`pointer-events-auto relative overflow-hidden rounded-xl border p-2.5 shadow-xl backdrop-blur-xl font-mono text-[11px] ${
         isSuccess
-          ? 'bg-slate-900/95 border-emerald-500/80 shadow-[0_0_30px_rgba(16,185,129,0.25)] text-emerald-100'
+          ? 'bg-slate-900/95 border-emerald-500/70 text-emerald-100 shadow-[0_0_20px_rgba(16,185,129,0.15)]'
           : isOutbid
-          ? 'bg-slate-900/95 border-rose-500/90 shadow-[0_0_35px_rgba(244,63,94,0.3)] text-rose-100'
+          ? 'bg-slate-900/95 border-rose-500/80 text-rose-100 shadow-[0_0_20px_rgba(244,63,94,0.2)]'
           : isWarning
-          ? 'bg-slate-900/95 border-amber-500/80 shadow-[0_0_30px_rgba(245,158,11,0.25)] text-amber-100'
-          : 'bg-slate-900/95 border-cyan-500/80 shadow-[0_0_30px_rgba(6,182,212,0.25)] text-cyan-100'
+          ? 'bg-slate-900/95 border-amber-500/70 text-amber-100 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
+          : 'bg-slate-900/95 border-cyan-500/70 text-cyan-100 shadow-[0_0_20px_rgba(6,182,212,0.15)]'
       }`}
     >
       {/* Top Accent Line */}
       <div
-        className={`absolute top-0 inset-x-0 h-1 bg-gradient-to-r ${
+        className={`absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r ${
           isSuccess
             ? 'from-emerald-400 via-teal-400 to-cyan-400'
             : isOutbid
@@ -81,82 +84,40 @@ const ToastCard: React.FC<ToastCardProps> = ({ toast, onDismiss }) => {
         }`}
       />
 
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-2">
         {/* Toast Icon */}
         <div
-          className={`p-2 rounded-xl flex-shrink-0 flex items-center justify-center ${
+          className={`p-1.5 rounded-lg flex-shrink-0 flex items-center justify-center ${
             isSuccess
-              ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-400'
+              ? 'bg-emerald-950/80 text-emerald-400'
               : isOutbid
-              ? 'bg-rose-950/80 border border-rose-500/50 text-rose-400 animate-bounce'
+              ? 'bg-rose-950/80 text-rose-400'
               : isWarning
-              ? 'bg-amber-950/80 border border-amber-500/50 text-amber-400'
-              : 'bg-cyan-950/80 border border-cyan-500/50 text-cyan-400'
+              ? 'bg-amber-950/80 text-amber-400'
+              : 'bg-cyan-950/80 text-cyan-400'
           }`}
         >
-          {isSuccess && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-          {isOutbid && <TrendingUp className="w-5 h-5 text-rose-400" />}
-          {isWarning && <AlertTriangle className="w-5 h-5 text-amber-400" />}
-          {!isSuccess && !isOutbid && !isWarning && <Zap className="w-5 h-5 text-cyan-400" />}
+          {isSuccess && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+          {isOutbid && <TrendingUp className="w-3.5 h-3.5 text-rose-400" />}
+          {isWarning && <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />}
+          {!isSuccess && !isOutbid && !isWarning && <Zap className="w-3.5 h-3.5 text-cyan-400" />}
         </div>
 
         {/* Content */}
-        <div className="flex-1 space-y-1 pr-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1.5">
-              <span>{toast.title}</span>
-              {toast.cityCode && (
-                <span className="text-[10px] bg-slate-800 text-cyan-300 border border-slate-700 px-1.5 py-0.5 rounded">
-                  [{toast.cityCode}]
-                </span>
-              )}
-            </h4>
-          </div>
-
-          <p className="text-slate-300 text-xs leading-relaxed">{toast.message}</p>
-
-          {/* Badges / Extras */}
-          {(toast.bidAmountCents || toast.safetyScore) && (
-            <div className="flex items-center gap-2 pt-1">
-              {toast.bidAmountCents && (
-                <span className="bg-slate-950 border border-slate-800 text-cyan-400 px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1">
-                  <DollarSign className="w-3 h-3 text-emerald-400" />
-                  {(toast.bidAmountCents / 100).toFixed(2)}
-                </span>
-              )}
-              {toast.safetyScore !== undefined && (
-                <span className="bg-slate-950 border border-slate-800 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                  {toast.safetyScore}/100 Safe
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Optional Action Button */}
-          {toast.actionLabel && toast.onAction && (
-            <div className="pt-2">
-              <button
-                onClick={() => {
-                  toast.onAction?.();
-                  onDismiss(toast.id);
-                }}
-                className="px-3 py-1.5 bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 font-black rounded-lg text-[11px] transition-all flex items-center gap-1 shadow-md"
-              >
-                <span>{toast.actionLabel}</span>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-950" />
-              </button>
-            </div>
-          )}
+        <div className="flex-1 min-w-0 pr-1">
+          <h4 className="font-bold text-xs tracking-tight text-white truncate">
+            {toast.title}
+          </h4>
+          <p className="text-slate-300 text-[10px] leading-tight line-clamp-1">{toast.message}</p>
         </div>
 
         {/* Close Button */}
         <button
           onClick={() => onDismiss(toast.id)}
-          className="text-slate-500 hover:text-slate-200 transition-colors p-1 hover:bg-slate-800 rounded-lg"
+          className="text-slate-500 hover:text-slate-200 transition-colors p-0.5 hover:bg-slate-800 rounded"
           aria-label="Close notification"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
 
@@ -164,7 +125,7 @@ const ToastCard: React.FC<ToastCardProps> = ({ toast, onDismiss }) => {
       <motion.div
         initial={{ width: '100%' }}
         animate={{ width: '0%' }}
-        transition={{ duration: 6, ease: 'linear' }}
+        transition={{ duration: 3, ease: 'linear' }}
         className={`absolute bottom-0 inset-x-0 h-0.5 ${
           isSuccess
             ? 'bg-emerald-500/80'

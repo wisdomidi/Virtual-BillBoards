@@ -50,6 +50,13 @@ export const StreamerBillboardView: React.FC<StreamerBillboardViewProps> = ({
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isObsModalOpen, setIsObsModalOpen] = useState(false);
+  const [obsTheme, setObsTheme] = useState<'cyberpunk' | 'minimal' | 'glass' | 'neon'>('cyberpunk');
+  const [obsResolution, setObsResolution] = useState<'1080p' | 'vertical' | 'dock'>('1080p');
+  const [obsCityMode, setObsCityMode] = useState<string>('GLOBAL');
+  const [obsPlatformGuideTab, setObsPlatformGuideTab] = useState<'tiktok' | 'obs' | 'streamlabs' | 'kick'>('tiktok');
+  const [customStreamerHandle, setCustomStreamerHandle] = useState('MyChannel');
+  const [obsCopied, setObsCopied] = useState(false);
   const [glitchActive, setGlitchActive] = useState(false);
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [activeParticles, setActiveParticles] = useState<{ id: number; x: number; y: number; emoji: string }[]>([]);
@@ -463,17 +470,272 @@ export const StreamerBillboardView: React.FC<StreamerBillboardViewProps> = ({
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
+          {/* Universal Live Stream Overlay Button */}
+          <button
+            onClick={() => setIsObsModalOpen(true)}
+            className="px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 rounded-lg transition-all flex items-center gap-1.5 font-black text-xs shadow-md shadow-cyan-500/20"
+            title="Get Live Stream Overlay URL for TikTok Live Studio, OBS, or Streamlabs"
+          >
+            <Tv className="w-4 h-4" />
+            <span>Stream Overlay Link</span>
+          </button>
+
           {/* Streamer Role Purpose Help Modal Toggle */}
           <button
             onClick={() => setIsHelpModalOpen(true)}
-            className="px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 rounded-lg transition-all flex items-center gap-1.5 font-bold text-xs"
+            className="px-2.5 py-1.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 text-slate-300 rounded-lg transition-all flex items-center gap-1.5 font-bold text-xs"
             title="What is Streamer Mode?"
           >
             <HelpCircle className="w-4 h-4 text-cyan-400" />
-            <span className="hidden sm:inline">Role Purpose</span>
+            <span className="hidden sm:inline">Role Guide</span>
           </button>
         </div>
       </div>
+
+      {/* Universal Live Stream Overlay Modal */}
+      {isObsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-cyan-500/40 rounded-3xl max-w-xl w-full p-6 text-white space-y-4 shadow-2xl relative animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 shadow-lg shadow-cyan-500/20">
+                  <Tv className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Universal Live Stream Overlay Widget
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Works seamlessly with any broadcasting software, stage screens & browser sources
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsObsModalOpen(false)}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              {/* City Geofence Selection */}
+              <div className="space-y-1.5 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                <label className="text-[11px] font-mono uppercase text-slate-400 font-bold flex items-center justify-between">
+                  <span>Audience Stream Target</span>
+                  <span className="text-cyan-400 font-normal">Choose target city feed</span>
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {[
+                    { code: 'GLOBAL', name: '🌐 Global Earth Feed' },
+                    { code: 'TYO', name: '🇯🇵 Tokyo Shibuya' },
+                    { code: 'NYC', name: '🇺🇸 New York Times Sq' },
+                    { code: 'LON', name: '🇬🇧 London City' },
+                    { code: 'PAR', name: '🇫🇷 Paris Champs' },
+                    { code: 'KUL', name: '🇲🇾 Kuala Lumpur' },
+                    { code: 'SIN', name: '🇸🇬 Singapore' },
+                    { code: 'DXB', name: '🇦🇪 Dubai Downtown' },
+                    { code: 'LOS', name: '🇳🇬 Lagos Island' }
+                  ].map((city) => (
+                    <button
+                      key={city.code}
+                      onClick={() => setObsCityMode(city.code)}
+                      className={`p-2 rounded-xl text-left font-mono text-[11px] transition-all cursor-pointer ${
+                        obsCityMode === city.code
+                          ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
+                          : 'bg-slate-900 text-slate-300 hover:bg-slate-850 border border-slate-800'
+                      }`}
+                    >
+                      {city.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Visual Theme Selection */}
+              <div className="space-y-1.5 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                <label className="text-[11px] font-mono uppercase text-slate-400 font-bold">
+                  Widget Visual Style
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'cyberpunk', label: '⚡ Cyberpunk (Glow)', desc: 'Neon cyan frame' },
+                    { id: 'minimal', label: '🔲 Minimal Dark', desc: 'Clean borderless' },
+                    { id: 'glass', label: '✨ Glassmorphism', desc: 'Frosted blur' },
+                    { id: 'neon', label: '🟣 Synthwave Pink', desc: 'Vibrant violet' }
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setObsTheme(t.id as any)}
+                      className={`p-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                        obsTheme === t.id
+                          ? 'bg-cyan-500/20 text-cyan-300 border-2 border-cyan-400 shadow-md font-bold'
+                          : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                      }`}
+                    >
+                      <div className="font-bold text-[11px]">{t.label}</div>
+                      <div className="text-[9px] text-slate-500 font-mono mt-0.5">{t.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stream Aspect Ratio Format */}
+              <div className="space-y-1.5 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                <label className="text-[11px] font-mono uppercase text-slate-400 font-bold">
+                  Screen Layout Format
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: '1080p', label: '16:9 Landscape', desc: '1920 × 1080' },
+                    { id: 'vertical', label: '9:16 Portrait', desc: '1080 × 1920 (Mobile)' },
+                    { id: 'dock', label: 'Corner Mini Dock', desc: '640 × 360' }
+                  ].map((res) => (
+                    <button
+                      key={res.id}
+                      onClick={() => setObsResolution(res.id as any)}
+                      className={`p-2 rounded-xl text-left transition-all cursor-pointer ${
+                        obsResolution === res.id
+                          ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
+                          : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                      }`}
+                    >
+                      <div className="font-bold text-[11px]">{res.label}</div>
+                      <div className="text-[9px] font-mono opacity-80">{res.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Creator Handle for Direct Revenue Attribution */}
+              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-1.5">
+                <label className="text-[11px] font-mono uppercase text-slate-400 font-bold flex items-center justify-between">
+                  <span>Creator @Handle (80% Payout Attribution)</span>
+                  <span className="text-purple-400 font-bold">80% Revenue Split</span>
+                </label>
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/80 px-3 py-1.5 rounded-xl">
+                  <span className="text-purple-400 font-mono font-black">@</span>
+                  <input
+                    type="text"
+                    value={customStreamerHandle}
+                    onChange={(e) => setCustomStreamerHandle(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+                    placeholder="e.g. yourhandle"
+                    className="bg-transparent text-white font-mono text-xs w-full focus:outline-none placeholder:text-slate-600 font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Generated Overlay URL Box */}
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                  <span>Universal Browser Source URL (Direct Embed)</span>
+                  <span className="text-cyan-400">Feed: [{obsCityMode}]</span>
+                </div>
+
+                {(() => {
+                  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://livebillboards.lol';
+                  const overlayUrl = `${baseUrl}/overlay?city=${obsCityMode}&theme=${obsTheme}&streamerId=${customStreamerHandle || 'creator'}`;
+                  return (
+                    <div className="flex items-center gap-2 bg-slate-900 border border-cyan-500/30 p-2.5 rounded-xl">
+                      <input
+                        type="text"
+                        readOnly
+                        value={overlayUrl}
+                        className="bg-transparent text-cyan-300 font-mono text-xs w-full focus:outline-none select-all"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(overlayUrl);
+                          setObsCopied(true);
+                          setTimeout(() => setObsCopied(false), 3000);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                          obsCopied
+                            ? 'bg-emerald-500 text-slate-950'
+                            : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
+                        }`}
+                      >
+                        {obsCopied ? 'COPIED!' : 'COPY URL'}
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Universal Setup Guide */}
+              <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-[11px] font-mono font-bold text-slate-300 uppercase">
+                    Universal Integration Steps:
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {[
+                      { id: 'desktop', label: 'Desktop & Studio' },
+                      { id: 'mobile', label: 'Mobile Stream' },
+                      { id: 'browser', label: 'Direct Screen' }
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setObsPlatformGuideTab(tab.id as any)}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold font-mono transition-all cursor-pointer ${
+                          obsPlatformGuideTab === tab.id
+                            ? 'bg-cyan-500 text-slate-950'
+                            : 'bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {obsPlatformGuideTab === 'desktop' && (
+                  <div className="space-y-1.5 text-slate-300 text-[11px]">
+                    <p className="font-bold text-cyan-300">🖥️ Desktop Broadcasting Software Setup (30 Seconds):</p>
+                    <ol className="list-decimal list-inside space-y-1 font-mono text-[10px] text-slate-400">
+                      <li>In your broadcasting app, go to <strong className="text-white">Sources</strong> $\rightarrow$ Click <strong className="text-cyan-300">+ Add &rarr; Browser Source</strong>.</li>
+                      <li>Paste the copied URL into the URL field.</li>
+                      <li>Set dimensions to <strong className="text-white">1920 × 1080</strong> (or desired corner size).</li>
+                      <li>The transparent overlay connects instantly with live RTB bids, sound alerts, and QR codes.</li>
+                    </ol>
+                  </div>
+                )}
+
+                {obsPlatformGuideTab === 'mobile' && (
+                  <div className="space-y-1.5 text-slate-300 text-[11px]">
+                    <p className="font-bold text-cyan-300">📱 Mobile & Vertical Live Stream Setup:</p>
+                    <ol className="list-decimal list-inside space-y-1 font-mono text-[10px] text-slate-400">
+                      <li>In your vertical studio app, add a <strong className="text-cyan-300">Web / Browser Link Source</strong>.</li>
+                      <li>Paste the copied URL and set resolution to <strong className="text-white">1080 × 1920</strong>.</li>
+                      <li>Position the overlay above your camera feed.</li>
+                    </ol>
+                  </div>
+                )}
+
+                {obsPlatformGuideTab === 'browser' && (
+                  <div className="space-y-1.5 text-slate-300 text-[11px]">
+                    <p className="font-bold text-cyan-300">📺 Direct Stage TV, Venue Projector & 2nd Monitor:</p>
+                    <ol className="list-decimal list-inside space-y-1 font-mono text-[10px] text-slate-400">
+                      <li>Open the preview link in full-screen on any TV, monitor, or venue display.</li>
+                      <li>The screen runs 24/7 autonomously, switching bids in real-time with sub-20ms latency.</li>
+                    </ol>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => setIsObsModalOpen(false)}
+                className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black py-2.5 rounded-xl transition-all text-xs uppercase tracking-wider cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Streamer Role Purpose Help Modal */}
       {isHelpModalOpen && (

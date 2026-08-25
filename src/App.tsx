@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TabType, UserRole, ActiveBillboardSlot, TelemetryLog, ToastMessage } from './types';
 import { Navbar } from './components/Navbar';
 import { LiveBillboard } from './components/LiveBillboard';
@@ -17,13 +17,21 @@ import { AiAgentsHub } from './components/AiAgentsHub';
 import { ApiDocsView } from './components/ApiDocsView';
 import { SystemTelemetry } from './components/SystemTelemetry';
 import { GlobalCityLeaders } from './components/GlobalCityLeaders';
+import { LeaderboardAndCatalog } from './components/LeaderboardAndCatalog';
 import { CaptchaDropModal } from './components/CaptchaDropModal';
 import { WalletModal } from './components/WalletModal';
+import { UserCampaignsModal } from './components/UserCampaignsModal';
 import { ToastContainer } from './components/ToastNotification';
 import { AuthModal } from './components/AuthModal';
+import { StreamerObsOverlay } from './components/StreamerObsOverlay';
+import { CreatorBillboardPage } from './components/CreatorBillboardPage';
+import { ClaimUsernameModal } from './components/ClaimUsernameModal';
+import { BlogEngine } from './components/BlogEngine';
+import { Sparkles, Globe, Radio } from 'lucide-react';
 import {
   auth,
   onAuthStateChanged,
+  signInAnonymously,
   signOut,
   syncUserProfile,
   UserProfile
@@ -55,62 +63,200 @@ const CITY_NAMES: Record<string, string> = {
   MUM: 'Mumbai Marine Drive'
 };
 
+const TIMEZONE_TO_CITY: Record<string, { city: string; country: string }> = {
+  'Asia/Kuala_Lumpur': { city: 'KUL', country: 'MY' },
+  'Asia/Singapore': { city: 'SIN', country: 'SG' },
+  'Asia/Tokyo': { city: 'TYO', country: 'JP' },
+  'Asia/Seoul': { city: 'SEL', country: 'KR' },
+  'Asia/Hong_Kong': { city: 'HKG', country: 'HK' },
+  'Asia/Taipei': { city: 'TPE', country: 'TW' },
+  'Asia/Bangkok': { city: 'BKK', country: 'TH' },
+  'Asia/Shanghai': { city: 'SHA', country: 'CN' },
+  'Asia/Kolkata': { city: 'MUM', country: 'IN' },
+  'Asia/Calcutta': { city: 'MUM', country: 'IN' },
+  'Asia/Dubai': { city: 'DXB', country: 'AE' },
+  'Australia/Sydney': { city: 'SYD', country: 'AU' },
+  'Australia/Melbourne': { city: 'SYD', country: 'AU' },
+  'America/New_York': { city: 'NYC', country: 'US' },
+  'America/Detroit': { city: 'NYC', country: 'US' },
+  'America/Chicago': { city: 'NYC', country: 'US' },
+  'America/Los_Angeles': { city: 'LAX', country: 'US' },
+  'America/Toronto': { city: 'YTO', country: 'CA' },
+  'America/Sao_Paulo': { city: 'SAO', country: 'BR' },
+  'America/Mexico_City': { city: 'MEX', country: 'MX' },
+  'Europe/London': { city: 'LON', country: 'UK' },
+  'Europe/Paris': { city: 'PAR', country: 'FR' },
+  'Europe/Berlin': { city: 'BER', country: 'DE' },
+  'Europe/Amsterdam': { city: 'AMS', country: 'NL' }
+};
+
+function detectInitialUserCity(): { city: string; country: string } {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz && TIMEZONE_TO_CITY[tz]) {
+      return TIMEZONE_TO_CITY[tz];
+    }
+    if (tz?.startsWith('America/')) return { city: 'NYC', country: 'US' };
+    if (tz?.startsWith('Europe/')) return { city: 'LON', country: 'UK' };
+    if (tz?.startsWith('Asia/')) return { city: 'TYO', country: 'JP' };
+    if (tz?.startsWith('Australia/')) return { city: 'SYD', country: 'AU' };
+  } catch {
+    // Default fallback
+  }
+  return { city: 'NYC', country: 'US' };
+}
+
+function getOrCreateGuestId(): string {
+  if (typeof window === 'undefined') return 'guest_default';
+  let id = localStorage.getItem('vb_guest_uid');
+  if (!id) {
+    id = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    localStorage.setItem('vb_guest_uid', id);
+  }
+  return id;
+}
+
+function detectCreatorHandleFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  const path = window.location.pathname;
+  const search = new URLSearchParams(window.location.search);
+  const creatorParam = search.get('creator');
+  if (creatorParam) return creatorParam.replace(/^@/, '');
+
+  if (path.startsWith('/@')) {
+    const handle = path.substring(2).split('/')[0];
+    if (handle) return handle;
+  }
+  return null;
+}
+
 export default function App() {
+  // Check if current view is a dedicated Full Screen Live Billboard Preview (for Events, Projectors, Live Stream Displays)
+  const isScreenOnlyMode =
+    typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/overlay') ||
+      window.location.pathname.startsWith('/screen') ||
+      window.location.pathname.startsWith('/live-preview') ||
+      new URLSearchParams(window.location.search).get('mode') === 'screen_only' ||
+      new URLSearchParams(window.location.search).get('mode') === 'event' ||
+      new URLSearchParams(window.location.search).get('mode') === 'preview' ||
+      new URLSearchParams(window.location.search).get('mode') === 'overlay');
+
+  if (isScreenOnlyMode) {
+    return <StreamerObsOverlay />;
+  }
+
+  const initialGeo = detectInitialUserCity();
   const [userRole, setUserRole] = useState<UserRole>('advertiser');
   const [activeTab, setActiveTab] = useState<TabType>('live');
+
+  // Creator Vanity Billboard Routing State (e.g. livebillboards.lol/@elonmusk)
+  const [selectedCreatorHandle, setSelectedCreatorHandle] = useState<string | null>(() => detectCreatorHandleFromUrl());
+  const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
 
   // Real Firebase User Profile State
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  const [selectedCity, setSelectedCity] = useState('TYO');
-  const [selectedCountry, setSelectedCountry] = useState('JP');
+  const effectiveUid = currentUser?.uid || getOrCreateGuestId();
+
+  const [selectedCity, setSelectedCity] = useState(initialGeo.city);
+  const [selectedCountry, setSelectedCountry] = useState(initialGeo.country);
 
   const [isConnected, setIsConnected] = useState(false);
   const [slotData, setSlotData] = useState<ActiveBillboardSlot | null>(null);
   const [viewerPoints, setViewerPoints] = useState(120);
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryLog[]>([]);
 
-  // Secure Wallet State
+  // Auto-detect server IP geolocation fallback
+  useEffect(() => {
+    const fetchServerGeo = async () => {
+      try {
+        const res = await fetch('/api/geo');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.resolvedGeo?.cityCode && data.resolvedGeo?.countryCode && data.resolvedGeo.cityCode !== 'KUL') {
+            setSelectedCity(data.resolvedGeo.cityCode);
+            setSelectedCountry(data.resolvedGeo.countryCode);
+          }
+        }
+      } catch (e) {
+        // Safe fallback
+      }
+    };
+    fetchServerGeo();
+  }, []);
+
+  // Secure Wallet State (1,000 Starter Tokens = $1.00 USD / 1 Free 15s Slot Credit)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
-  const [walletBalanceCents, setWalletBalanceCents] = useState(25000); // $250.00 initial
+  const [isMyAdsModalOpen, setIsMyAdsModalOpen] = useState(false);
+  const [walletBalanceCents, setWalletBalanceCents] = useState(100); // $1.00 starter balance
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
 
   // Toast Notification State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const tokensBalance = currentUser?.tokensBalance ?? Math.round(walletBalanceCents * 10);
+  const tokensBalance = Math.round(walletBalanceCents * 10);
 
-  // Firebase Auth State Listener
+  // Firebase Auth State Listener with Auto Anonymous Authentication
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const profile = await syncUserProfile(user, 'advertiser');
         setCurrentUser(profile);
         setUserRole(profile.role);
-        setWalletBalanceCents(profile.walletBalanceCents || 25000);
+        setWalletBalanceCents(profile.walletBalanceCents ?? 100);
       } else {
-        setCurrentUser(null);
-        setUserRole('guest');
+        try {
+          await signInAnonymously(auth);
+        } catch (e) {
+          console.warn('Anonymous sign-in fallback:', e);
+          setCurrentUser(null);
+          setUserRole('guest');
+        }
       }
     });
     return () => unsubscribe();
   }, []);
 
-  // Role-based Tab Access Guard
+  // Verify and fulfill completed Stripe checkout sessions on return
   useEffect(() => {
-    const rolePermissions: Record<UserRole, TabType[]> = {
-      guest: ['live', 'api_docs'],
-      viewer: ['live', 'api_docs'],
-      paid_watcher: ['live', 'watcher', 'ledger', 'api_docs'],
-      advertiser: ['live', 'ad_library', 'ai_agents', 'api_docs'],
-      streamer: ['live', 'streamer', 'ledger', 'api_docs'],
-      admin: ['admin', 'ai_agents', 'api_docs', 'watcher', 'live', 'ad_library', 'analytics', 'streamer', 'ledger', 'architecture', 'postgres', 'redis', 'cascade']
-    };
+    const urlParams = new URLSearchParams(window.location.search);
+    const isPaymentSuccess = urlParams.get('payment_success') === 'true';
+    const sessionId = urlParams.get('session_id');
 
-    const allowed = rolePermissions[userRole] || ['live', 'api_docs'];
-    if (!allowed.includes(activeTab)) {
-      setActiveTab(allowed[0] || 'live');
+    if (isPaymentSuccess && sessionId) {
+      fetch('/api/stripe/verify-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, userId: effectiveUid })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.paid) {
+            if (typeof data.newWalletBalanceCents === 'number') {
+              setWalletBalanceCents(data.newWalletBalanceCents);
+            } else if (typeof data.newTokensBalance === 'number') {
+              setWalletBalanceCents(Math.round(data.newTokensBalance / 10));
+            }
+            addToast(
+              'success',
+              '💳 Payment Successful!',
+              `+$${data.amountDollars} (${(data.tokensAdded || 0).toLocaleString()} Tokens) credited to your Ad Wallet.`
+            );
+            fetchWallet(effectiveUid);
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        })
+        .catch((e) => console.warn('Stripe verify session error:', e));
+    }
+  }, [effectiveUid]);
+
+  // Open-by-default Access Guard: Public tabs are freely accessible to everyone
+  const adminOnlyTabs: TabType[] = ['admin', 'analytics', 'architecture', 'postgres', 'redis', 'cascade', 'ai_agents'];
+  useEffect(() => {
+    if (adminOnlyTabs.includes(activeTab) && userRole !== 'admin') {
+      setActiveTab('live');
     }
   }, [userRole, activeTab]);
 
@@ -125,68 +271,66 @@ export default function App() {
     }
   };
 
-  const fetchWallet = async (uid?: string) => {
-    const targetUid = uid || currentUser?.uid || 'default_user';
+  const handleCityChange = (city: string, country: string) => {
+    setSelectedCity(city);
+    setSelectedCountry(country);
+  };
+
+  const fetchWallet = async (userId?: string) => {
+    const uid = userId || effectiveUid;
     try {
-      const res = await fetch('/api/wallet', {
-        headers: {
-          'x-user-uid': targetUid
-        }
-      });
+      const res = await fetch(`/api/wallet/balance?userId=${uid}`);
       if (res.ok) {
-        const data = await res.json();
-        setWalletBalanceCents(data.balanceCents);
-        setWalletTransactions(data.transactions || []);
+        const text = await res.text();
+        try {
+          const data = JSON.parse(text);
+          const newCents = typeof data.walletBalanceCents === 'number'
+            ? data.walletBalanceCents
+            : (typeof data.tokensBalance === 'number' ? Math.round(data.tokensBalance / 10) : 100);
+          setWalletBalanceCents(newCents);
+          setWalletTransactions(data.transactions || []);
+          setCurrentUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  tokensBalance: Math.round(newCents * 10),
+                  walletBalanceCents: newCents
+                }
+              : prev
+          );
+        } catch {
+          // Safe fallback
+        }
       }
-    } catch (err) {
-      console.error('Failed to fetch wallet:', err);
+    } catch (e) {
+      console.warn('Wallet balance fetch warning:', e);
     }
   };
 
   useEffect(() => {
-    if (currentUser?.uid) {
-      fetchWallet(currentUser.uid);
-    } else {
-      fetchWallet('default_user');
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    fetchWallet();
-
-    // Auto-detect user's default city and country based on IP
-    const detectUserIpGeo = async () => {
-      try {
-        const res = await fetch('/api/geo');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.resolvedGeo?.cityCode && data.resolvedGeo?.countryCode) {
-            setSelectedCity(data.resolvedGeo.cityCode);
-            setSelectedCountry(data.resolvedGeo.countryCode);
-          }
-        }
-      } catch (err) {
-        console.warn('IP Geolocation auto-detection failed:', err);
-      }
-    };
-    detectUserIpGeo();
-  }, []);
+    fetchWallet(effectiveUid);
+  }, [effectiveUid]);
 
   const handleTopUpWallet = async (amountDollars: number): Promise<boolean> => {
-    const uid = currentUser?.uid || 'default_user';
+    const uid = effectiveUid;
     try {
+      const cents = Math.round(amountDollars * 100);
       const res = await fetch('/api/wallet/topup', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-uid': uid
-        },
-        body: JSON.stringify({ amountDollars, userId: uid })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountDollars,
+          amountCents: cents,
+          userId: uid,
+          paymentMethod: 'stripe_mock'
+        })
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch { data = { success: false }; }
       if (data.success) {
-        setWalletBalanceCents(data.balanceCents);
-        setWalletTransactions(data.transactions || []);
+        setWalletBalanceCents(data.newWalletBalanceCents);
+        await fetchWallet(uid);
         addToast('success', 'Wallet Topped Up!', `+$${amountDollars.toFixed(2)} added to your Ad Wallet.`);
         return true;
       } else {
@@ -209,7 +353,7 @@ export default function App() {
     whatsappLink?: string,
     qrCodeUrl?: string
   ): Promise<{ success: boolean; message: string }> => {
-    const uid = currentUser?.uid || 'default_user';
+    const uid = effectiveUid;
     const advertiserName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Fast Bidding Console';
     try {
       const cents = Math.round(amountDollars * 100);
@@ -232,17 +376,31 @@ export default function App() {
           userId: uid
         })
       });
-      const data = await res.json();
+      
+      const resText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(resText);
+      } catch {
+        data = { success: false, error: resText || `HTTP ${res.status} Error` };
+      }
+
       await fetchWallet(uid);
       await fetchActiveSlot(cityCode, countryCode);
 
       if (data.success) {
+        if (typeof data.newWalletBalanceCents === 'number') {
+          setWalletBalanceCents(data.newWalletBalanceCents);
+        }
+        await fetchWallet(uid);
+        await fetchActiveSlot(cityCode, countryCode);
         addToast('success', 'Bid Placed in Seconds!', `Your bid of $${amountDollars.toFixed(2)} is active for [${cityCode}]!`);
         return { success: true, message: `Your bid of $${amountDollars.toFixed(2)} is now live in [${cityCode}]!` };
       } else {
-        if (res.status === 402) {
+        if (res.status === 402 || (data.error && data.error.includes('Insufficient'))) {
           setIsWalletModalOpen(true);
         }
+        await fetchWallet(uid);
         return { success: false, message: data.error || 'Bid submission failed.' };
       }
     } catch (err: any) {
@@ -250,14 +408,14 @@ export default function App() {
     }
   };
 
-  const addToast = (type: ToastMessage['type'], title: string, message: string) => {
+  const addToast = useCallback((type: ToastMessage['type'], title: string, message: string) => {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    setToasts((prev) => [...prev, { id, type, title, message }].slice(-5));
-  };
+    setToasts((prev) => [...prev, { id, type, title, message }].slice(-3));
+  }, []);
 
-  const dismissToast = (id: string) => {
+  const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
 
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -331,12 +489,6 @@ export default function App() {
                 `🎯 Your Bid is Active [${targetCityCode}]!`,
                 `Your ad "${bid.title}" ($${bidDollars}) is entered into the RTB auction for the upcoming slot.`
               );
-            } else {
-              addToast(
-                'outbid',
-                `⚡ Real-Time Bid in [${targetCityCode}]`,
-                `"${bid.advertiserName || 'Advertiser'}" placed a bid of $${bidDollars} for '${bid.title}'.`
-              );
             }
           }
         } else if (msg.type === 'SLOT_BURN_EVENT') {
@@ -371,32 +523,21 @@ export default function App() {
     return () => {
       ws.close();
     };
-  }, [selectedCity, selectedCountry]);
+  }, [selectedCity, selectedCountry, currentUser?.uid]);
 
   // Initial fetch and city change effect
   useEffect(() => {
     fetchActiveSlot(selectedCity, selectedCountry);
   }, [selectedCity, selectedCountry]);
 
-  // Fallback poll timer every 2 seconds if WS isn't active
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchActiveSlot(selectedCity, selectedCountry);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [selectedCity, selectedCountry]);
-
-  const handleCityChange = (city: string, country: string) => {
-    setSelectedCity(city);
-    setSelectedCountry(country);
-    fetchActiveSlot(city, country);
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          setSelectedCreatorHandle(null);
+          setActiveTab(tab);
+        }}
         userRole={userRole}
         setUserRole={setUserRole}
         isConnected={isConnected}
@@ -404,6 +545,8 @@ export default function App() {
         selectedCountry={selectedCountry}
         onCityChange={handleCityChange}
         onOpenWalletModal={() => setIsWalletModalOpen(true)}
+        onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
+        onOpenClaimModal={() => setIsClaimModalOpen(true)}
         walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
         tokensBalance={tokensBalance}
         currentUser={currentUser}
@@ -413,15 +556,49 @@ export default function App() {
 
       <LocalProvider cityCode={selectedCity} cityName={CITY_NAMES[selectedCity] || selectedCity}>
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
-        {/* VIEW 1: ADMIN COMMAND CENTER (100% Platform Controls) */}
-        {activeTab === 'admin' && (
-          <AdminDashboard
-            telemetryLogs={telemetryLogs}
-            addToast={addToast}
-            selectedCity={selectedCity}
-            selectedCountry={selectedCountry}
-          />
-        )}
+        {/* DEDICATED CREATOR & CELEBRITY LIVE BILLBOARD VIEW (e.g. /@elonmusk) */}
+        {selectedCreatorHandle ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-2xl">
+              <button
+                onClick={() => {
+                  setSelectedCreatorHandle(null);
+                  window.history.pushState({}, '', '/');
+                }}
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>← Back to 20 Global City Billboards</span>
+              </button>
+              <button
+                onClick={() => setIsClaimModalOpen(true)}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Claim Your @Handle</span>
+              </button>
+            </div>
+
+            <CreatorBillboardPage
+              creatorHandle={selectedCreatorHandle}
+              onOpenWalletModal={() => setIsWalletModalOpen(true)}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              addToast={(toast) => addToast(toast.type, toast.title, toast.message)}
+              currentUser={currentUser}
+              userRole={userRole}
+              tokensBalance={tokensBalance}
+            />
+          </div>
+        ) : (
+          <>
+            {/* VIEW 1: ADMIN COMMAND CENTER (100% Platform Controls) */}
+            {activeTab === 'admin' && (
+              <AdminDashboard
+                telemetryLogs={telemetryLogs}
+                addToast={addToast}
+                selectedCity={selectedCity}
+                selectedCountry={selectedCountry}
+              />
+            )}
 
         {/* VIEW: AUTONOMOUS AI AGENTS & DYNAMIC YIELD HUB (ADVERTISER & ADMIN ONLY) */}
         {activeTab === 'ai_agents' && (
@@ -439,6 +616,15 @@ export default function App() {
             selectedCity={selectedCity}
             userRole={userRole}
             onNavigateToAgentsHub={() => setActiveTab('ai_agents')}
+          />
+        )}
+
+        {/* VIEW: OFFICIAL INSIGHTS & BLOG KNOWLEDGE ENGINE */}
+        {activeTab === 'blog' && (
+          <BlogEngine
+            onOpenClaimModal={() => setIsClaimModalOpen(true)}
+            onNavigateToLiveBillboard={() => setActiveTab('live')}
+            addToast={(toast) => addToast(toast.type, toast.title, toast.message)}
           />
         )}
 
@@ -461,7 +647,20 @@ export default function App() {
           />
         )}
 
-        {/* VIEW 3: LIVE BILLBOARD (Role-Aware UI) */}
+        {/* VIEW 2: UNIFIED LEADERBOARD & ACTIVE AD CATALOG */}
+        {(activeTab === 'leaderboard' || activeTab === 'ad_library') && (
+          <LeaderboardAndCatalog
+            selectedCity={selectedCity}
+            selectedCountry={selectedCountry}
+            onCityChange={handleCityChange}
+            userRole={userRole}
+            onOpenWalletModal={() => setIsWalletModalOpen(true)}
+            walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
+            onPlaceBidQuick={handlePlaceBidQuick}
+          />
+        )}
+
+        {/* VIEW 3: CLEAN HOMEPAGE LIVE BILLBOARD */}
         {activeTab === 'live' && (
           <div className="space-y-8">
             <LiveBillboard
@@ -474,38 +673,16 @@ export default function App() {
               isPureViewerMode={userRole === 'viewer'}
               walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
               onOpenWalletModal={() => setIsWalletModalOpen(true)}
+              onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
+              onOpenClaimModal={() => setIsClaimModalOpen(true)}
               currentUser={currentUser}
               onOpenAuthModal={() => setIsAuthModalOpen(true)}
               onPlaceBidQuick={handlePlaceBidQuick}
             />
-
-            {/* Show Bidding Console ONLY for Advertisers or Admin */}
-            {(userRole === 'advertiser' || userRole === 'admin') && (
-              <div className="space-y-8">
-                <BiddingConsole
-                  selectedCity={selectedCity}
-                  selectedCountry={selectedCountry}
-                  currentUser={currentUser}
-                  onBidSubmitted={() => {
-                    fetchActiveSlot(selectedCity, selectedCountry);
-                    fetchWallet(currentUser?.uid);
-                  }}
-                  addToast={(toast) => addToast(toast.type, toast.title, toast.message)}
-                />
-
-                {/* Global City Leaders Board */}
-                <div className="max-w-3xl mx-auto">
-                  <GlobalCityLeaders
-                    currentSelectedCity={selectedCity}
-                    onSelectCity={handleCityChange}
-                  />
-                </div>
-              </div>
-            )}
           </div>
         )}
 
-        {/* VIEW 3: STREAMER 2ND MONITOR */}
+        {/* VIEW 4: STREAMER HUB & 2ND MONITOR OVERLAY */}
         {activeTab === 'streamer' && (
           <StreamerBillboardView
             slotData={slotData}
@@ -514,16 +691,6 @@ export default function App() {
             onCityChange={handleCityChange}
             viewerPoints={viewerPoints}
             onBidSubmitted={() => fetchActiveSlot(selectedCity, selectedCountry)}
-          />
-        )}
-
-        {/* VIEW 4: ADVERTISER WINNING AD LIBRARY */}
-        {activeTab === 'ad_library' && (
-          <AdLibrary
-            selectedCity={selectedCity}
-            selectedCountry={selectedCountry}
-            onBidSubmitted={() => fetchActiveSlot(selectedCity, selectedCountry)}
-            addToast={(toast) => addToast(toast.type, toast.title, toast.message)}
           />
         )}
 
@@ -568,9 +735,25 @@ export default function App() {
         <WalletModal
           isOpen={isWalletModalOpen}
           onClose={() => setIsWalletModalOpen(false)}
+          tokensBalance={tokensBalance}
           balanceDollars={(walletBalanceCents / 100).toFixed(2)}
           transactions={walletTransactions}
+          userId={effectiveUid}
           onTopUp={handleTopUpWallet}
+        />
+
+        {/* My Placed Ads & Broadcast History Modal */}
+        <UserCampaignsModal
+          isOpen={isMyAdsModalOpen}
+          onClose={() => setIsMyAdsModalOpen(false)}
+          userId={effectiveUid}
+          userRole={userRole}
+          currentUser={currentUser}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onSelectCity={(city) => {
+            handleCityChange(city, 'ALL');
+            setActiveTab('live');
+          }}
         />
 
         {/* Real Firebase Auth Modal */}
@@ -589,14 +772,142 @@ export default function App() {
         {(activeTab === 'admin' || activeTab === 'architecture') && (
           <SystemTelemetry logs={telemetryLogs} />
         )}
+          </>
+        )}
       </main>
       </LocalProvider>
+
+      {/* Claim Your Live Billboard Username Modal */}
+      <ClaimUsernameModal
+        isOpen={isClaimModalOpen}
+        onClose={() => setIsClaimModalOpen(false)}
+        onSelectCreator={(handle) => {
+          setSelectedCreatorHandle(handle);
+          window.history.pushState({}, '', `/@${handle}`);
+        }}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        addToast={(toast) => addToast(toast.type, toast.title, toast.message)}
+      />
 
       {/* Toast Notification Overlay */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      <footer className="border-t border-slate-900 bg-slate-950/80 py-6 text-center text-xs text-slate-500 font-sans">
-        <p>Virtual BillBoard • World First 24/7 Virtual Billboard</p>
+      <footer className="border-t border-slate-900 bg-slate-950/90 py-12 px-4 sm:px-6 lg:px-8 text-xs text-slate-400 font-sans mt-12">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+          {/* Col 1: Brand & Infinite Mission */}
+          <div className="space-y-3 md:col-span-1">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-black text-xs shadow-md">
+                VB
+              </div>
+              <span className="font-black text-white text-sm tracking-tight">Virtual BillBoard</span>
+            </div>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              World's First Infinite 24/7 Virtual Billboard Network. Broadcasting across 200+ countries, creator live streams, and space feeds with sub-second RTB auctions.
+            </p>
+            <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Network Active • 200+ Countries • Sub-20ms RTB</span>
+            </div>
+          </div>
+
+          {/* Col 2: Fast Navigation & Views */}
+          <div className="space-y-2.5">
+            <h4 className="font-bold text-white uppercase text-[11px] font-mono tracking-wider">Screen Network</h4>
+            <ul className="space-y-2">
+              <li>
+                <button
+                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('live'); }}
+                  className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>📺 Live Billboard Stream</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('leaderboard'); }}
+                  className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>🏆 Leaderboard & Ad Catalog</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('streamer'); }}
+                  className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>🎥 Streamer Overlay Hub</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('watcher'); }}
+                  className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>✨ Watcher Earn Hub</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 3: Creators & Developers */}
+          <div className="space-y-2.5">
+            <h4 className="font-bold text-white uppercase text-[11px] font-mono tracking-wider">Creators & AI Agents</h4>
+            <ul className="space-y-1.5">
+              <li>
+                <button
+                  onClick={() => setIsClaimModalOpen(true)}
+                  className="text-purple-400 hover:text-purple-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <span>✨ Claim @Handle (80% Payout)</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('blog'); }}
+                  className="hover:text-cyan-300 transition-colors cursor-pointer"
+                >
+                  📰 Insights & Guides Blog
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('api_docs'); }}
+                  className="hover:text-cyan-300 transition-colors cursor-pointer"
+                >
+                  📖 Programmatic REST API
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('ai_agents'); }}
+                  className="hover:text-cyan-300 transition-colors cursor-pointer"
+                >
+                  🤖 Autonomous AI Agents Hub
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 4: Support & Security */}
+          <div className="space-y-2.5">
+            <h4 className="font-bold text-white uppercase text-[11px] font-mono tracking-wider">Support & Help</h4>
+            <p className="text-slate-400 text-xs">
+              Need custom billboard campaigns or enterprise multi-screen takeover?
+            </p>
+            <p>
+              <a
+                href="mailto:support@livebillboards.lol"
+                className="text-cyan-400 hover:text-cyan-300 underline font-mono text-xs"
+              >
+                support@livebillboards.lol
+              </a>
+            </p>
+            <div className="pt-2 text-[11px] text-slate-500">
+              © {new Date().getFullYear()} Virtual BillBoard. All rights reserved.
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );

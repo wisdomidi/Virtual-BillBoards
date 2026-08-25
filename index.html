@@ -2,17 +2,113 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Virtual BillBoard</title>
-    <meta name="description" content="World First 24/7 Virtual Billboard" />
-    <meta property="og:title" content="Virtual BillBoard" />
-    <meta property="og:description" content="World First 24/7 Virtual Billboard" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#020617" />
+    <title>Virtual BillBoard • Infinite 24/7 Digital Billboard & Live Stream Ads Network</title>
+    <meta name="description" content="World's first infinite virtual billboard network across 200+ countries, every city on Earth, creator live streams, and space feeds (ISS Orbit, Mars). Broadcast in 15-second RTB rotations." />
+    <meta name="keywords" content="virtual billboard, digital billboard, live stream ads, broadcast overlay, livebillboards, creator monetization, DOOH, online billboard, stream advertising, ISS live billboard, AI agent bidding" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="https://livebillboards.lol/" />
+
+    <!-- GEO Meta Tags (Global Distributed Network) -->
+    <meta name="geo.region" content="US-NY" />
+    <meta name="geo.placename" content="Global Infinite Screen Network" />
+    <meta name="geo.position" content="40.7580;-73.9855" />
+    <meta name="ICBM" content="40.7580, -73.9855" />
+
+    <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://livebillboards.lol/" />
+    <meta property="og:title" content="Virtual BillBoard • World's First Infinite 24/7 Virtual Billboard" />
+    <meta property="og:description" content="Broadcast your brand in 15-second rotations across 200+ countries, top creator live streams, and space feeds with real-time RTB auctions." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=1200" />
+    <meta property="og:site_name" content="Virtual BillBoard" />
+
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://livebillboards.lol/" />
+    <meta name="twitter:title" content="Virtual BillBoard • 24/7 Infinite Digital Billboard" />
+    <meta name="twitter:description" content="Own the billboard in Tokyo Shibuya, Times Square NYC, London, creator live streams and ISS Orbit in 15-second rotations." />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=1200" />
+
+    <!-- Comprehensive Schema.org Graph for Google 100/100 Indexing -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://livebillboards.lol/#organization",
+            "name": "Virtual BillBoard",
+            "url": "https://livebillboards.lol/",
+            "logo": "https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=300",
+            "sameAs": [
+              "https://twitter.com/livebillboards",
+              "https://github.com/wisdomidi/Virtual-BillBoards"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://livebillboards.lol/#website",
+            "url": "https://livebillboards.lol/",
+            "name": "Virtual BillBoard",
+            "publisher": { "@id": "https://livebillboards.lol/#organization" },
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://livebillboards.lol/?city={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://livebillboards.lol/#webapp",
+            "name": "Virtual BillBoard",
+            "url": "https://livebillboards.lol/",
+            "description": "Infinite 24/7 Virtual Billboard and live stream advertising network with sub-second real-time bidding.",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "All",
+            "offers": {
+              "@type": "Offer",
+              "price": "1.00",
+              "priceCurrency": "USD"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://livebillboards.lol/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is Virtual BillBoard?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Virtual BillBoard is the world's first infinite 24/7 virtual billboard and live stream advertising network. Advertisers, creators, and AI agents can bid in real-time to broadcast 15-second visual takeovers across 200+ countries, top creator streams, and orbital feeds."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How can streamers and creators monetize with Virtual BillBoard?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Creators can claim their vanity handle (e.g. livebillboards.lol/@yourname), add the universal stream overlay URL into their streaming software, and earn an 80% revenue split from every bid placed by fans and sponsors."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can autonomous AI agents place bids programmatically?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Virtual BillBoard provides a dedicated M2M REST API (POST /api/bid) and WebSocket protocol allowing autonomous agents and AI bots to monitor slots and outbid competitors in under 20 milliseconds."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
-  <body>
+  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-cyan-500 selection:text-slate-950">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

@@ -1,0 +1,38 @@
+# Virtual BillBoard (livebillboards.lol) — Full Agent & System Specification
+
+## System Architecture
+Virtual BillBoard operates on a high-throughput hybrid architecture:
+1. **Frontend**: Vite + React 18 with TailwindCSS and Lucide Icons, responsive across mobile, desktop, TV monitors, and OBS/streaming browser sources.
+2. **Backend**: Node.js + Express with WebSocket server (`ws`), managing real-time room dispatching (`room_JP_TYO`, `room_US_NYC`, `room_creator_{handle}`).
+3. **Database & Storage**: Google Cloud Firestore for persistent campaign records, user balances, and transactions; in-memory sorted priority queues for sub-20ms RTB bidding.
+4. **Payments & Ledger**: Stripe Checkout for instant fiat-to-token wallet top-up ($1.00 USD = 1,000 Arcade Tokens; 0.1¢ per RTB rotation).
+5. **AI Safety**: Sub-1ms heuristic safety filters combined with asynchronous Gemini Flash multimodal audit.
+
+## Locations & Feeds
+- **Global & Orbital**: `GLOBAL` (Global Network), `ISS` (International Space Station Orbit), `MARS` (Mars Colony Alpha).
+- **Major Metropolitan Networks**: `TYO` (Tokyo Shibuya), `NYC` (Times Square), `LON` (London), `PAR` (Paris), `KUL` (Kuala Lumpur), `SIN` (Singapore), `DXB` (Dubai), `SEL` (Seoul), `SYD` (Sydney), `YTO` (Toronto), `HKG` (Hong Kong), `LAX` (Los Angeles), `SHA` (Shanghai), `BER` (Berlin), `SAO` (São Paulo), `BKK` (Bangkok), `AMS` (Amsterdam), `MEX` (Mexico City), `TPE` (Taipei), `MUM` (Mumbai).
+- **Dynamic On-Demand Provisioning**: Any custom city or location can be created on-demand via `POST /api/cities/ensure`.
+
+## Autonomous Bidding Payload Specification
+```json
+{
+  "title": "Campaign Headline (String, required)",
+  "imageUrl": "Image URL or Base64 data (String, required)",
+  "mediaType": "image | video",
+  "bidAmountDollars": 2.50,
+  "cityCode": "TYO",
+  "countryCode": "JP",
+  "creatorHandle": "optional_creator_handle",
+  "ctaType": "website | whatsapp | none",
+  "ctaUrl": "https://example.com"
+}
+```
+
+## Creator & Celebrity Live Billboard Model
+- **Vanity URL**: `https://livebillboards.lol/@{handle}`
+- **Revenue Split**: 80% to Creator, 20% Protocol Fee.
+- **Overlay Embed**: `https://livebillboards.lol/overlay?creator={handle}&theme=neon`
+
+## Contact & Support
+- Email: support@livebillboards.lol
+- Website: https://livebillboards.lol/

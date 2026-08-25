@@ -3,6 +3,7 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInAnonymously,
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -71,18 +72,24 @@ export interface UserProfile {
   photoURL?: string;
   role: UserRole;
   walletBalanceCents: number;
+  tokensBalance?: number;
+  hasClaimedFreeSlot?: boolean;
+  isAnonymous?: boolean;
   createdAt: string;
 }
 
-// Fetch or create user profile in Firestore
+// Fetch or create user profile in Firestore (1,000 Tokens = $1.00 USD Starter / 1 Free 15s Slot)
 export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole = 'advertiser'): Promise<UserProfile> {
   const defaultProfile: UserProfile = {
     uid: user.uid,
     email: user.email || '',
-    displayName: user.displayName || user.email?.split('@')[0] || 'User',
+    displayName: user.displayName || (user.isAnonymous ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
     photoURL: user.photoURL || undefined,
     role: defaultRole,
-    walletBalanceCents: 25000, // $250 initial deposit
+    walletBalanceCents: 100, // Exactly $1.00 USD starter credit (1 Free 15s Slot)
+    tokensBalance: 1000,      // 1,000 starter tokens (0.1¢/token)
+    hasClaimedFreeSlot: false,
+    isAnonymous: user.isAnonymous ?? false,
     createdAt: new Date().toISOString()
   };
 
@@ -95,21 +102,33 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
 
     if (snap.exists()) {
       const data = snap.data();
+      const tokensBalance = typeof data.tokensBalance === 'number'
+        ? data.tokensBalance
+        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : 0);
+      const walletBalanceCents = typeof data.walletBalanceCents === 'number'
+        ? data.walletBalanceCents
+        : Math.round(tokensBalance / 10);
+
       return {
         uid: user.uid,
         email: user.email || '',
-        displayName: user.displayName || user.email?.split('@')[0] || 'User',
-        photoURL: user.photoURL || undefined,
+        displayName: user.displayName || data.displayName || (user.isAnonymous ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
+        photoURL: user.photoURL || data.photoURL || undefined,
         role: (data.role as UserRole) || defaultRole,
-        walletBalanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : 25000,
+        walletBalanceCents,
+        tokensBalance,
+        hasClaimedFreeSlot: data.hasClaimedFreeSlot ?? (tokensBalance <= 0),
+        isAnonymous: user.isAnonymous ?? false,
         createdAt: data.createdAt || new Date().toISOString()
       };
     }
 
     await setDoc(userRef, defaultProfile);
     return defaultProfile;
-  } catch (err) {
-    console.warn('Firestore syncUserProfile warning:', err);
+  } catch (err: any) {
+    if (err?.code !== 'permission-denied') {
+      console.warn('Firestore syncUserProfile notice:', err?.message || err);
+    }
     return defaultProfile;
   }
 }
@@ -129,7 +148,10 @@ export async function updateUserWalletInDb(uid: string, newBalanceCents: number)
   try {
     if (db && db.type) {
       const userRef = doc(db, 'users', uid);
-      await updateDoc(userRef, { walletBalanceCents: newBalanceCents });
+      await updateDoc(userRef, {
+        walletBalanceCents: newBalanceCents,
+        tokensBalance: Math.round(newBalanceCents * 10)
+      });
     }
   } catch (err) {
     console.warn('Firestore updateUserWalletInDb warning:', err);
@@ -138,6 +160,7 @@ export async function updateUserWalletInDb(uid: string, newBalanceCents: number)
 
 export {
   signInWithPopup,
+  signInAnonymously,
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,

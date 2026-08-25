@@ -43,6 +43,7 @@ import {
 } from 'recharts';
 
 import { UserProfile } from '../lib/firebase';
+import { BroadcastCelebrationModal } from './BroadcastCelebrationModal';
 
 interface BiddingConsoleProps {
   selectedCity: string;
@@ -117,6 +118,13 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
     userOwnsSlot: boolean;
   } | null>(null);
   const notifiedSlotIdsRef = useRef<Set<string>>(new Set());
+
+  // Viral Broadcast Celebration Modal State
+  const [isCelebrationOpen, setIsCelebrationOpen] = useState(false);
+  const [celebrationAdTitle, setCelebrationAdTitle] = useState('');
+  const [celebrationCity, setCelebrationCity] = useState('');
+  const [celebrationDollars, setCelebrationDollars] = useState('1.00');
+  const [celebrationIsFree, setCelebrationIsFree] = useState(true);
 
   // Fetch Top 5 Historical Bids for Selected City
   const fetchTopHistoricalBids = async () => {
@@ -399,10 +407,10 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
 
     // Validate tokens balance
     const parsedTokens = parseInt(bidAmountTokens) || 1;
-    if (tokensBalance < parsedTokens) {
+    if ((tokensBalance ?? 0) < parsedTokens) {
       setFeedback({
         type: 'error',
-        message: `Insufficient Ad Tokens! You have ${tokensBalance.toLocaleString()} tokens, but tried to bid ${parsedTokens.toLocaleString()} tokens. Please top up or convert cash in your Wallet.`
+        message: `Insufficient Ad Tokens! You have ${(tokensBalance ?? 0).toLocaleString()} tokens, but tried to bid ${parsedTokens.toLocaleString()} tokens. Please top up or convert cash in your Wallet.`
       });
       setSubmitting(false);
       return;
@@ -538,6 +546,13 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
               message: `Successfully placed $${(totalCents / 100).toFixed(2)} campaign for '${title || 'Ad Creative'}' in ${selectedCity}.${autoRenew ? ' 🛡️ Auto-Renew protection active!' : ''}`
             });
           }
+
+          // Open viral broadcast celebration modal
+          setCelebrationAdTitle(title || uploadedFileName || 'My Campaign');
+          setCelebrationCity(selectedCity);
+          setCelebrationDollars((totalCents / 100).toFixed(2));
+          setCelebrationIsFree(totalTokens <= 1000);
+          setIsCelebrationOpen(true);
 
           fetchRecentUserBids();
           fetchTopHistoricalBids();
@@ -853,6 +868,47 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
         </AnimatePresence>
       </div>
 
+      {/* FREE STARTER SLOT CLAIM BANNER */}
+      <div className="bg-gradient-to-r from-cyan-950/80 via-indigo-950/80 to-purple-950/80 border-2 border-cyan-500/50 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-cyan-500/10">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl text-slate-950 font-black shadow-md shadow-cyan-500/20">
+            <Sparkles className="w-5 h-5 fill-slate-950" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs sm:text-sm font-black text-white">1 Free 15s Billboard Broadcast Available</h4>
+              <span className="bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
+                1,000 STARTER TOKENS
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300">
+              Upload your brand or startup creative and broadcast live to thousands of viewers with 0 credit card needed.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setBiddingMode('instant');
+            setBidAmountTokens('1000');
+            setBidAmountDollars('1.00');
+            setDurationSeconds(15);
+            if (addToast) {
+              addToast({
+                type: 'info',
+                title: 'Free Slot Credit Applied',
+                message: 'Preset form to 1,000 Starter Tokens (15s rotation). Just upload your creative and click Submit!'
+              });
+            }
+          }}
+          className="px-3.5 py-2 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 rounded-xl font-black text-xs transition-all shadow-md shadow-cyan-500/25 flex items-center gap-1.5 cursor-pointer"
+        >
+          <Zap className="w-4 h-4 fill-slate-950" />
+          <span>Apply Free 15s Credit</span>
+        </button>
+      </div>
+
       {/* BIDDING MODE TOGGLE (Instant Active Slot vs. Schedule Future Slot) */}
       <div className="p-1.5 bg-slate-950 border border-slate-800 rounded-2xl flex items-center gap-2">
         <button
@@ -1113,7 +1169,7 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
             </div>
           </div>
           <p className="text-[11px] text-slate-400">
-            Your Wallet Balance: <strong className="text-amber-400 font-mono">{tokensBalance.toLocaleString()} Tokens</strong> (≈ ${(tokensBalance * 0.001).toFixed(2)} USD). 1 Token = 15s broadcast play.
+            Your Wallet Balance: <strong className="text-amber-400 font-mono">{((tokensBalance ?? 0)).toLocaleString()} Tokens</strong> (≈ ${(((tokensBalance ?? 0)) * 0.001).toFixed(2)} USD). 1 Token = 15s broadcast play.
           </p>
         </div>
 
@@ -1333,6 +1389,16 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
           )}
         </button>
       </form>
+
+      {/* VIRAL BROADCAST CELEBRATION MODAL */}
+      <BroadcastCelebrationModal
+        isOpen={isCelebrationOpen}
+        onClose={() => setIsCelebrationOpen(false)}
+        adTitle={celebrationAdTitle}
+        targetCity={celebrationCity}
+        bidAmountDollars={celebrationDollars}
+        isFreeSlot={celebrationIsFree}
+      />
     </div>
   );
 };

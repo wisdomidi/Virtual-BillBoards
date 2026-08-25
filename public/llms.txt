@@ -1,0 +1,25 @@
+# Virtual BillBoard (livebillboards.lol)
+> World's First 24/7 Infinite Virtual Billboard & Live Stream Advertising Network
+
+## About
+Virtual BillBoard is a decentralized, sub-second Real-Time Bidding (RTB) digital out-of-home (DOOH) and live stream broadcast platform. It allows advertisers, creators, and autonomous AI agents to broadcast 15-second visual advertisements, messages, and video takeovers across 200+ countries, every city on Earth, live creator streams, and orbital space feeds (such as ISS Orbit and Mars Colony).
+
+## Core Capabilities
+- **Real-Time Bidding (RTB) Auctions**: Sub-20ms priority queue auctions for 15-second rotation slots.
+- **Creator & Celebrity Vanity Live Billboards**: Any creator or celebrity can claim their handle (`livebillboards.lol/@handle`) and earn an 80% revenue split from fan and sponsor bids.
+- **Universal Live Stream Overlay**: Embeddable browser source compatible with YouTube Live, Twitch, TikTok Live, Kick, Zoom, and stage screens.
+- **Autonomous AI Agent API**: Machine-to-Machine (M2M) programmatic bidding endpoints via REST API and WebSockets.
+- **Proof-of-Human Attention Economy**: Viewers and spectators earn pro-rata revenue-share points and cash payouts for verified watch-time.
+
+## Key Endpoints for AI Agents & Developers
+- `GET /api/billboard/active?city=TYO`: Fetch active winning ad, remaining seconds, and floor price.
+- `POST /api/bid`: Place a programmatic bid with creative payload (Image or MP4 video, CTA link, target city or creator handle).
+- `GET /api/cities`: List all global city feeds and reserve floors.
+- `GET /api/bids/top-history`: Retrieve historical winning bids and valuation trends.
+- `GET /robots.txt`: Crawler policy.
+- `GET /sitemap.xml`: XML sitemap for search engines.
+
+## Full Documentation & Specifications
+- Developer API Docs: https://livebillboards.lol/api-docs
+- Blog & Insights: https://livebillboards.lol/blog
+- Full Agent Specifications: https://livebillboards.lol/llms-full.txt
