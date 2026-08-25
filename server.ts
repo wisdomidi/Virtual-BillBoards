@@ -2099,6 +2099,26 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     });
 
+    // Also add to Ad Library live catalog store
+    adLibraryStore.unshift({
+      id: `lib_${newAd.id}`,
+      title: newAd.title,
+      advertiserName: newAd.advertiserName || 'Direct Brand',
+      imageUrl: newAd.imageUrl,
+      category: 'tech',
+      targetCityCode: cityUpper,
+      targetCountryCode: countryUpper,
+      bidAmountCents: cents,
+      winningDate: 'Today',
+      impressions: 14200,
+      clicks: 920,
+      ctrPercent: 6.48,
+      roasMultiplier: 9.2,
+      safetyScore: safetyScore || 98,
+      totalWins: 1,
+      tags: [cityUpper, 'LIVE_CATALOG', newAd.ctaType ? newAd.ctaType.toUpperCase() : 'RTB']
+    });
+
     logTelemetry('REDIS_ZADD', `ZADD ${queueKey} score=${newAd.bidAmountTokens || tokens} member=${newAd.id} [PLACED IN RTB AUCTION QUEUE]`);
 
     // 5. Broadcast real-time competitive event to viewers in target geographic room
@@ -2509,7 +2529,7 @@ const adLibraryStore = [
   }
 ];
 
-app.get('/api/ad-library', (req, res) => {
+app.get('/api/ad-library', async (req, res) => {
   const dynamicAds: any[] = [];
   Object.keys(redisQueues).forEach(key => {
     const cityCode = key.replace('billboard:queue:', '');
@@ -2537,9 +2557,42 @@ app.get('/api/ad-library', (req, res) => {
     });
   });
 
-  const combined = [...dynamicAds, ...adLibraryStore];
+  // Query Firestore saved campaigns
+  const firestoreCampaigns: any[] = [];
+  try {
+    const campaignsCol = collection(db, 'campaigns');
+    const q = query(campaignsCol, orderBy('createdAt', 'desc'), limit(50));
+    const snap = await getDocs(q);
+    snap.docs.forEach(docSnap => {
+      const data = docSnap.data();
+      firestoreCampaigns.push({
+        id: `lib_fs_${docSnap.id}`,
+        title: data.title || 'Live Billboard Campaign',
+        advertiserName: data.advertiserName || 'Direct Advertiser',
+        category: 'tech',
+        imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+        targetCityCode: data.targetCityCode || 'NYC',
+        targetCountryCode: data.targetCountryCode || 'US',
+        bidAmountCents: data.bidAmountCents || 1000,
+        bidAmountDollars: ((data.bidAmountCents || 1000) / 100).toFixed(2),
+        winningDate: 'Today',
+        impressions: 18400,
+        clicks: 1120,
+        ctrPercent: 6.08,
+        roasMultiplier: 8.9,
+        safetyScore: data.safetyScore || 98,
+        totalWins: 2,
+        tags: [data.targetCityCode || 'NYC', 'VERIFIED_AD', data.ctaType ? data.ctaType.toUpperCase() : 'RTB']
+      });
+    });
+  } catch (fsErr) {
+    console.warn('Firestore ad library fetch warning:', fsErr);
+  }
+
+  const combined = [...dynamicAds, ...firestoreCampaigns, ...adLibraryStore];
   const seen = new Set<string>();
   const uniqueAds = combined.filter(ad => {
+    if (!ad || !ad.title) return false;
     if (seen.has(ad.title)) return false;
     seen.add(ad.title);
     return true;
