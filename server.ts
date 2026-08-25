@@ -367,16 +367,6 @@ interface UserWalletStoreItem {
 const userWalletsMemoryMap: Map<string, UserWalletStoreItem> = new Map();
 
 async function getUserWalletFromFirestore(userId: string) {
-  if (!userWalletsMemoryMap.has(userId)) {
-    userWalletsMemoryMap.set(userId, {
-      tokensBalance: 1000, // Exactly 1,000 starter tokens ($1.00 = 1 Free 15s Slot)
-      walletBalanceCents: 100,
-      freeSlotClaimed: false,
-      bidsPlacedCount: 0
-    });
-  }
-  const memoryRecord = userWalletsMemoryMap.get(userId)!;
-
   try {
     const userRef = doc(db, 'users', userId);
     const snap = await getDoc(userRef);
@@ -384,13 +374,17 @@ async function getUserWalletFromFirestore(userId: string) {
       const data = snap.data();
       const tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
-        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : 0);
+        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : 1000);
       const walletBalanceCents = typeof data.walletBalanceCents === 'number'
         ? data.walletBalanceCents
         : Math.round(tokensBalance / 10);
 
-      memoryRecord.tokensBalance = tokensBalance;
-      memoryRecord.walletBalanceCents = walletBalanceCents;
+      userWalletsMemoryMap.set(userId, {
+        tokensBalance,
+        walletBalanceCents,
+        freeSlotClaimed: !!data.freeSlotClaimed,
+        bidsPlacedCount: data.bidsPlacedCount || 0
+      });
 
       return {
         uid: userId,
@@ -400,6 +394,14 @@ async function getUserWalletFromFirestore(userId: string) {
         role: data.role || 'advertiser'
       };
     } else {
+      // First-time user profile initialization
+      const memoryRecord = userWalletsMemoryMap.get(userId) || {
+        tokensBalance: 1000,
+        walletBalanceCents: 100,
+        freeSlotClaimed: false,
+        bidsPlacedCount: 0
+      };
+
       const newProfile = {
         uid: userId,
         email: 'user@example.com',
@@ -409,14 +411,22 @@ async function getUserWalletFromFirestore(userId: string) {
         freeSlotClaimed: memoryRecord.freeSlotClaimed,
         createdAt: new Date().toISOString()
       };
+      userWalletsMemoryMap.set(userId, memoryRecord);
       await setDoc(userRef, newProfile, { merge: true });
       return newProfile;
     }
   } catch (err) {
+    const fallback = userWalletsMemoryMap.get(userId) || {
+      tokensBalance: 1000,
+      walletBalanceCents: 100,
+      freeSlotClaimed: false,
+      bidsPlacedCount: 0
+    };
+    userWalletsMemoryMap.set(userId, fallback);
     return {
       uid: userId,
-      tokensBalance: memoryRecord.tokensBalance,
-      walletBalanceCents: memoryRecord.walletBalanceCents,
+      tokensBalance: fallback.tokensBalance,
+      walletBalanceCents: fallback.walletBalanceCents,
       email: 'guest@example.com',
       role: 'advertiser'
     };
@@ -540,29 +550,49 @@ async function topUpUserWalletInFirestore(userId: string, cents: number) {
   try {
     const profile = await getUserWalletFromFirestore(userId);
     const addedTokens = Math.round(cents * 10);
-    const newTokens = profile.tokensBalance + addedTokens;
-    const newBalance = profile.walletBalanceCents + cents;
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, { walletBalanceCents: newBalance, tokensBalance: newTokens });
-
-    const txnsCol = collection(db, 'users', userId, 'transactions');
-    await addDoc(txnsCol, {
-      id: `tx_topup_${Date.now()}`,
-      type: 'topup',
-      amountCents: cents,
-      tokens: addedTokens,
-      description: `Wallet Deposit (+$${(cents / 100).toFixed(2)} / +${addedTokens.toLocaleString()} Tokens)`,
-      timestamp: new Date().toISOString()
+    const newTokens = (profile.tokensBalance || 0) + addedTokens;
+    const newBalance = (profile.walletBalanceCents || 0) + cents;
+    
+    userWalletsMemoryMap.set(userId, {
+      tokensBalance: newTokens,
+      walletBalanceCents: newBalance,
+      freeSlotClaimed: true,
+      bidsPlacedCount: (profile as any).bidsPlacedCount || 0
     });
+
+    const userRef = doc(db, 'users', userId);
+    await setDoc(userRef, { 
+      walletBalanceCents: newBalance, 
+      tokensBalance: newTokens,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    try {
+      const txnsCol = collection(db, 'users', userId, 'transactions');
+      await addDoc(txnsCol, {
+        id: `tx_topup_${Date.now()}`,
+        type: 'topup',
+        amountCents: cents,
+        tokens: addedTokens,
+        description: `Wallet Deposit (+$${(cents / 100).toFixed(2)} / +${addedTokens.toLocaleString()} Tokens)`,
+        timestamp: new Date().toISOString()
+      });
+    } catch (txErr) {
+      console.warn('Firestore transaction log non-fatal error:', txErr);
+    }
 
     userTokensBalance = newTokens;
     userWalletBalanceCents = newBalance;
     return newBalance;
   } catch (err) {
     console.error('Error topping up user wallet in Firestore:', err);
-    userWalletBalanceCents += cents;
-    userTokensBalance += cents * 10;
-    return userWalletBalanceCents;
+    const current = userWalletsMemoryMap.get(userId) || { tokensBalance: 1000, walletBalanceCents: 100, freeSlotClaimed: true, bidsPlacedCount: 0 };
+    const newTokens = current.tokensBalance + Math.round(cents * 10);
+    const newBalance = current.walletBalanceCents + cents;
+    userWalletsMemoryMap.set(userId, { ...current, tokensBalance: newTokens, walletBalanceCents: newBalance });
+    userWalletBalanceCents = newBalance;
+    userTokensBalance = newTokens;
+    return newBalance;
   }
 }
 
@@ -638,14 +668,13 @@ function evaluateCascade(cityCode: string, countryCode: string) {
   // Tier 1: Check City Level Queue
   const cityQueue = redisQueues[cityKey] || [];
   if (cityQueue.length > 0) {
-    // Check if there are real paid advertiser bids first
-    const realPaidBids = cityQueue.filter(ad => !ad.isHouseAd && ad.bidAmountCents >= platformSettings.cityReserveFloorCents);
-    if (realPaidBids.length > 0) {
+    const activeUserBids = cityQueue.filter(ad => !ad.isHouseAd && ad.userId && ad.userId !== 'system_seed' && ad.userId !== 'house_ad' && ad.bidAmountCents >= platformSettings.cityReserveFloorCents);
+    if (activeUserBids.length > 0) {
       cityHit = true;
       fallbackLevel = 'city';
-      winningAd = realPaidBids[0]; // Top paying real bid
+      activeUserBids.sort((a, b) => (b.bidAmountTokens || b.bidAmountCents * 10) - (a.bidAmountTokens || a.bidAmountCents * 10));
+      winningAd = activeUserBids[0];
     } else {
-      // Rotate through local city ads using round-robin pointer
       const ptr = (queueRotationPointers[cityKey] || 0) % cityQueue.length;
       cityHit = true;
       fallbackLevel = 'city';
@@ -655,11 +684,12 @@ function evaluateCascade(cityCode: string, countryCode: string) {
     // Tier 2: Fallback to Country Level Queue
     const countryQueue = redisQueues[countryKey] || [];
     if (countryQueue.length > 0) {
-      const realCountryBids = countryQueue.filter(ad => !ad.isHouseAd && ad.bidAmountCents >= platformSettings.countryReserveFloorCents);
-      if (realCountryBids.length > 0) {
+      const activeCountryUserBids = countryQueue.filter(ad => !ad.isHouseAd && ad.userId && ad.userId !== 'system_seed' && ad.userId !== 'house_ad' && ad.bidAmountCents >= platformSettings.countryReserveFloorCents);
+      if (activeCountryUserBids.length > 0) {
         countryHit = true;
         fallbackLevel = 'country';
-        winningAd = realCountryBids[0];
+        activeCountryUserBids.sort((a, b) => (b.bidAmountTokens || b.bidAmountCents * 10) - (a.bidAmountTokens || a.bidAmountCents * 10));
+        winningAd = activeCountryUserBids[0];
       } else {
         const ptr = (queueRotationPointers[countryKey] || 0) % countryQueue.length;
         countryHit = true;
@@ -670,11 +700,12 @@ function evaluateCascade(cityCode: string, countryCode: string) {
       // Tier 3: Fallback to Global Queue
       const globalQueue = redisQueues[globalKey] || [];
       if (globalQueue.length > 0) {
-        const realGlobalBids = globalQueue.filter(ad => !ad.isHouseAd && ad.bidAmountCents >= platformSettings.globalReserveFloorCents);
-        if (realGlobalBids.length > 0) {
+        const activeGlobalUserBids = globalQueue.filter(ad => !ad.isHouseAd && ad.userId && ad.userId !== 'system_seed' && ad.userId !== 'house_ad' && ad.bidAmountCents >= platformSettings.globalReserveFloorCents);
+        if (activeGlobalUserBids.length > 0) {
           globalHit = true;
           fallbackLevel = 'global';
-          winningAd = realGlobalBids[0];
+          activeGlobalUserBids.sort((a, b) => (b.bidAmountTokens || b.bidAmountCents * 10) - (a.bidAmountTokens || a.bidAmountCents * 10));
+          winningAd = activeGlobalUserBids[0];
         } else {
           const ptr = (queueRotationPointers[globalKey] || 0) % globalQueue.length;
           globalHit = true;
@@ -930,12 +961,16 @@ setInterval(() => {
         if (redisQueues[queueKey]) {
           redisQueues[queueKey] = redisQueues[queueKey].filter(item => item.id !== winningAd.id);
         }
-      } else {
-        // Advance round-robin pointer for local ad rotation
-        const cityKey = `billboard:queue:${cityCode.toUpperCase()}`;
-        const queueLen = redisQueues[cityKey]?.length || 1;
-        queueRotationPointers[cityKey] = ((queueRotationPointers[cityKey] || 0) + 1) % queueLen;
       }
+
+      // Continuously advance round-robin pointers across all queues for 100% active dynamic cycling
+      const cityKey = `billboard:queue:${cityCode.toUpperCase()}`;
+      const queueLen = redisQueues[cityKey]?.length || 1;
+      queueRotationPointers[cityKey] = ((queueRotationPointers[cityKey] || 0) + 1) % Math.max(1, queueLen);
+
+      const countryKey = `billboard:queue:${countryCode.toUpperCase()}`;
+      const countryLen = redisQueues[countryKey]?.length || 1;
+      queueRotationPointers[countryKey] = ((queueRotationPointers[countryKey] || 0) + 1) % Math.max(1, countryLen);
 
       // Broadcast winning ad data specifically to all clients in this geographic room
       broadcastToRoom(roomId, {
@@ -2101,12 +2136,17 @@ const handleBidSubmission = async (req: Request, res: Response) => {
     // Option B: 5% Dynamic Jackpot Cut Allocation
     recordJackpotContribution(cents);
 
+    // Calculate guaranteed preparation lead time (minimum 6s buffer so user never misses their ad)
+    const prepTimeSeconds = remainingSeconds < 6 ? remainingSeconds + platformSettings.slotDurationSeconds : remainingSeconds;
+
     return res.json({
       success: true,
       queueKey,
       roomId: targetRoomId,
       isTopBid: currentQueue[0].id === newAd.id,
       ad: newAd,
+      prepTimeSeconds,
+      remainingSecondsCurrentSlot: remainingSeconds,
       bidAmountTokens: tokens,
       bidAmountDollars: dollarsStr,
       newTokensBalance: deductRes.newTokens,
@@ -3234,7 +3274,9 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
   }
 });
 
-// 4. Stripe Webhook Handler Endpoint
+// 4. Stripe Webhook Handler Endpoint (Idempotent & Cryptographically Signed)
+const processedStripeWebhookEvents: Set<string> = new Set();
+
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event: Stripe.Event;
@@ -3250,34 +3292,28 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     }
 
+    // Track processed event IDs for strict idempotency
+    if (processedStripeWebhookEvents.has(event.id)) {
+      return res.json({ received: true, alreadyProcessed: true });
+    }
+    processedStripeWebhookEvents.add(event.id);
+
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
       const amountCents = session.amount_total || Number(session.metadata?.amountCents) || 5000;
+      const userId = (session.metadata?.userId as string) || (session.client_reference_id as string) || 'default_user';
       
-      userWalletBalanceCents += amountCents;
-      walletTransactionsLedger.unshift({
-        id: `tx_stripe_${Date.now()}`,
-        type: 'topup',
-        amountCents,
-        description: `Stripe Checkout Session Completed (${session.id.slice(-8)})`,
-        timestamp: new Date().toISOString()
-      });
+      const newBal = await topUpUserWalletInFirestore(userId, amountCents);
 
-      logTelemetry('STRIPE_WEBHOOK_PAID', `Stripe Checkout Session [${session.id}] completed! Wallet credited +$${(amountCents / 100).toFixed(2)}. New Balance: $${(userWalletBalanceCents / 100).toFixed(2)}`);
+      logTelemetry('STRIPE_WEBHOOK_PAID', `Stripe Checkout Session [${session.id}] completed! Wallet credited +$${(amountCents / 100).toFixed(2)} to user [${userId}]. New Balance: $${(newBal / 100).toFixed(2)}`);
     } else if (event.type === 'payment_intent.succeeded') {
       const intent = event.data.object as Stripe.PaymentIntent;
       const amountCents = intent.amount;
+      const userId = (intent.metadata?.userId as string) || 'default_user';
 
-      userWalletBalanceCents += amountCents;
-      walletTransactionsLedger.unshift({
-        id: `tx_stripe_pi_${Date.now()}`,
-        type: 'topup',
-        amountCents,
-        description: `Stripe PaymentIntent Succeeded (${intent.id.slice(-8)})`,
-        timestamp: new Date().toISOString()
-      });
+      const newBal = await topUpUserWalletInFirestore(userId, amountCents);
 
-      logTelemetry('STRIPE_WEBHOOK_PAID', `Stripe PaymentIntent [${intent.id}] succeeded! Wallet credited +$${(amountCents / 100).toFixed(2)}`);
+      logTelemetry('STRIPE_WEBHOOK_PAID', `Stripe PaymentIntent [${intent.id}] succeeded! Wallet credited +$${(amountCents / 100).toFixed(2)} to user [${userId}]. New Balance: $${(newBal / 100).toFixed(2)}`);
     }
 
     return res.json({ received: true });

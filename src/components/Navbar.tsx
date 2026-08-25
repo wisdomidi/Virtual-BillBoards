@@ -103,7 +103,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             size="md"
             showText={true}
             showSubtitle={true}
-            onClick={() => setActiveTab('live')}
+            onClick={() => {
+              setActiveTab('live');
+              if (typeof window !== 'undefined') {
+                window.history.pushState({}, '', '/');
+              }
+            }}
           />
 
           {/* Right Action Controls: Ad Wallet, My Ads, Claim @Handle, Sign In */}

@@ -51,6 +51,31 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
     }
   };
 
+  // Bulletproof Client-Side Ticker & Polling for OBS Overlay
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      setSlotData((prev) => {
+        if (!prev) return prev;
+        const currentSec = typeof prev.remainingSeconds === 'number' ? prev.remainingSeconds : 15;
+        const nextSec = currentSec - 1;
+        if (nextSec <= 0) {
+          fetchActiveSlot(selectedCity, selectedCountry);
+          return { ...prev, remainingSeconds: 15 };
+        }
+        return { ...prev, remainingSeconds: nextSec };
+      });
+    }, 1000);
+
+    const pollInterval = setInterval(() => {
+      fetchActiveSlot(selectedCity, selectedCountry);
+    }, 15000);
+
+    return () => {
+      clearInterval(ticker);
+      clearInterval(pollInterval);
+    };
+  }, [selectedCity, selectedCountry]);
+
   useEffect(() => {
     fetchActiveSlot(selectedCity, selectedCountry);
 
@@ -171,7 +196,7 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 w-full h-full bg-transparent flex items-center justify-center p-3 select-none pointer-events-auto overflow-hidden font-sans">
+    <div className="fixed inset-0 w-full h-full bg-slate-950 flex items-center justify-center p-3 select-none pointer-events-auto overflow-hidden font-sans">
       <div
         className={`w-full max-w-4xl rounded-2xl overflow-hidden transition-all duration-300 relative ${themeStyles.container} ${
           flashEffect ? 'scale-[1.01] ring-4 ring-cyan-400 shadow-[0_0_50px_rgba(6,182,212,0.8)]' : ''

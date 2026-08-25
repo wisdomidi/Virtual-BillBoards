@@ -123,13 +123,22 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
       };
     }
 
-    await setDoc(userRef, defaultProfile);
-    return defaultProfile;
+    const cachedCents = typeof window !== 'undefined' ? parseInt(localStorage.getItem('vb_cached_balance_cents') || '100', 10) : 100;
+    const initialProfile: UserProfile = {
+      ...defaultProfile,
+      walletBalanceCents: isNaN(cachedCents) ? 100 : cachedCents,
+      tokensBalance: (isNaN(cachedCents) ? 100 : cachedCents) * 10
+    };
+
+    await setDoc(userRef, initialProfile, { merge: true });
+    return initialProfile;
   } catch (err: any) {
-    if (err?.code !== 'permission-denied') {
-      console.warn('Firestore syncUserProfile notice:', err?.message || err);
-    }
-    return defaultProfile;
+    const cachedCents = typeof window !== 'undefined' ? parseInt(localStorage.getItem('vb_cached_balance_cents') || '100', 10) : 100;
+    return {
+      ...defaultProfile,
+      walletBalanceCents: isNaN(cachedCents) ? 100 : cachedCents,
+      tokensBalance: (isNaN(cachedCents) ? 100 : cachedCents) * 10
+    };
   }
 }
 

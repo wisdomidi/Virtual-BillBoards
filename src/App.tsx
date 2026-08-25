@@ -211,7 +211,16 @@ export default function App() {
   // Secure Wallet State (1,000 Starter Tokens = $1.00 USD / 1 Free 15s Slot Credit)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isMyAdsModalOpen, setIsMyAdsModalOpen] = useState(false);
-  const [walletBalanceCents, setWalletBalanceCents] = useState(100); // $1.00 starter balance
+  const [walletBalanceCents, setWalletBalanceCents] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('vb_cached_balance_cents');
+      if (cached) {
+        const parsed = parseInt(cached, 10);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    }
+    return 100; // $1.00 starter balance
+  });
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
 
   // Toast Notification State
@@ -226,7 +235,12 @@ export default function App() {
         const profile = await syncUserProfile(user, 'advertiser');
         setCurrentUser(profile);
         setUserRole(profile.role);
-        setWalletBalanceCents(profile.walletBalanceCents ?? 100);
+        if (typeof profile.walletBalanceCents === 'number') {
+          setWalletBalanceCents(profile.walletBalanceCents);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('vb_cached_balance_cents', String(profile.walletBalanceCents));
+          }
+        }
       } else {
         try {
           await signInAnonymously(auth);
@@ -308,7 +322,12 @@ export default function App() {
           const newCents = typeof data.walletBalanceCents === 'number'
             ? data.walletBalanceCents
             : (typeof data.tokensBalance === 'number' ? Math.round(data.tokensBalance / 10) : 100);
-          setWalletBalanceCents(newCents);
+          if (newCents > 0) {
+            setWalletBalanceCents(newCents);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('vb_cached_balance_cents', String(newCents));
+            }
+          }
           setWalletTransactions(data.transactions || []);
           setCurrentUser((prev) =>
             prev
@@ -472,77 +491,121 @@ export default function App() {
     }
   };
 
-  // Setup WebSocket Connection
+  // Bulletproof Client-Side Ticker: Guarantees 15-second rotation even if WebSocket drops or CDN proxy disconnects
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      setSlotData((prev) => {
+        if (!prev) return prev;
+        const currentSec = typeof prev.remainingSeconds === 'number' ? prev.remainingSeconds : 15;
+        const nextSec = currentSec - 1;
+        if (nextSec <= 0) {
+          fetchActiveSlot(selectedCity, selectedCountry);
+          return { ...prev, remainingSeconds: 15 };
+        }
+        return { ...prev, remainingSeconds: nextSec };
+      });
+    }, 1000);
+
+    // Periodic HTTP sync every 15s as a fail-safe secondary guarantee
+    const syncInterval = setInterval(() => {
+      fetchActiveSlot(selectedCity, selectedCountry);
+    }, 15000);
+
+    return () => {
+      clearInterval(ticker);
+      clearInterval(syncInterval);
+    };
+  }, [selectedCity, selectedCountry]);
+
+  // Setup WebSocket Connection with Auto-Reconnect
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}?city=${selectedCity}&country=${selectedCountry}`;
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: any = null;
 
-    ws.onopen = () => {
-      setIsConnected(true);
-      // Join geographic room corresponding to selected city/country
-      ws.send(JSON.stringify({
-        type: 'JOIN_ROOM',
-        city: selectedCity,
-        country: selectedCountry
-      }));
-    };
-
-    ws.onmessage = (event) => {
+    const connectWs = () => {
       try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'SLOT_TICK') {
-          setSlotData((prev) => prev ? { ...prev, remainingSeconds: msg.payload.remainingSeconds } : prev);
-        } else if (msg.type === 'SLOT_TRANSITION' || msg.type === 'BID_ADDED' || msg.type === 'NEW_BID_PLACED') {
-          fetchActiveSlot(selectedCity, selectedCountry);
+        ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
-          if (msg.type === 'NEW_BID_PLACED' && msg.payload && msg.payload.bid) {
-            const bid = msg.payload.bid;
-            const targetCityCode = msg.payload.targetCityCode || selectedCity;
-            const bidDollars = (bid.bidAmountCents / 100).toFixed(2);
-            const isMyBid = currentUser?.uid && bid.userId === currentUser.uid;
+        ws.onopen = () => {
+          setIsConnected(true);
+          ws?.send(JSON.stringify({
+            type: 'JOIN_ROOM',
+            city: selectedCity,
+            country: selectedCountry
+          }));
+        };
 
-            if (isMyBid) {
-              addToast(
-                'success',
-                `🎯 Your Bid is Active [${targetCityCode}]!`,
-                `Your ad "${bid.title}" ($${bidDollars}) is entered into the RTB auction for the upcoming slot.`
-              );
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'SLOT_TICK') {
+              setSlotData((prev) => prev ? { ...prev, remainingSeconds: msg.payload.remainingSeconds } : prev);
+            } else if (msg.type === 'SLOT_TRANSITION' || msg.type === 'BID_ADDED' || msg.type === 'NEW_BID_PLACED') {
+              fetchActiveSlot(selectedCity, selectedCountry);
+
+              if (msg.type === 'NEW_BID_PLACED' && msg.payload && msg.payload.bid) {
+                const bid = msg.payload.bid;
+                const targetCityCode = msg.payload.targetCityCode || selectedCity;
+                const bidDollars = (bid.bidAmountCents / 100).toFixed(2);
+                const isMyBid = currentUser?.uid && bid.userId === currentUser.uid;
+
+                if (isMyBid) {
+                  addToast(
+                    'success',
+                    `🎯 Your Bid is Active [${targetCityCode}]!`,
+                    `Your ad "${bid.title}" ($${bidDollars}) is entered into the RTB auction for the upcoming slot.`
+                  );
+                }
+              }
+            } else if (msg.type === 'SLOT_BURN_EVENT') {
+              fetchActiveSlot(selectedCity, selectedCountry);
+              if (currentUser?.uid && msg.payload?.userId === currentUser.uid) {
+                setWalletBalanceCents(msg.payload.newWalletBalanceCents);
+                addToast(
+                  'success',
+                  `🔥 Ad Live on Billboard [${msg.payload.cityCode}]!`,
+                  `"${msg.payload.adTitle}" played for 15s on the digital screen. $${msg.payload.burnedDollars} burned. Remaining balance: $${msg.payload.newWalletBalanceDollars}.`
+                );
+                fetchWallet(currentUser.uid);
+              }
+            } else if (msg.type === 'TELEMETRY_LOG') {
+              setTelemetryLogs((prev) => [msg.payload, ...prev].slice(0, 50));
+            } else if (msg.type === 'INIT_STATE') {
+              if (msg.payload.telemetryLogs) {
+                setTelemetryLogs(msg.payload.telemetryLogs);
+              }
+            } else if (msg.type === 'SETTINGS_UPDATED') {
+              fetchActiveSlot(selectedCity, selectedCountry);
             }
+          } catch (e) {
+            console.error('WS message parse error:', e);
           }
-        } else if (msg.type === 'SLOT_BURN_EVENT') {
-          fetchActiveSlot(selectedCity, selectedCountry);
-          if (currentUser?.uid && msg.payload?.userId === currentUser.uid) {
-            setWalletBalanceCents(msg.payload.newWalletBalanceCents);
-            addToast(
-              'success',
-              `🔥 Ad Live on Billboard [${msg.payload.cityCode}]!`,
-              `"${msg.payload.adTitle}" played for 15s on the digital screen. $${msg.payload.burnedDollars} burned. Remaining balance: $${msg.payload.newWalletBalanceDollars}.`
-            );
-            fetchWallet(currentUser.uid);
-          }
-        } else if (msg.type === 'TELEMETRY_LOG') {
-          setTelemetryLogs((prev) => [msg.payload, ...prev].slice(0, 50));
-        } else if (msg.type === 'INIT_STATE') {
-          if (msg.payload.telemetryLogs) {
-            setTelemetryLogs(msg.payload.telemetryLogs);
-          }
-        } else if (msg.type === 'SETTINGS_UPDATED') {
-          fetchActiveSlot(selectedCity, selectedCountry);
-        }
-      } catch (e) {
-        console.error(e);
+        };
+
+        ws.onclose = () => {
+          setIsConnected(false);
+          reconnectTimer = setTimeout(() => {
+            connectWs();
+          }, 4000);
+        };
+
+        ws.onerror = () => {
+          setIsConnected(false);
+        };
+      } catch (err) {
+        console.warn('WebSocket connection non-fatal warning:', err);
       }
     };
 
-    ws.onclose = () => {
-      setIsConnected(false);
-    };
+    connectWs();
 
     return () => {
-      ws.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (ws) ws.close();
     };
   }, [selectedCity, selectedCountry, currentUser?.uid]);
 
@@ -558,6 +621,9 @@ export default function App() {
         setActiveTab={(tab) => {
           setSelectedCreatorHandle(null);
           setActiveTab(tab);
+          if (typeof window !== 'undefined') {
+            window.history.pushState({}, '', '/');
+          }
         }}
         userRole={userRole}
         setUserRole={setUserRole}

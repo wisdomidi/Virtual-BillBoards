@@ -115,10 +115,44 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
   const [bidFeedback, setBidFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-  const [adCountdown, setAdCountdown] = useState<number | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const billboardScreenRef = useRef<HTMLDivElement>(null);
+
+  // Up Next Preparation & Live Spotlight State
+  const [userBroadcast, setUserBroadcast] = useState<{
+    title: string;
+    prepSeconds: number;
+    isLive: boolean;
+    liveSecondsLeft: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!userBroadcast) return;
+
+    const timer = setInterval(() => {
+      setUserBroadcast((prev) => {
+        if (!prev) return null;
+        if (!prev.isLive) {
+          if (prev.prepSeconds <= 1) {
+            // Live broadcast begins!
+            soundEffects.playKaChing();
+            triggerConfettiExplosion();
+            return { ...prev, isLive: true, prepSeconds: 0, liveSecondsLeft: 15 };
+          }
+          return { ...prev, prepSeconds: prev.prepSeconds - 1 };
+        } else {
+          // Live broadcast in progress
+          if (prev.liveSecondsLeft <= 1) {
+            return null; // Concluded
+          }
+          return { ...prev, liveSecondsLeft: prev.liveSecondsLeft - 1 };
+        }
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [userBroadcast]);
 
   const [cityLocalTime, setCityLocalTime] = useState<string>(() => getCityLocalTime(selectedCity));
 
@@ -353,20 +387,16 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
       soundEffects.playKaChing();
       triggerConfettiExplosion();
       window.dispatchEvent(new CustomEvent('user-bid-placed', { detail: { city: selectedCity } }));
-      setAdCountdown(4);
+      
+      const initialPrep = (result as any).prepTimeSeconds || slotData.remainingSeconds || 15;
+      setUserBroadcast({
+        title: bidTitle,
+        prepSeconds: initialPrep,
+        isLive: false,
+        liveSecondsLeft: 15
+      });
+
       billboardScreenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const timer = setInterval(() => {
-        setAdCountdown((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      setTimeout(() => {
-        setAdCountdown(null);
-      }, 16000);
     } else {
       if (result.message && (result.message.includes('Insufficient') || result.message.includes('Top up') || result.message.includes('Wallet') || result.message.includes('402'))) {
         onOpenWalletModal?.();
@@ -469,28 +499,62 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
       {/* Smart City Overlay (Weather, Traffic Flow, News Headlines) */}
       <SmartOverlay cityCode={selectedCity} cityName={currentCityConfig.cityName} />
 
-      {/* Broadcast Anticipation Countdown Banner */}
+      {/* Broadcast Anticipation & Live Spotlight Banner */}
       <div ref={billboardScreenRef}>
-        {adCountdown !== null && (
-          <div className="mb-4 bg-gradient-to-r from-amber-500/20 via-cyan-500/20 to-emerald-500/20 border border-cyan-500/50 p-4 rounded-3xl flex items-center justify-between shadow-2xl shadow-cyan-500/20 animate-fade-in">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-cyan-500/30 border border-cyan-400 flex items-center justify-center font-mono font-black text-cyan-300 text-lg shadow-inner">
-                {adCountdown > 0 ? `${adCountdown}s` : '🔴'}
+        {userBroadcast && (
+          <div className="mb-4 animate-in fade-in zoom-in-95 duration-200">
+            {!userBroadcast.isLive ? (
+              <div className="bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-amber-500/25 border-2 border-amber-400/90 p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_35px_rgba(251,191,36,0.35)]">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-mono font-black text-xl shadow-lg animate-pulse shrink-0">
+                    {userBroadcast.prepSeconds}s
+                  </div>
+                  <div>
+                    <div className="text-amber-300 font-bold text-xs uppercase tracking-wider font-mono flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                      <span>🚀 GET READY! Your Ad is Up Next</span>
+                    </div>
+                    <div className="text-white font-black text-sm sm:text-base line-clamp-1">
+                      "{userBroadcast.title}" broadcasts across {currentCityConfig.cityName} in {userBroadcast.prepSeconds}s
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                  <span className="text-xs font-mono bg-amber-950/90 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm">
+                    <span>📸 Camera Ready</span>
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className="font-black text-white text-sm block">
-                  {adCountdown > 0 ? '🚀 Your Ad is Queued for Broadcast!' : '🔴 Your Ad is Live on Screen Now!'}
-                </span>
-                <span className="text-xs text-slate-300">
-                  {adCountdown > 0
-                    ? `Preparing screen broadcast in ${adCountdown} seconds — get ready to see your ad!`
-                    : 'Your 15-second creative is broadcasting live worldwide right now!'}
-                </span>
+            ) : (
+              <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 border-2 border-emerald-300 p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 text-white shadow-[0_0_45px_rgba(16,185,129,0.55)]">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-white text-emerald-950 flex items-center justify-center font-mono font-black text-xl shadow-lg shrink-0">
+                    {userBroadcast.liveSecondsLeft}s
+                  </div>
+                  <div>
+                    <div className="text-xs font-mono uppercase tracking-widest text-emerald-100 font-extrabold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                      <span>🔴 YOUR AD IS BROADCASTING LIVE NOW</span>
+                    </div>
+                    <div className="text-base sm:text-lg font-black text-white line-clamp-1">
+                      "{userBroadcast.title}" is Live on Billboard!
+                    </div>
+                  </div>
+                </div>
+
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`I just took over the 24/7 Global Virtual Billboard in ${selectedCity}! Check it out live: https://www.livebillboards.lol/?city=${selectedCity} 🔥 #VirtualBillboard #LiveTakeover`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2.5 bg-white text-slate-950 hover:bg-slate-100 font-black text-xs rounded-xl shadow-xl flex items-center gap-2 transition-all transform hover:scale-105 shrink-0"
+                >
+                  <Camera className="w-4 h-4 text-purple-600" />
+                  <span>Share Live Flex to 𝕏</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
+                </a>
               </div>
-            </div>
-            <span className="text-xs font-mono font-bold text-amber-400 bg-amber-950/70 border border-amber-500/40 px-3 py-1.5 rounded-xl">
-              15s Slot Live
-            </span>
+            )}
           </div>
         )}
       </div>
