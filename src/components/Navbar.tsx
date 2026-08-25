@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { TabType, UserRole } from '../types';
+import { BrandLogo } from './BrandLogo';
 import {
   Monitor,
   Tv,
@@ -97,24 +98,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
           {/* Logo & Brand Title */}
-          <div
+          <BrandLogo
+            size="md"
+            showText={true}
+            showSubtitle={true}
             onClick={() => setActiveTab('live')}
-            className="flex items-center gap-2.5 cursor-pointer shrink-0 group"
-          >
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-black text-xs shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-              <Zap className="w-4 h-4 fill-slate-950 text-slate-950" />
-            </div>
-            <div>
-              <div className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5 leading-none">
-                <span className="bg-gradient-to-r from-white via-slate-100 to-cyan-300 bg-clip-text text-transparent">
-                  Virtual BillBoard
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 font-sans hidden sm:block leading-tight">
-                World's First Infinite 24/7 Virtual Billboard
-              </p>
-            </div>
-          </div>
+          />
 
           {/* Right Action Controls: City Picker, Ad Wallet, My Ads, Claim @Handle, Sign In */}
           <div className="flex items-center gap-1.5 sm:gap-2.5">

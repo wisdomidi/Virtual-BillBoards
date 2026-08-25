@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+  </defs>
+
+  <!-- Dark Outer Border / Shadow Box -->
+  <rect width="512" height="512" rx="128" fill="#020617" />
+  
+  <!-- Glowing Vibrant Brand Gradient Emblem -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#brandGrad)" stroke="#67e8f9" stroke-width="8" stroke-opacity="0.4" />
+  
+  <!-- Exact Match Lucide Zap Lightning Icon -->
+  <g transform="translate(106, 106) scale(12.5)">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="#020617" stroke="#020617" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

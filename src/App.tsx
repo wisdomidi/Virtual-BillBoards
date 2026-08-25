@@ -27,6 +27,7 @@ import { StreamerObsOverlay } from './components/StreamerObsOverlay';
 import { CreatorBillboardPage } from './components/CreatorBillboardPage';
 import { ClaimUsernameModal } from './components/ClaimUsernameModal';
 import { BlogEngine } from './components/BlogEngine';
+import { BrandLogo } from './components/BrandLogo';
 import { Sparkles, Globe, Radio } from 'lucide-react';
 import {
   auth,
@@ -796,12 +797,12 @@ export default function App() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Col 1: Brand & Infinite Mission */}
           <div className="space-y-3 md:col-span-1">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-black text-xs shadow-md">
-                VB
-              </div>
-              <span className="font-black text-white text-sm tracking-tight">Virtual BillBoard</span>
-            </div>
+            <BrandLogo
+              size="md"
+              showText={true}
+              showSubtitle={false}
+              onClick={() => { setSelectedCreatorHandle(null); setActiveTab('live'); }}
+            />
             <p className="text-slate-400 text-xs leading-relaxed">
               World's First Infinite 24/7 Virtual Billboard Network. Broadcasting across 200+ countries, creator live streams, and space feeds with sub-second RTB auctions.
             </p>
