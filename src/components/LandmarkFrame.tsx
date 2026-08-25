@@ -71,12 +71,6 @@ export const LandmarkFrame: React.FC<LandmarkFrameProps> = ({ cityCode, cityName
         <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-cyan-500/60 pointer-events-none z-20" />
         <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-cyan-500/60 pointer-events-none z-20" />
 
-        {/* City Location Tag Badge */}
-        <div className="absolute top-3 left-3 pointer-events-none z-20 opacity-90 bg-slate-950/80 backdrop-blur-md border border-cyan-500/40 text-cyan-300 text-[10px] font-mono px-2.5 py-1 rounded-full font-black flex items-center gap-1.5 shadow-lg">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-          <span>{cityName.toUpperCase()} DIGITAL SCREEN</span>
-        </div>
-
         {/* Main Wrapped Screen Content */}
         {children}
       </div>

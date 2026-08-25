@@ -498,26 +498,69 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
       {/* Real-Life Physical Billboard Display Wrapped in Landmark Frame */}
       <LandmarkFrame cityCode={selectedCity} cityName={currentCityConfig.cityName}>
         {/* Physical Billboard Metal Bezel Frame */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border-b border-slate-800/80 px-6 py-2.5 flex items-center justify-between text-xs font-sans">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                const previewUrl = `/?mode=screen_only&city=${selectedCity}`;
-                window.open(previewUrl, '_blank');
-              }}
-              className="flex items-center gap-2 px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 rounded-xl text-[11px] font-mono font-bold transition-all cursor-pointer shadow-sm group"
-              title="Open Pure Standalone Live Screen for Events, Stages & TVs (Click to Open)"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>24/7 VIRTUAL BILLBOARD SCREEN</span>
-              <ExternalLink className="w-3 h-3 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-            <span className="text-slate-700 hidden sm:inline">|</span>
-            <span className="text-cyan-400 font-bold hidden sm:inline">
-              {currentCityConfig.flagEmoji} {currentCityConfig.cityName} Feed
-            </span>
-            <span className="text-slate-700 hidden lg:inline">|</span>
-            <span className="text-amber-300 font-mono text-[11px] font-bold hidden lg:inline bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800">
+        <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border-b border-slate-800/80 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs font-sans gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            {/* Interactive Dynamic City Switcher & Search Bar (200+ Countries) */}
+            <div className="relative">
+              <button
+                onClick={() => setShowCityPickerDropdown(!showCityPickerDropdown)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-950 hover:bg-slate-850 border border-cyan-500/50 hover:border-cyan-400 rounded-xl text-xs font-mono font-bold text-white transition-all cursor-pointer shadow-sm group"
+                title="Click to Switch City Feed or Search Any City in 200+ Countries"
+              >
+                <span className="text-base">{currentCityConfig.flagEmoji}</span>
+                <span className="text-cyan-300 font-extrabold">{currentCityConfig.cityName}</span>
+                <span className="text-[10px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 hidden xs:inline">
+                  [{selectedCity}]
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 text-cyan-400 transition-transform ${showCityPickerDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showCityPickerDropdown && (
+                <div className="absolute left-0 mt-2 w-72 bg-slate-900 border border-cyan-500/40 rounded-2xl shadow-2xl p-3 z-50 space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
+                  {/* Instant Search Any City (200+ Countries) */}
+                  <form onSubmit={handleCustomCitySearch} className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-cyan-400" />
+                    <input
+                      type="text"
+                      value={citySearchTerm}
+                      onChange={(e) => setCitySearchTerm(e.target.value)}
+                      placeholder="Search any city or country..."
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono focus:outline-none focus:border-cyan-400"
+                      autoFocus
+                    />
+                  </form>
+
+                  {/* Quick Pick Popular Global Hubs */}
+                  <div className="space-y-1 max-h-56 overflow-y-auto scrollbar-thin">
+                    <div className="text-[9px] uppercase font-mono font-bold text-slate-400 px-2 py-0.5">
+                      Featured Global Hubs
+                    </div>
+                    {cities.slice(0, 12).map((city) => (
+                      <button
+                        key={city.cityCode}
+                        onClick={() => {
+                          onCityChange(city.cityCode, city.countryCode);
+                          setShowCityPickerDropdown(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
+                          selectedCity.toUpperCase() === city.cityCode.toUpperCase()
+                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{city.flagEmoji}</span>
+                          <span>{city.cityName}</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-500">[{city.cityCode}]</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <span className="text-amber-300 font-mono text-[11px] font-bold hidden md:inline bg-slate-950/80 px-2.5 py-1 rounded-xl border border-slate-800">
               🕒 {cityLocalTime}
             </span>
           </div>
@@ -610,8 +653,8 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
           {/* Top Floating Badge - Countdown Timer & Watcher Points */}
           <div className="absolute top-4 inset-x-4 flex items-center justify-between z-20 pointer-events-none">
             <div className="bg-slate-950/85 backdrop-blur-md border border-slate-800/80 px-3 py-1.5 rounded-2xl flex items-center gap-2 text-xs font-mono shadow-xl pointer-events-auto">
-              <Clock className="w-4 h-4 text-cyan-400 animate-spin" />
-              <span className="font-black text-white text-sm">{remainingSeconds}s remaining</span>
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+              <span className="font-black text-white text-sm">{remainingSeconds}s Slot Remaining</span>
             </div>
 
             {(userRole === 'paid_watcher' || userRole === 'admin') ? (
