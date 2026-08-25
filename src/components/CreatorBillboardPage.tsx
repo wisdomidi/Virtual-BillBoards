@@ -36,7 +36,7 @@ interface CreatorProfile {
   verified: boolean;
   minBidDollars: number;
   totalEarnedDollars: number;
-  payoutSplitPercent: number; // e.g. 80
+  payoutSplitPercent: number;
   socials?: {
     x?: string;
     youtube?: string;
@@ -45,6 +45,13 @@ interface CreatorProfile {
     instagram?: string;
     website?: string;
   };
+  recentFeed?: Array<{
+    platform: 'x' | 'youtube' | 'twitch' | 'tiktok';
+    text: string;
+    time: string;
+    views: string;
+    likes?: string;
+  }>;
 }
 
 const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
@@ -62,7 +69,23 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     socials: {
       x: 'https://x.com/elonmusk',
       website: 'https://x.com/elonmusk'
-    }
+    },
+    recentFeed: [
+      {
+        platform: 'x',
+        text: 'Starship Flight 6 ready on pad at Starbase. Full reusable booster catch test next.',
+        time: '1h ago',
+        views: '14.2M views',
+        likes: '185K'
+      },
+      {
+        platform: 'x',
+        text: 'Grok 2.5 real-time multimodal vision capabilities rolling out worldwide.',
+        time: '5h ago',
+        views: '8.6M views',
+        likes: '92K'
+      }
+    ]
   },
   mrbeast: {
     handle: 'mrbeast',
@@ -79,7 +102,23 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
       youtube: 'https://youtube.com/@mrbeast',
       x: 'https://x.com/MrBeast',
       tiktok: 'https://tiktok.com/@mrbeast'
-    }
+    },
+    recentFeed: [
+      {
+        platform: 'youtube',
+        text: 'We gave away $1,000,000 to random subscribers who commented on our last video!',
+        time: '4h ago',
+        views: '48M views',
+        likes: '3.1M'
+      },
+      {
+        platform: 'x',
+        text: 'Working on the most insane Beast Games challenge yet. You won\'t believe this one.',
+        time: '1d ago',
+        views: '12.4M views',
+        likes: '140K'
+      }
+    ]
   },
   kaicenat: {
     handle: 'kaicenat',
@@ -96,7 +135,16 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
       twitch: 'https://twitch.tv/kaicenat',
       youtube: 'https://youtube.com/@KaiCenat',
       x: 'https://x.com/KaiCenat'
-    }
+    },
+    recentFeed: [
+      {
+        platform: 'twitch',
+        text: '24HR SUBATHON STREAM IS LIVE RIGHT NOW! SPECIAL CELEBRITY GUEST PULLING UP!',
+        time: '2h ago',
+        views: '3.8M views',
+        likes: '210K'
+      }
+    ]
   },
   ishowspeed: {
     handle: 'ishowspeed',
@@ -112,7 +160,16 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     socials: {
       youtube: 'https://youtube.com/@IShowSpeed',
       x: 'https://x.com/ishowspeedsui'
-    }
+    },
+    recentFeed: [
+      {
+        platform: 'youtube',
+        text: 'IRL Tour Day 4 in Tokyo! Meeting fans live on street.',
+        time: '3h ago',
+        views: '5.2M views',
+        likes: '420K'
+      }
+    ]
   },
   marquesbrownlee: {
     handle: 'marquesbrownlee',
@@ -128,7 +185,16 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     socials: {
       youtube: 'https://youtube.com/@mkbhd',
       x: 'https://x.com/MKBHD'
-    }
+    },
+    recentFeed: [
+      {
+        platform: 'youtube',
+        text: 'Smartphone Camera Awards 2026: The results might genuinely surprise you.',
+        time: '6h ago',
+        views: '2.1M views',
+        likes: '115K'
+      }
+    ]
   },
   naval: {
     handle: 'naval',
@@ -144,7 +210,16 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     socials: {
       x: 'https://x.com/naval',
       website: 'https://nav.al'
-    }
+    },
+    recentFeed: [
+      {
+        platform: 'x',
+        text: 'The best founders of this decade are those who learn how to orchestrate autonomous AI agent swarms.',
+        time: '3h ago',
+        views: '1.8M views',
+        likes: '34K'
+      }
+    ]
   },
   raveparty: {
     handle: 'raveparty',
@@ -160,7 +235,16 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     socials: {
       instagram: 'https://instagram.com',
       website: 'https://livebillboards.lol/raveparty'
-    }
+    },
+    recentFeed: [
+      {
+        platform: 'tiktok',
+        text: 'DJ Lineup drop for Midnight Cyberstage! Submit your visuals to take over the LED wall live.',
+        time: '1h ago',
+        views: '140K views',
+        likes: '12K'
+      }
+    ]
   },
   ethdenver: {
     handle: 'ethdenver',
@@ -176,7 +260,16 @@ const DEFAULT_CREATORS: Record<string, CreatorProfile> = {
     socials: {
       x: 'https://x.com',
       website: 'https://livebillboards.lol/ethdenver'
-    }
+    },
+    recentFeed: [
+      {
+        platform: 'x',
+        text: 'Autonomous AI agents are now bidding live for conference stage airtime! #ETHDenver',
+        time: '2h ago',
+        views: '650K views',
+        likes: '18K'
+      }
+    ]
   }
 };
 
@@ -483,7 +576,7 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
         </div>
       </div>
 
-      {/* Unclaimed Creator Bounty Banner */}
+      {/* Official Creator Verification Banner */}
       <div className="bg-gradient-to-r from-purple-950/80 via-slate-900 to-indigo-950/80 border border-purple-500/50 p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 text-xs shadow-xl">
         <div className="flex items-center gap-3.5">
           <div className="p-3 bg-purple-500/20 text-purple-300 rounded-2xl border border-purple-500/40 shrink-0">
@@ -491,13 +584,13 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
           </div>
           <div className="space-y-0.5">
             <div className="font-black text-white text-sm sm:text-base flex items-center gap-2 flex-wrap">
-              <span>Are you @{creator.handle}?</span>
+              <span>Official Billboard Profile for @{creator.handle}</span>
               <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold">
-                ${creator.totalEarnedDollars.toLocaleString()} ACCRUED
+                {creator.followerCount}
               </span>
             </div>
             <p className="text-slate-300 text-xs">
-              This 24/7 Virtual Billboard is live! Claim your handle to broadcast it on your live stream or venue TV screen and withdraw your 80% creator payouts.
+              Are you @{creator.handle}? Verify your profile to connect your live stream or venue TV screens and activate direct sponsor payouts.
             </p>
           </div>
         </div>
@@ -509,7 +602,7 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
           }}
           className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-black rounded-xl transition-all shadow-lg shrink-0 cursor-pointer text-center"
         >
-          Claim @{creator.handle} (80% Payout)
+          Verify @{creator.handle} Profile
         </button>
       </div>
 
@@ -583,19 +676,19 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
                   </span>
                 </div>
 
-                <div className="bg-emerald-950/90 border border-emerald-500/50 px-3 py-1.5 rounded-xl text-emerald-300 font-mono font-bold backdrop-blur-md text-[11px] flex items-center gap-1">
-                  <Coins className="w-3.5 h-3.5" />
-                  <span>80% Payout to Creator</span>
+                <div className="bg-slate-950/90 border border-cyan-500/40 px-3 py-1.5 rounded-xl text-cyan-300 font-mono font-bold backdrop-blur-md text-[11px] flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                  <span>24/7 Live Broadcast</span>
                 </div>
               </div>
             </div>
 
-            {/* Stream Software Compatibility Banner */}
+            {/* Stream Software & Event Screens Compatibility */}
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2.5">
                 <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
                 <span className="text-slate-300 font-medium">
-                  Compatible with YouTube Live, Twitch, TikTok Live, Kick, Zoom & Stage TVs.
+                  Instant embed on YouTube, Twitch, TikTok Live, Kick, Zoom & Stage TVs.
                 </span>
               </div>
               <button
@@ -605,6 +698,51 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
                 Copy Overlay
               </button>
             </div>
+
+            {/* Live Official Posts & Social Media Stream Widget */}
+            {creator.recentFeed && creator.recentFeed.length > 0 && (
+              <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                    <h4 className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+                      Latest Official Posts & Activity
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    Verified Channel Feed
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {creator.recentFeed.map((post, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 bg-slate-900/90 border border-slate-800 hover:border-cyan-500/30 rounded-xl transition-all space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                        <span className="flex items-center gap-1 font-bold text-cyan-300">
+                          {post.platform === 'x' && <span>𝕏 Official Post</span>}
+                          {post.platform === 'youtube' && <span>▶ YouTube Upload</span>}
+                          {post.platform === 'twitch' && <span>🟣 Twitch Broadcast</span>}
+                          {post.platform === 'tiktok' && <span>🎵 TikTok Feed</span>}
+                        </span>
+                        <span>{post.time}</span>
+                      </div>
+
+                      <p className="text-xs text-slate-200 leading-relaxed font-sans">
+                        "{post.text}"
+                      </p>
+
+                      <div className="flex items-center gap-3 text-[10px] font-mono text-slate-500 pt-0.5">
+                        <span>👁 {post.views}</span>
+                        {post.likes && <span>❤️ {post.likes}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
