@@ -561,16 +561,16 @@ export default function App() {
                   );
                 }
               }
-            } else if (msg.type === 'SLOT_BURN_EVENT') {
+            } else if (msg.type === 'SLOT_LIVE_START' || msg.type === 'SLOT_BURN_EVENT') {
               fetchActiveSlot(selectedCity, selectedCountry);
-              if (currentUser?.uid && msg.payload?.userId === currentUser.uid) {
-                setWalletBalanceCents(msg.payload.newWalletBalanceCents);
+              const isMyAd = (currentUser?.uid && msg.payload?.userId === currentUser.uid) || (msg.payload?.userId === effectiveUid);
+              if (isMyAd) {
                 addToast(
                   'success',
-                  `🔥 Ad Live on Billboard [${msg.payload.cityCode}]!`,
-                  `"${msg.payload.adTitle}" played for 15s on the digital screen. $${msg.payload.burnedDollars} burned. Remaining balance: $${msg.payload.newWalletBalanceDollars}.`
+                  `🔴 Your Ad is Live on Screen Now [${msg.payload.cityCode}]!`,
+                  `"${msg.payload.adTitle}" is now broadcasting live worldwide! Look at the billboard now (15s broadcast).`
                 );
-                fetchWallet(currentUser.uid);
+                fetchWallet(effectiveUid);
               }
             } else if (msg.type === 'TELEMETRY_LOG') {
               setTelemetryLogs((prev) => [msg.payload, ...prev].slice(0, 50));

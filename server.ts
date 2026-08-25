@@ -894,12 +894,11 @@ setInterval(() => {
     currentSlotId = `SLOT-${Date.now().toString().slice(-6)}`;
 
     // Collect all active geographic room zones needing slot recalculation
-    const activeRooms = new Set<string>([
-      'room_MY_KUL',
-      'room_JP_TYO',
-      'room_US_NYC',
-      'room_UK_LON'
-    ]);
+    const activeRooms = new Set<string>();
+    activeCitiesStore.forEach(c => {
+      activeRooms.add(`room_${c.countryCode.toUpperCase()}_${c.cityCode.toUpperCase()}`);
+    });
+    activeRooms.add('room_GLOBAL_GLOBAL');
 
     // Include dynamic rooms where connected clients are currently present
     clientGeoMap.forEach((session) => {
@@ -926,37 +925,25 @@ setInterval(() => {
         updatedAt: new Date().toISOString()
       };
 
-      // THE SLOT BURN (PAY-PER-SLOT & 1-TOKEN 0.1¢ PLAY ENGINE):
-      // Highest bid at 15s timer mark wins slot and tokens are burned from user wallet in Firestore
-      if (!winningAd.isHouseAd && winningAd.userId && winningAd.userId !== 'house_ad' && (winningAd.bidAmountTokens || winningAd.bidAmountCents > 0)) {
-        const burnTokens = winningAd.bidAmountTokens || Math.max(1, Math.round((winningAd.bidAmountCents || 1) * 10));
-        const burnCents = Math.max(1, Math.round(burnTokens / 10));
-        const burnDesc = `Slot Burn: 15s Broadcast of "${winningAd.title}" on ${cityCode} Billboard (${burnTokens} Tokens / ${(burnTokens * 0.001).toFixed(3)} USD)`;
-
-        deductUserTokensInFirestore(winningAd.userId, burnTokens, burnDesc, cityCode, currentSlotId).then((res) => {
-          logTelemetry('SLOT_BURN_EXECUTED', `🔥 SLOT BURN: ${burnTokens.toLocaleString()} tokens ($${(burnTokens * 0.001).toFixed(3)}) burned from user [${winningAd.userId}] for slot ${currentSlotId} in [${cityCode}]. Remaining balance: ${res.newTokens.toLocaleString()} tokens ($${(res.newCents / 100).toFixed(2)})`);
-
-          broadcastToAll({
-            type: 'SLOT_BURN_EVENT',
-            payload: {
-              slotId: currentSlotId,
-              cityCode,
-              userId: winningAd.userId,
-              burnedTokens: burnTokens,
-              burnedCents: burnCents,
-              burnedDollars: (burnTokens * 0.001).toFixed(3),
-              newTokensBalance: res.newTokens,
-              newWalletBalanceCents: res.newCents,
-              newWalletBalanceDollars: (res.newCents / 100).toFixed(2),
-              adTitle: winningAd.title
-            }
-          });
+      // Real-time live takeover broadcast announcement
+      if (!winningAd.isHouseAd && winningAd.userId && winningAd.userId !== 'house_ad') {
+        broadcastToAll({
+          type: 'SLOT_LIVE_START',
+          payload: {
+            slotId: currentSlotId,
+            cityCode,
+            userId: winningAd.userId,
+            adTitle: winningAd.title,
+            imageUrl: winningAd.imageUrl,
+            bidAmountDollars: (winningAd.bidAmountCents / 100).toFixed(2),
+            remainingSeconds: platformSettings.slotDurationSeconds
+          }
         });
 
         // Also check if this winning ad was placed by an Autonomous AI Bidder Agent
-        handleSlotBurnForAgent(winningAd, burnCents, cityCode, currentSlotId, broadcastToAll, logTelemetry);
+        handleSlotBurnForAgent(winningAd, winningAd.bidAmountCents, cityCode, currentSlotId, broadcastToAll, logTelemetry);
 
-        // Remove burned bid from queue as slot has been consumed
+        // Remove consumed bid from queue so next bidder takes screen on next tick
         const queueKey = `billboard:queue:${cityCode.toUpperCase()}`;
         if (redisQueues[queueKey]) {
           redisQueues[queueKey] = redisQueues[queueKey].filter(item => item.id !== winningAd.id);
