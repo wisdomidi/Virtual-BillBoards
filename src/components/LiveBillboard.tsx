@@ -154,6 +154,11 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
     return () => clearInterval(timer);
   }, [userBroadcast]);
 
+  // Reset image error state whenever active slot or winning ad rotates
+  useEffect(() => {
+    setImageError(false);
+  }, [slotData?.winningAd?.id, slotData?.slotId]);
+
   const [cityLocalTime, setCityLocalTime] = useState<string>(() => getCityLocalTime(selectedCity));
 
   useEffect(() => {
@@ -708,9 +713,25 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
               />
             )
           ) : (
-            <div className="p-8 text-center text-slate-500">
-              <AlertTriangle className="w-12 h-12 mx-auto mb-2 text-amber-500" />
-              <p className="font-bold text-white">{winningAd.title}</p>
+            <div className="relative w-full h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 flex flex-col items-center justify-center p-8 text-center overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-500/15 via-transparent to-transparent pointer-events-none" />
+              <img
+                src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
+                alt="Cyber Billboard Backdrop"
+                className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-luminosity"
+              />
+              <div className="relative z-10 space-y-3 max-w-xl">
+                <span className="inline-flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-mono px-3.5 py-1 rounded-full uppercase tracking-wider font-bold shadow-lg">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  {winningAd.advertiserName || 'Virtual Billboard Broadcast'}
+                </span>
+                <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-white leading-tight drop-shadow-md">
+                  {winningAd.title}
+                </h3>
+                <p className="text-xs text-slate-300 font-mono tracking-wide">
+                  🔴 Live 24/7 Global Screen Takeover
+                </p>
+              </div>
             </div>
           )}
 
