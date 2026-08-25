@@ -13,7 +13,8 @@ import {
   Coins,
   Plus,
   Wifi,
-  Crown
+  Crown,
+  ExternalLink
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -105,58 +106,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveTab('live')}
           />
 
-          {/* Right Action Controls: City Picker, Ad Wallet, My Ads, Claim @Handle, Sign In */}
+          {/* Right Action Controls: Ad Wallet, My Ads, Claim @Handle, Sign In */}
           <div className="flex items-center gap-1.5 sm:gap-2.5">
-            {/* City Selection Dropdown (No clock clutter) */}
-            <div className="relative">
-              <button
-                onClick={() => setShowCityMenu(!showCityMenu)}
-                className="px-2.5 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-xs font-bold text-slate-200 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                title="Select Global City or Orbital Feed"
-              >
-                <span className="text-sm">{currentCityObj.flag}</span>
-                <span className="font-mono text-cyan-400 font-extrabold">{currentCityObj.code}</span>
-                <span className="hidden md:inline text-slate-300 text-[11px]">{currentCityObj.name}</span>
-                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showCityMenu ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Dropdown Menu */}
-              {showCityMenu && (
-                <div className="absolute right-0 mt-2 w-60 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 z-50 space-y-1 max-h-80 overflow-y-auto scrollbar-thin">
-                  <div className="text-[10px] uppercase font-mono font-bold text-slate-400 px-3 py-1 flex items-center justify-between border-b border-slate-800">
-                    <span>GLOBAL SCREEN FEEDS</span>
-                    <span className="text-emerald-400 text-[9px]">LIVE</span>
-                  </div>
-                  {TOP_CITIES_LIST.map((c) => {
-                    const isSel = selectedCity.toUpperCase() === c.code;
-                    return (
-                      <button
-                        key={c.code}
-                        onClick={() => {
-                          onCityChange(c.code, c.country);
-                          setShowCityMenu(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
-                          isSel
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black'
-                            : 'text-slate-300 hover:bg-slate-800 hover:text-white font-medium'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">{c.flag}</span>
-                          <div>
-                            <span className="font-bold block leading-tight">{c.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">[{c.code}]</span>
-                          </div>
-                        </div>
-                        {isSel && <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
             {/* Ad Wallet Top-Up Button */}
             <button
               id="navbar-arcade-token-wallet-btn"
@@ -233,31 +184,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="hidden sm:inline">Sign In</span>
               </button>
             )}
-
-            {/* Live Feed Event Preview Launcher */}
-            <button
-              onClick={() => {
-                const previewUrl = `/?mode=screen_only&city=${selectedCity}`;
-                window.open(previewUrl, '_blank');
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all hover:scale-105 cursor-pointer shadow-md shrink-0 ${
-                isConnected
-                  ? 'bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 border-emerald-500/50'
-                  : 'bg-amber-950/80 hover:bg-amber-900 text-amber-400 border-amber-800/50'
-              }`}
-              title="Open Standalone Live Screen for Events, TVs & Projectors"
-            >
-              <Wifi className={`w-3 h-3 ${isConnected ? 'text-emerald-400' : 'text-amber-400'}`} />
-              <span className="font-extrabold text-[11px] hidden sm:inline">{isConnected ? 'LIVE' : 'CONN'}</span>
-              <span className="text-[9px] bg-emerald-900 border border-emerald-500/40 text-emerald-300 px-1 py-0.2 rounded font-sans font-bold uppercase">
-                ↗
-              </span>
-            </button>
           </div>
         </div>
 
-        {/* Clean, Streamlined Navigation Bar (Only Core Live Interactive Tabs) */}
-        <nav className="flex space-x-2 overflow-x-auto pb-2 scrollbar-none border-t border-slate-800/60 pt-2">
+        {/* Clean, Streamlined Navigation Bar */}
+        <nav className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none border-t border-slate-800/60 pt-2">
           {coreTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -276,6 +207,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             );
           })}
+
+          {/* Dedicated Live Preview Button Next to Core Tabs */}
+          <button
+            onClick={() => {
+              const previewUrl = `/?mode=screen_only&city=${selectedCity}`;
+              window.open(previewUrl, '_blank');
+            }}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 shadow-sm group ml-auto sm:ml-2"
+            title="Open Pure Standalone Live Billboard Screen in New Tab for Events, TVs & Stages"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>Live Preview</span>
+            <ExternalLink className="w-3 h-3 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+          </button>
         </nav>
       </div>
     </header>

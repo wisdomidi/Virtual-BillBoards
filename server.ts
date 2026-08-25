@@ -4364,6 +4364,16 @@ async function startServer() {
     }
   });
 
+  app.get(['/favicon.svg', '/favicon.ico'], (req, res) => {
+    const faviconPath = path.join(process.cwd(), 'public', 'favicon.svg');
+    if (fs.existsSync(faviconPath)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.type('image/svg+xml').sendFile(faviconPath);
+    } else {
+      res.status(404).send('Favicon not found');
+    }
+  });
+
   app.get('/sitemap.xml', (req, res) => {
     const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
     if (fs.existsSync(sitemapPath)) {
