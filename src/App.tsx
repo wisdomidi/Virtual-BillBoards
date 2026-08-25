@@ -673,6 +673,7 @@ export default function App() {
               currentUser={currentUser}
               userRole={userRole}
               tokensBalance={tokensBalance}
+              userId={effectiveUid}
             />
           </div>
         ) : (

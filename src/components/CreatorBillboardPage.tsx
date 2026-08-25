@@ -283,6 +283,7 @@ interface CreatorBillboardPageProps {
   currentUser: any;
   userRole: UserRole;
   tokensBalance: number;
+  userId?: string;
 }
 
 export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
@@ -292,7 +293,8 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
   addToast,
   currentUser,
   userRole,
-  tokensBalance
+  tokensBalance,
+  userId
 }) => {
   const cleanHandle = creatorHandle.replace(/^@/, '').toLowerCase();
   const creator: CreatorProfile = DEFAULT_CREATORS[cleanHandle] || {
@@ -410,10 +412,11 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
     }
 
     setIsSubmitting(true);
+    const effectiveUid = userId || currentUser?.uid || (typeof localStorage !== 'undefined' ? localStorage.getItem('vb_guest_uid') : null) || 'guest_default';
     try {
       const res = await fetch('/api/bid', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-uid': currentUser?.uid || 'guest_user' },
+        headers: { 'Content-Type': 'application/json', 'x-user-uid': effectiveUid },
         body: JSON.stringify({
           title: bidTitle,
           imageUrl: bidImageUrl,
@@ -422,6 +425,7 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
           cityCode: 'GLOBAL',
           countryCode: 'GLOBAL',
           creatorHandle: creator.handle,
+          userId: effectiveUid,
           ctaType: bidCtaUrl ? 'website' : 'none',
           ctaUrl: bidCtaUrl || undefined
         })

@@ -423,7 +423,7 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
     const landingPageUrl = ctaType === 'website' ? ctaUrl : undefined;
     const whatsappLink = ctaType === 'whatsapp' ? ctaUrl : undefined;
 
-    const uid = currentUser?.uid || 'default_user';
+    const uid = currentUser?.uid || (typeof localStorage !== 'undefined' ? localStorage.getItem('vb_guest_uid') : null) || 'guest_default';
     const advertiserDisplayName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Direct Advertiser';
 
     try {

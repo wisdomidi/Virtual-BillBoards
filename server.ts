@@ -2821,6 +2821,14 @@ app.get('/api/wallet', handleWalletGet);
 app.get('/api/wallet/balance', handleWalletGet);
 
 app.post('/api/wallet/topup', async (req, res) => {
+  const m2mAuth = authenticateM2MRequest(req);
+  if (!m2mAuth.authorized) {
+    return res.status(403).json({
+      success: false,
+      error: 'Direct wallet top-ups are restricted. All customer reloads must proceed through verified Stripe Hosted Checkout.'
+    });
+  }
+
   const userId = (req.headers['x-user-uid'] as string) || req.body.userId || 'default_user';
   const { amountDollars, amountCents } = req.body;
   let addedCents = 0;
@@ -3110,15 +3118,11 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
       });
     }
 
-    // Fallback response when STRIPE_SECRET_KEY is missing
-    return res.status(200).json({
-      success: true,
+    // Stripe key not configured on server
+    return res.status(503).json({
+      success: false,
       isConfigured: false,
-      fallbackMode: true,
-      amountCents: cents,
-      amountDollars: (cents / 100).toFixed(2),
-      message: 'STRIPE_SECRET_KEY environment variable is not configured. Direct wallet credit applied for preview mode.',
-      instructions: 'To process live Stripe cards, add STRIPE_SECRET_KEY in AI Studio secrets or .env file.'
+      error: 'Stripe payments are not configured on this server. Please ensure STRIPE_SECRET_KEY or STRIPE_LIVE_SECRET_KEY is configured in server environment secrets.'
     });
 
   } catch (err: any) {

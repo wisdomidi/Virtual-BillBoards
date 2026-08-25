@@ -153,15 +153,8 @@ export const WalletModal: React.FC<WalletModalProps> = ({
         // Redirect directly to Stripe Hosted Checkout
         window.location.href = data.url;
         return;
-      } else if (data.fallbackMode || !data.url) {
-        // Safe direct credit fallback if Stripe test keys in simulation
-        await onTopUp(selectedAmount);
-        setSuccessMessage(`⚡ Top-up applied! +${tokenCalc.total.toLocaleString()} Ad Tokens added to your wallet.`);
-        setTimeout(() => {
-          onClose();
-        }, 1500);
       } else {
-        setErrorMessage(data.error || 'Failed to initialize Stripe Checkout.');
+        setErrorMessage(data.error || 'Failed to initialize Stripe Checkout. Please verify payment credentials.');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Payment service unavailable. Please try again.');
