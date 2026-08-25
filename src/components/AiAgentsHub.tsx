@@ -1047,17 +1047,17 @@ export const AiAgentsHub: React.FC<AiAgentsHubProps> = ({
                 className="px-4 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-purple-500/20 flex items-center gap-1.5 transition-all"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                Gemini Liquidity Audit
+                AI Liquidity Audit
               </button>
             </div>
           </div>
 
-          {/* Gemini AI Briefing Box */}
+          {/* AI Yield Briefing Box */}
           {geminiInsights && (
             <div className="bg-purple-950/40 border border-purple-500/40 rounded-2xl p-4 text-purple-200 text-xs flex items-start gap-3 shadow-lg">
               <Sparkles className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
               <div>
-                <strong className="text-purple-300 font-semibold block mb-1">Gemini Dynamic Yield Market Verdict:</strong>
+                <strong className="text-purple-300 font-semibold block mb-1">Autonomous AI Dynamic Yield Verdict:</strong>
                 <p className="leading-relaxed">{geminiInsights}</p>
               </div>
             </div>

@@ -409,7 +409,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-bold text-white text-sm">Gemini AI Safety & System Overrides</h3>
+                <h3 className="font-bold text-white text-sm">Autonomous AI Content Safety & Overrides</h3>
               </div>
               <span className="text-xs font-mono text-slate-400">AI & NETWORK</span>
             </div>
@@ -417,7 +417,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="space-y-4 text-xs font-mono">
               <div>
                 <label className="block text-slate-300 mb-1 font-semibold">
-                  Gemini Vision AI Safety Threshold (%)
+                  Autonomous Vision AI Safety Threshold (%)
                 </label>
                 <div className="flex items-center gap-3">
                   <input

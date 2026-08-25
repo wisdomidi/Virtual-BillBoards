@@ -136,7 +136,7 @@ export const RegionalAnalyticsCharts: React.FC<RegionalAnalyticsChartsProps> = (
           <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
             <div className="text-slate-500 font-bold flex items-center gap-1.5 text-[11px]">
               <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span>Gemini Pass Rate</span>
+              <span>AI Safety Pass Rate</span>
             </div>
             <div className="text-xl font-black text-amber-300">
               {data.realtimeMetrics.geminiPassRatePercent}%
@@ -355,7 +355,7 @@ export const RegionalAnalyticsCharts: React.FC<RegionalAnalyticsChartsProps> = (
             </div>
 
             <p className="text-slate-400 text-[11px]">
-              Sub-millisecond event stream logging Redis ZADD operations, WebSocket events, and Gemini safety checks.
+              Sub-millisecond event stream logging Redis ZADD operations, WebSocket events, and automated AI safety audits.
             </p>
 
             {/* Telemetry Log Stream */}

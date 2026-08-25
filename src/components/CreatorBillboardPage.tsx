@@ -23,7 +23,9 @@ import {
   Award,
   Zap,
   HelpCircle,
-  MessageSquare
+  MessageSquare,
+  Users,
+  Eye
 } from 'lucide-react';
 
 interface CreatorProfile {
@@ -572,6 +574,52 @@ export const CreatorBillboardPage: React.FC<CreatorBillboardPageProps> = ({
               {copiedEmbed ? <CheckCircle2 className="w-4 h-4" /> : <Tv className="w-4 h-4" />}
               <span>{copiedEmbed ? 'Embed Copied!' : 'Stream Embed URL'}</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Broadcast Audience Metrics Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-3.5 bg-slate-900/90 border border-cyan-500/30 rounded-2xl flex items-center gap-3 shadow-lg">
+          <div className="p-2 bg-cyan-500/20 text-cyan-400 rounded-xl shrink-0">
+            <Users className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-400 font-mono uppercase">Live Screen Feed</div>
+            <div className="text-xs sm:text-sm font-black text-white flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>Broadcasting</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl flex items-center gap-3 shadow-lg">
+          <div className="p-2 bg-purple-500/20 text-purple-400 rounded-xl shrink-0">
+            <Eye className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-400 font-mono uppercase">Audience Scale</div>
+            <div className="text-xs sm:text-sm font-black text-purple-300 font-mono">{creator.followerCount}</div>
+          </div>
+        </div>
+
+        <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl flex items-center gap-3 shadow-lg">
+          <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl shrink-0">
+            <Zap className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-400 font-mono uppercase">Slot Frequency</div>
+            <div className="text-xs sm:text-sm font-black text-amber-300 font-mono">15s Guaranteed</div>
+          </div>
+        </div>
+
+        <div className="p-3.5 bg-slate-900/90 border border-emerald-500/30 rounded-2xl flex items-center gap-3 shadow-lg">
+          <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl shrink-0">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-400 font-mono uppercase">Content Moderation</div>
+            <div className="text-xs sm:text-sm font-black text-emerald-400 font-mono">Autonomous AI</div>
           </div>
         </div>
       </div>

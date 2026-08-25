@@ -143,7 +143,7 @@ export const AdLibrary: React.FC<AdLibraryProps> = ({
         addToast({
           type: 'warning',
           title: 'Re-Deploy Failed',
-          message: data.error || 'Gemini Safety Audit rejected the creative submission.'
+          message: data.error || 'Automated AI Safety Audit rejected the creative submission.'
         });
       }
     } catch (err: any) {
@@ -196,7 +196,7 @@ export const AdLibrary: React.FC<AdLibraryProps> = ({
       addToast({
         type: 'success',
         title: 'New Campaign Saved to Vault',
-        message: `Saved '${newTitle}' to your Ad Library with 98/100 Gemini Brand Safety verification.`,
+        message: `Saved '${newTitle}' to your Ad Library with 98/100 AI Brand Safety verification.`,
         cityCode: newCity,
         bidAmountCents: cents
       });

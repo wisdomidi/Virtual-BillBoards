@@ -588,7 +588,7 @@ export default function App() {
                 }}
                 className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <span>← Back to 20 Global City Billboards</span>
+                <span>← Back to Global City Billboards</span>
               </button>
               <button
                 onClick={() => setIsClaimModalOpen(true)}
@@ -683,7 +683,30 @@ export default function App() {
 
         {/* VIEW 3: CLEAN HOMEPAGE LIVE BILLBOARD */}
         {activeTab === 'live' && (
-          <div className="space-y-8">
+          <div className="space-y-6">
+            {/* Live Global Network Pulse Bar */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-cyan-500/30 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-4 text-xs font-mono shadow-lg flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span className="font-bold text-white uppercase tracking-wider text-[11px]">
+                  Live Network Pulse:
+                </span>
+                <span className="text-cyan-300 font-bold">200+ Global City Feeds Active</span>
+              </div>
+
+              <div className="flex items-center gap-4 text-slate-400 text-[11px] flex-wrap">
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <span className="text-amber-400">⚡</span> 15s Guaranteed Rotations
+                </span>
+                <span className="hidden sm:inline text-slate-700">•</span>
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <span className="text-cyan-400">🛡️</span> Autonomous AI Safety Filter
+                </span>
+                <span className="hidden md:inline text-slate-700">•</span>
+                <span className="text-emerald-400 font-bold">99.99% Network Uptime</span>
+              </div>
+            </div>
+
             <LiveBillboard
               slotData={slotData}
               selectedCity={selectedCity}
