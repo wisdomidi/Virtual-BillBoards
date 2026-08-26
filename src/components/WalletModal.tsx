@@ -143,7 +143,8 @@ export const WalletModal: React.FC<WalletModalProps> = ({
           amountDollars: selectedAmount,
           userId: userId || undefined,
           description: `Billboard Ad Wallet Reload: $${selectedAmount.toFixed(2)} USD (+${tokenCalc.total.toLocaleString()} Tokens)`,
-          campaignTitle: 'Billboard Ad Tokens'
+          campaignTitle: 'Billboard Ad Tokens',
+          returnUrl: typeof window !== 'undefined' ? window.location.origin : undefined
         })
       });
 

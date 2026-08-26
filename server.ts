@@ -3169,10 +3169,24 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     else if (typeof amountDollars === 'string' && parseFloat(amountDollars) > 0) cents = Math.round(parseFloat(amountDollars) * 100);
     else cents = 5000; // Default $50.00
 
-    const host = req.headers.host || 'localhost:8080';
-    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('0.0.0.0');
-    const protocol = req.headers['x-forwarded-proto'] || (isLocalhost ? 'http' : 'https');
-    const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
+    let baseUrl = 'https://www.livebillboards.lol';
+    if (req.body.returnUrl && typeof req.body.returnUrl === 'string' && req.body.returnUrl.startsWith('http')) {
+      baseUrl = req.body.returnUrl.replace(/\/+$/, '');
+    } else if (req.headers.origin && typeof req.headers.origin === 'string' && req.headers.origin.startsWith('http')) {
+      baseUrl = req.headers.origin.replace(/\/+$/, '');
+    } else if (req.headers.referer && typeof req.headers.referer === 'string' && req.headers.referer.startsWith('http')) {
+      try {
+        const parsed = new URL(req.headers.referer);
+        baseUrl = parsed.origin;
+      } catch (_) {}
+    } else if (process.env.APP_URL) {
+      baseUrl = process.env.APP_URL.replace(/\/+$/, '');
+    } else {
+      const forwardedHost = (req.headers['x-forwarded-host'] as string) || req.headers.host || 'www.livebillboards.lol';
+      const isLocalhost = forwardedHost.includes('localhost') || forwardedHost.includes('127.0.0.1') || forwardedHost.includes('0.0.0.0');
+      const protocol = req.headers['x-forwarded-proto'] || (isLocalhost ? 'http' : 'https');
+      baseUrl = `${protocol}://${forwardedHost}`;
+    }
 
     // If Stripe secret key is present, create a real Stripe Checkout session
     const resolvedKey = getResolvedStripeKey();
