@@ -153,6 +153,22 @@ function detectCreatorHandleFromUrl(): string | null {
   return null;
 }
 
+function detectInitialTabFromUrl(): TabType {
+  if (typeof window === 'undefined') return 'live';
+  const path = window.location.pathname.toLowerCase().replace(/^\//, '');
+  if (path === 'webmcp') return 'webmcp';
+  if (path === 'leaderboard') return 'leaderboard';
+  if (path === 'streamer') return 'streamer';
+  if (path === 'watcher') return 'watcher';
+  if (path === 'ad_library') return 'ad_library';
+  if (path === 'ai_agents') return 'ai_agents';
+  if (path === 'api_docs') return 'api_docs';
+  if (path === 'blog') return 'blog';
+  if (path === 'analytics') return 'analytics';
+  if (path === 'admin') return 'admin';
+  return 'live';
+}
+
 export default function App() {
   // Check if current view is a dedicated Full Screen Live Billboard Preview (for Events, Projectors, Live Stream Displays)
   const isScreenOnlyMode =
@@ -171,11 +187,26 @@ export default function App() {
 
   const initialGeo = detectInitialUserCity();
   const [userRole, setUserRole] = useState<UserRole>('advertiser');
-  const [activeTab, setActiveTab] = useState<TabType>('live');
+  const [activeTab, setActiveTab] = useState<TabType>(() => detectInitialTabFromUrl());
 
   // Creator Vanity Billboard Routing State (e.g. livebillboards.lol/@elonmusk)
   const [selectedCreatorHandle, setSelectedCreatorHandle] = useState<string | null>(() => detectCreatorHandleFromUrl());
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
+
+  // Sync tab with browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const creator = detectCreatorHandleFromUrl();
+      if (creator) {
+        setSelectedCreatorHandle(creator);
+      } else {
+        setSelectedCreatorHandle(null);
+        setActiveTab(detectInitialTabFromUrl());
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Real Firebase User Profile State
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -624,7 +655,8 @@ export default function App() {
           setSelectedCreatorHandle(null);
           setActiveTab(tab);
           if (typeof window !== 'undefined') {
-            window.history.pushState({}, '', '/');
+            const targetPath = tab === 'live' ? '/' : `/${tab}`;
+            window.history.pushState({}, '', targetPath);
           }
         }}
         userRole={userRole}
