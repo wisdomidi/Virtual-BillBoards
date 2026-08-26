@@ -414,22 +414,27 @@ export default function App() {
   };
 
   const handlePlaceBidQuick = async (
-    amountDollars: number,
-    cityCode: string,
-    countryCode: string,
     title: string,
     imageUrl: string,
+    amountDollars: number | string,
+    cityCode: string,
+    countryCode: string,
     landingPageUrl?: string,
     whatsappLink?: string,
-    qrCodeUrl?: string
+    qrCodeUrl?: string,
+    mediaType: 'image' | 'video' = 'image',
+    ctaType: 'website' | 'whatsapp' | 'none' = 'website',
+    ctaUrl?: string
   ): Promise<{ success: boolean; message: string }> => {
     const uid = effectiveUid;
     const advertiserName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Fast Bidding Console';
+    const parsedDollars = typeof amountDollars === 'string' ? parseFloat(amountDollars) || 1 : amountDollars;
+    const cents = Math.max(1, Math.round(parsedDollars * 100));
+    const tokens = Math.max(1, Math.round(cents * 10)); // 1 token = 0.1¢ = $0.001 USD
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 45000);
     try {
-      const cents = Math.round(amountDollars * 100);
-      const res = await fetch('/api/bid', {
+      const res = await fetch('/api/bids/submit', {
         method: 'POST',
         signal: controller.signal,
         headers: {
@@ -439,10 +444,15 @@ export default function App() {
         body: JSON.stringify({
           title,
           imageUrl,
-          landingPageUrl,
-          whatsappLink,
+          landingPageUrl: landingPageUrl || (ctaType === 'website' ? ctaUrl : undefined),
+          whatsappLink: whatsappLink || (ctaType === 'whatsapp' ? ctaUrl : undefined),
           qrCodeUrl,
+          mediaType,
+          ctaType,
+          ctaUrl: ctaUrl || landingPageUrl || whatsappLink,
+          bidAmountDollars: parsedDollars.toFixed(2),
           bidAmountCents: cents,
+          bidAmountTokens: tokens,
           targetCityCode: cityCode,
           targetCountryCode: countryCode,
           advertiserName,
@@ -468,8 +478,8 @@ export default function App() {
         }
         await fetchWallet(uid);
         await fetchActiveSlot(cityCode, countryCode);
-        addToast('success', 'Bid Placed in Seconds!', `Your bid of $${amountDollars.toFixed(2)} is active for [${cityCode}]!`);
-        return { success: true, message: `Your bid of $${amountDollars.toFixed(2)} is now live in [${cityCode}]!` };
+        addToast('success', 'Bid Placed in Seconds!', `Your bid of $${parsedDollars.toFixed(2)} is active for [${cityCode}]!`);
+        return { success: true, message: `Your bid of $${parsedDollars.toFixed(2)} is now live in [${cityCode}]!` };
       } else {
         if (res.status === 402 || (data.error && data.error.includes('Insufficient'))) {
           setIsWalletModalOpen(true);
