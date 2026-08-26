@@ -41,8 +41,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
   const mapAuthError = (err: any): string => {
     const msg = err?.message || err?.code || '';
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'your current domain';
     if (msg.includes('auth/unauthorized-domain')) {
-      return "⚠️ Google Sign-In requires adding 'livebillboards.lol' to Firebase Console -> Authentication -> Settings -> Authorized Domains. In the meantime, please sign in or register with Email & Password below!";
+      return `⚠️ Google Sign-In: The domain "${currentHost}" is not authorized yet. Please add "${currentHost}" to Firebase Console -> Authentication -> Settings -> Authorized Domains. In the meantime, you can sign in with Email & Password below!`;
     }
     if (msg.includes('auth/email-already-in-use')) {
       return "An account with this email already exists. Please switch to 'Sign In' or use a different email.";
