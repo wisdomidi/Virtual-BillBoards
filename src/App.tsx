@@ -23,6 +23,7 @@ import { WalletModal } from './components/WalletModal';
 import { UserCampaignsModal } from './components/UserCampaignsModal';
 import { ToastContainer } from './components/ToastNotification';
 import { AuthModal } from './components/AuthModal';
+import { AccountModal } from './components/AccountModal';
 import { StreamerObsOverlay } from './components/StreamerObsOverlay';
 import { CreatorBillboardPage } from './components/CreatorBillboardPage';
 import { ClaimUsernameModal } from './components/ClaimUsernameModal';
@@ -211,6 +212,7 @@ export default function App() {
   // Real Firebase User Profile State
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   const effectiveUid = currentUser?.uid || getOrCreateGuestId();
 
@@ -235,7 +237,7 @@ export default function App() {
           }
         }
       } catch (e) {
-        // Safe fallback
+        console.warn('Geo detection error:', e);
       }
     };
     fetchServerGeo();
@@ -261,10 +263,10 @@ export default function App() {
 
   const tokensBalance = Math.round(walletBalanceCents * 10);
 
-  // Firebase Auth State Listener with Auto Anonymous Authentication
+  // Firebase Auth State Listener (Honors Explicit Sign Out)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
+      if (user && !user.isAnonymous) {
         const profile = await syncUserProfile(user, 'advertiser');
         setCurrentUser(profile);
         setUserRole(profile.role);
@@ -275,13 +277,8 @@ export default function App() {
           }
         }
       } else {
-        try {
-          await signInAnonymously(auth);
-        } catch (e) {
-          console.warn('Anonymous sign-in fallback:', e);
-          setCurrentUser(null);
-          setUserRole('guest');
-        }
+        setCurrentUser(null);
+        setUserRole('guest');
       }
     });
     return () => unsubscribe();
@@ -677,6 +674,7 @@ export default function App() {
         tokensBalance={tokensBalance}
         currentUser={currentUser}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenAccountModal={() => setIsAccountModalOpen(true)}
         onSignOut={handleSignOut}
       />
 
@@ -916,9 +914,25 @@ export default function App() {
           onAuthSuccess={(profile) => {
             setCurrentUser(profile);
             setUserRole(profile.role);
-            setWalletBalanceCents(profile.walletBalanceCents || 25000);
+            if (typeof profile.walletBalanceCents === 'number') {
+              setWalletBalanceCents(profile.walletBalanceCents);
+            }
             addToast('success', 'Authenticated Successfully', `Welcome back, ${profile.displayName || profile.email}! Role: ${profile.role}`);
           }}
+        />
+
+        {/* Dedicated My Account Hub Modal */}
+        <AccountModal
+          isOpen={isAccountModalOpen}
+          onClose={() => setIsAccountModalOpen(false)}
+          currentUser={currentUser}
+          walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
+          tokensBalance={tokensBalance}
+          transactions={walletTransactions}
+          onOpenWalletModal={() => setIsWalletModalOpen(true)}
+          onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
+          onOpenClaimModal={() => setIsClaimModalOpen(true)}
+          onSignOut={handleSignOut}
         />
 
         {/* Trending Creator Billboards Carousel & Social Discovery (Desktop/Tablet only) */}

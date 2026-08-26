@@ -33,6 +33,7 @@ interface NavbarProps {
   tokensBalance?: number;
   currentUser?: { uid: string; email: string; displayName: string; role: UserRole } | null;
   onOpenAuthModal?: () => void;
+  onOpenAccountModal?: () => void;
   onSignOut?: () => void;
 }
 
@@ -49,6 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   tokensBalance = 0,
   currentUser,
   onOpenAuthModal,
+  onOpenAccountModal,
   onSignOut
 }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -136,19 +138,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Auth Profile / Sign In */}
               {currentUser ? (
                 <div className="flex items-center gap-1.5">
-                  <div className="hidden sm:flex bg-slate-950 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded-xl items-center gap-2 shadow-inner">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-400 via-teal-400 to-blue-500 flex items-center justify-center font-black text-slate-950 text-[11px] shadow-sm shrink-0">
+                  <button
+                    onClick={onOpenAccountModal}
+                    className="hidden sm:flex bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-cyan-500/50 px-2.5 py-1 rounded-xl items-center gap-2 shadow-inner transition-all cursor-pointer group"
+                    title="Open My Account Hub"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-400 via-teal-400 to-blue-500 flex items-center justify-center font-black text-slate-950 text-[11px] shadow-sm shrink-0 group-hover:scale-105 transition-transform">
                       {currentUser.displayName ? currentUser.displayName[0].toUpperCase() : (currentUser.email ? currentUser.email[0].toUpperCase() : 'U')}
                     </div>
                     <div className="text-left leading-none">
-                      <div className="text-[11px] text-white font-bold truncate max-w-[85px]">
+                      <div className="text-[11px] text-white font-bold truncate max-w-[85px] group-hover:text-cyan-300 transition-colors">
                         {currentUser.displayName || currentUser.email?.split('@')[0]}
                       </div>
                       <div className="text-[9px] text-cyan-400 font-mono font-extrabold uppercase mt-0.5">
                         {currentUser.role || 'Advertiser'}
                       </div>
                     </div>
-                  </div>
+                  </button>
                   <button
                     onClick={onSignOut}
                     className="px-2 sm:px-2.5 py-1.5 bg-slate-950 hover:bg-rose-950/70 border border-slate-800 hover:border-rose-700/80 text-slate-400 hover:text-rose-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
@@ -168,7 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               )}
 
-              {/* Mobile hamburger — shows My Ads + Claim Handle + Sign Out */}
+              {/* Mobile hamburger — shows My Ads + Claim Handle + My Account + Sign Out */}
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="sm:hidden p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition-all cursor-pointer"
@@ -179,7 +185,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Mobile dropdown for My Ads + Claim Handle + Mobile Auth */}
+          {/* Mobile dropdown for My Ads + Claim Handle + My Account + Mobile Auth */}
           {showMobileMenu && (
             <div className="sm:hidden border-t border-slate-800/60 py-2.5 flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
               <div className="flex flex-wrap gap-2">
@@ -203,13 +209,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </div>
               {currentUser && (
-                <button
-                  onClick={() => { onSignOut?.(); setShowMobileMenu(false); }}
-                  className="w-full py-2 bg-rose-950/40 hover:bg-rose-950/70 border border-rose-800/60 text-rose-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <LogOut className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Sign Out ({currentUser.displayName || currentUser.email?.split('@')[0]})</span>
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { onOpenAccountModal?.(); setShowMobileMenu(false); }}
+                    className="flex-1 py-2 bg-cyan-950/40 hover:bg-cyan-950/70 border border-cyan-800/60 text-cyan-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <User className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>My Account</span>
+                  </button>
+                  <button
+                    onClick={() => { onSignOut?.(); setShowMobileMenu(false); }}
+                    className="px-3 py-2 bg-rose-950/40 hover:bg-rose-950/70 border border-rose-800/60 text-rose-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
               )}
             </div>
           )}
