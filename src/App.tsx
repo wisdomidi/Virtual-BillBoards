@@ -482,7 +482,12 @@ export default function App() {
         return { success: true, message: `Your bid of $${parsedDollars.toFixed(2)} is now live in [${cityCode}]!` };
       } else {
         if (res.status === 402 || (data.error && data.error.includes('Insufficient'))) {
-          setIsWalletModalOpen(true);
+          if (!currentUser) {
+            setIsAuthModalOpen(true);
+            addToast('info', 'Claim $1.00 Free Credit', 'Sign in with Google or Email to claim your 1 Free 15s Slot (1,000 Tokens)!');
+          } else {
+            setIsWalletModalOpen(true);
+          }
         }
         await fetchWallet(uid);
         return { success: false, message: data.error || 'Bid submission failed.' };

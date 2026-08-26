@@ -223,6 +223,11 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
       return;
     }
 
+    if (isVideo && file.size > 25 * 1024 * 1024) {
+      alert('Video file is too large! Please upload a video under 25MB.');
+      return;
+    }
+
     setBidMediaType(isVideo ? 'video' : 'image');
     setUploadedFileName(file.name);
 
@@ -232,11 +237,11 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         const rawUrl = event.target?.result as string;
         if (!rawUrl) return;
 
-        // Auto-scale to 1080p canvas for ultra-fast sub-100ms uploads
+        // Auto-scale to 1280px max for ultra-fast instant sub-200ms uploads
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const maxDim = 1920;
+          const maxDim = 1280;
           let width = img.width;
           let height = img.height;
 
@@ -255,7 +260,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.88);
+            const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.82);
             setBidImageUrl(optimizedBase64);
           } else {
             setBidImageUrl(rawUrl);

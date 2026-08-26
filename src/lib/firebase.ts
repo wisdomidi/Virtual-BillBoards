@@ -79,18 +79,22 @@ export interface UserProfile {
   createdAt: string;
 }
 
-// Fetch or create user profile in Firestore (1,000 Tokens = $1.00 USD Starter / 1 Free 15s Slot)
+// Fetch or create user profile in Firestore (1,000 Tokens = $1.00 USD Starter / 1 Free 15s Slot for verified accounts)
 export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole = 'advertiser'): Promise<UserProfile> {
+  const isAnon = user.isAnonymous ?? false;
+  const initialTokens = isAnon ? 0 : 1000; // $1.00 USD (1,000 Tokens) starter bonus for registered accounts
+  const initialCents = isAnon ? 0 : 100;
+
   const defaultProfile: UserProfile = {
     uid: user.uid,
     email: user.email || '',
-    displayName: user.displayName || (user.isAnonymous ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
+    displayName: user.displayName || (isAnon ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
     photoURL: user.photoURL || undefined,
     role: defaultRole,
-    walletBalanceCents: 100, // Exactly $1.00 USD starter credit (1 Free 15s Slot)
-    tokensBalance: 1000,      // 1,000 starter tokens (0.1¢/token)
-    hasClaimedFreeSlot: false,
-    isAnonymous: user.isAnonymous ?? false,
+    walletBalanceCents: initialCents,
+    tokensBalance: initialTokens,
+    hasClaimedFreeSlot: isAnon,
+    isAnonymous: isAnon,
     createdAt: new Date().toISOString()
   };
 
@@ -113,33 +117,25 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
       return {
         uid: user.uid,
         email: user.email || '',
-        displayName: user.displayName || data.displayName || (user.isAnonymous ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
+        displayName: user.displayName || data.displayName || (isAnon ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
         photoURL: user.photoURL || data.photoURL || undefined,
         role: (data.role as UserRole) || defaultRole,
         walletBalanceCents,
         tokensBalance,
         hasClaimedFreeSlot: data.hasClaimedFreeSlot ?? (tokensBalance <= 0),
-        isAnonymous: user.isAnonymous ?? false,
+        isAnonymous: isAnon,
         createdAt: data.createdAt || new Date().toISOString()
       };
     }
 
-    const cachedCents = typeof window !== 'undefined' ? parseInt(localStorage.getItem('vb_cached_balance_cents') || '100', 10) : 100;
     const initialProfile: UserProfile = {
-      ...defaultProfile,
-      walletBalanceCents: isNaN(cachedCents) ? 100 : cachedCents,
-      tokensBalance: (isNaN(cachedCents) ? 100 : cachedCents) * 10
+      ...defaultProfile
     };
 
     await setDoc(userRef, initialProfile, { merge: true });
     return initialProfile;
   } catch (err: any) {
-    const cachedCents = typeof window !== 'undefined' ? parseInt(localStorage.getItem('vb_cached_balance_cents') || '100', 10) : 100;
-    return {
-      ...defaultProfile,
-      walletBalanceCents: isNaN(cachedCents) ? 100 : cachedCents,
-      tokensBalance: (isNaN(cachedCents) ? 100 : cachedCents) * 10
-    };
+    return defaultProfile;
   }
 }
 

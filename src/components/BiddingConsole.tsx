@@ -349,19 +349,64 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
       return;
     }
 
+    if (isVideo && file.size > 25 * 1024 * 1024) {
+      alert('Video file is too large! Please upload a video under 25MB.');
+      return;
+    }
+
     setMediaType(isVideo ? 'video' : 'image');
     setUploadedFileName(file.name);
     if (!title) {
       setTitle(file.name.replace(/\.[^/.]+$/, ''));
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setImageUrl(event.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const rawUrl = event.target?.result as string;
+        if (!rawUrl) return;
+
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 1280;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+            setImageUrl(optimizedBase64);
+          } else {
+            setImageUrl(rawUrl);
+          }
+        };
+        img.onerror = () => setImageUrl(rawUrl);
+        img.src = rawUrl;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setImageUrl(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // One-Click Fast Load from Recent Activity Item

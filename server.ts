@@ -369,6 +369,10 @@ interface UserWalletStoreItem {
 const userWalletsMemoryMap: Map<string, UserWalletStoreItem> = new Map();
 
 async function getUserWalletFromFirestore(userId: string) {
+  const isGuest = !userId || userId.startsWith('guest_') || userId === 'guest_default' || userId === 'default_user' || userId === 'usr_anonymous';
+  const defaultInitialTokens = isGuest ? 0 : 1000;
+  const defaultInitialCents = isGuest ? 0 : 100;
+
   try {
     const userRef = doc(db, 'users', userId);
     const snap = await getDoc(userRef);
@@ -376,7 +380,7 @@ async function getUserWalletFromFirestore(userId: string) {
       const data = snap.data();
       const tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
-        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : 1000);
+        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : defaultInitialTokens);
       const walletBalanceCents = typeof data.walletBalanceCents === 'number'
         ? data.walletBalanceCents
         : Math.round(tokensBalance / 10);
@@ -392,36 +396,39 @@ async function getUserWalletFromFirestore(userId: string) {
         uid: userId,
         tokensBalance,
         walletBalanceCents,
-        email: data.email || 'user@example.com',
+        email: data.email || (isGuest ? 'guest@example.com' : 'user@example.com'),
         role: data.role || 'advertiser'
       };
     } else {
       // First-time user profile initialization
       const memoryRecord = userWalletsMemoryMap.get(userId) || {
-        tokensBalance: 1000,
-        walletBalanceCents: 100,
-        freeSlotClaimed: false,
+        tokensBalance: defaultInitialTokens,
+        walletBalanceCents: defaultInitialCents,
+        freeSlotClaimed: isGuest,
         bidsPlacedCount: 0
       };
 
       const newProfile = {
         uid: userId,
-        email: 'user@example.com',
+        email: isGuest ? 'guest@example.com' : 'user@example.com',
         role: 'advertiser',
         tokensBalance: memoryRecord.tokensBalance,
         walletBalanceCents: memoryRecord.walletBalanceCents,
         freeSlotClaimed: memoryRecord.freeSlotClaimed,
+        isGuest,
         createdAt: new Date().toISOString()
       };
       userWalletsMemoryMap.set(userId, memoryRecord);
-      await setDoc(userRef, newProfile, { merge: true });
+      if (!isGuest) {
+        await setDoc(userRef, newProfile, { merge: true });
+      }
       return newProfile;
     }
   } catch (err) {
     const fallback = userWalletsMemoryMap.get(userId) || {
-      tokensBalance: 1000,
-      walletBalanceCents: 100,
-      freeSlotClaimed: false,
+      tokensBalance: defaultInitialTokens,
+      walletBalanceCents: defaultInitialCents,
+      freeSlotClaimed: isGuest,
       bidsPlacedCount: 0
     };
     userWalletsMemoryMap.set(userId, fallback);
@@ -429,7 +436,7 @@ async function getUserWalletFromFirestore(userId: string) {
       uid: userId,
       tokensBalance: fallback.tokensBalance,
       walletBalanceCents: fallback.walletBalanceCents,
-      email: 'guest@example.com',
+      email: isGuest ? 'guest@example.com' : 'user@example.com',
       role: 'advertiser'
     };
   }
@@ -2000,9 +2007,15 @@ const handleBidSubmission = async (req: Request, res: Response) => {
     // Token Balance Check via Firestore & Memory Map
     const userProfile = await getUserWalletFromFirestore(userId);
     if (userProfile.tokensBalance < tokens) {
+      const isGuest = !userId || userId.startsWith('guest_') || userId === 'default_user';
+      const errorMessage = isGuest
+        ? `⚠️ Sign-In Required: Guest accounts start with 0 tokens. Please Sign In with Google or Email to claim your 1 Free 15s Slot (1,000 Tokens = $1.00 credit), or top up your wallet!`
+        : `Insufficient Ad Tokens: Your balance is ${userProfile.tokensBalance.toLocaleString()} tokens ($${(userProfile.tokensBalance * 0.001).toFixed(2)} USD), but this bid requires ${tokens.toLocaleString()} tokens ($${dollarsStr} USD). Top up with Stripe to place this ad!`;
+
       return res.status(402).json({
         success: false,
-        error: `Insufficient Ad Tokens: Your balance is ${userProfile.tokensBalance.toLocaleString()} tokens ($${(userProfile.tokensBalance * 0.001).toFixed(2)} USD), but this bid requires ${tokens.toLocaleString()} tokens ($${dollarsStr} USD). Top up with Stripe to place this ad!`,
+        error: errorMessage,
+        isGuest,
         currentTokensBalance: userProfile.tokensBalance,
         requiredTokens: tokens,
         requiredDollars: dollarsStr
