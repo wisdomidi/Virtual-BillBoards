@@ -393,17 +393,21 @@ async function getUserWalletFromFirestore(userId: string) {
 
     if (snap && snap.exists && snap.exists()) {
       const data = snap.data();
-      const tokensBalance = typeof data.tokensBalance === 'number'
+      let tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
         : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : defaultInitialTokens);
-      const walletBalanceCents = typeof data.walletBalanceCents === 'number'
-        ? data.walletBalanceCents
-        : Math.round(tokensBalance / 10);
+
+      // Auto-grant 1,000 starter tokens ($1.00 USD) if verified user hasn't successfully placed an ad yet
+      if (!isGuest && tokensBalance <= 0 && (!data.bidsPlacedCount || data.bidsPlacedCount === 0)) {
+        tokensBalance = 1000;
+      }
+
+      const walletBalanceCents = Math.round(tokensBalance / 10);
 
       userWalletsMemoryMap.set(userId, {
         tokensBalance,
         walletBalanceCents,
-        freeSlotClaimed: !!data.freeSlotClaimed,
+        freeSlotClaimed: !isGuest,
         bidsPlacedCount: data.bidsPlacedCount || 0
       });
 
@@ -2200,12 +2204,16 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       }
     };
 
-    // Send to specific geographic room and to all clients
-    broadcastToRoom(targetRoomId, broadcastPayload);
-    broadcastToAll(broadcastPayload);
-
-    // Option B: 5% Dynamic Jackpot Cut Allocation
-    recordJackpotContribution(cents);
+    // Non-blocking asynchronous broadcast to specific geographic room and all clients
+    setTimeout(() => {
+      try {
+        broadcastToRoom(targetRoomId, broadcastPayload);
+        broadcastToAll(broadcastPayload);
+        recordJackpotContribution(cents);
+      } catch (e) {
+        console.warn('Background broadcast warning:', e);
+      }
+    }, 0);
 
     // Calculate guaranteed preparation lead time (minimum 6s buffer so user never misses their ad)
     const prepTimeSeconds = remainingSeconds < 6 ? remainingSeconds + platformSettings.slotDurationSeconds : remainingSeconds;

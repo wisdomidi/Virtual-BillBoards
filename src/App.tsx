@@ -246,16 +246,7 @@ export default function App() {
   // Secure Wallet State (1,000 Starter Tokens = $1.00 USD / 1 Free 15s Slot Credit)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isMyAdsModalOpen, setIsMyAdsModalOpen] = useState(false);
-  const [walletBalanceCents, setWalletBalanceCents] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('vb_cached_balance_cents');
-      if (cached !== null) {
-        const parsed = parseInt(cached, 10);
-        if (!isNaN(parsed) && parsed >= 0) return parsed;
-      }
-    }
-    return 100; // 1 Free 15s Slot Credit for brand-new visitors
-  });
+  const [walletBalanceCents, setWalletBalanceCents] = useState<number>(0);
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
 
   // Toast Notification State
