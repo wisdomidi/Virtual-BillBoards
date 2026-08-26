@@ -939,11 +939,24 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
             </div>
             <button
               onClick={onOpenWalletModal}
-              className="px-3 py-2 bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0"
+              className={`px-3 py-2 border font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0 ${
+                Number(walletBalanceDollars || 0) <= 0
+                  ? 'bg-gradient-to-r from-cyan-500/30 to-blue-500/30 hover:from-cyan-500/40 hover:to-blue-500/40 border-cyan-400/60 text-cyan-300'
+                  : 'bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border-amber-500/40 text-amber-300'
+              }`}
               title="Top Up Tokens or Claim Free Slot"
             >
-              <Plus className="w-3.5 h-3.5 text-amber-400 stroke-[3]" />
-              <span>Top Up</span>
+              {Number(walletBalanceDollars || 0) <= 0 ? (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400 stroke-[2.5]" />
+                  <span>Claim $1.00</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5 text-amber-400 stroke-[3]" />
+                  <span>Top Up</span>
+                </>
+              )}
             </button>
           </div>
         </div>

@@ -2944,6 +2944,52 @@ const handleWalletGet = async (req: Request, res: Response) => {
 app.get('/api/wallet', handleWalletGet);
 app.get('/api/wallet/balance', handleWalletGet);
 
+// POST /api/wallet/claim-starter - Claim 1 Free 15s Slot (1,000 Tokens = $1.00 USD)
+app.post('/api/wallet/claim-starter', async (req: Request, res: Response) => {
+  const userId = (req.headers['x-user-uid'] as string) || req.body.userId;
+  if (!userId || userId.startsWith('guest_') || userId === 'default_user' || userId === 'usr_anonymous') {
+    return res.status(401).json({
+      success: false,
+      error: 'Please Sign In with Google or Email to claim your $1.00 Free 15s Slot Starter Credit!'
+    });
+  }
+
+  try {
+    const userRef = doc(db, 'users', userId);
+    const snap = await getDoc(userRef);
+    const data = snap.exists() ? snap.data() : {};
+
+    const newTokens = 1000;
+    const newCents = 100;
+
+    userWalletsMemoryMap.set(userId, {
+      tokensBalance: newTokens,
+      walletBalanceCents: newCents,
+      freeSlotClaimed: false,
+      bidsPlacedCount: data.bidsPlacedCount || 0
+    });
+
+    await setDoc(userRef, {
+      tokensBalance: newTokens,
+      walletBalanceCents: newCents,
+      freeSlotClaimed: false,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    logTelemetry('STARTER_CREDIT_CLAIMED', `User [${userId}] claimed 1,000 Free Starter Tokens ($1.00 USD).`);
+
+    return res.json({
+      success: true,
+      tokensBalance: newTokens,
+      walletBalanceCents: newCents,
+      walletBalanceDollars: '1.00',
+      message: '🎉 $1.00 Free Starter Credit (1,000 Tokens) successfully added to your Ad Wallet!'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Failed to claim starter credit' });
+  }
+});
+
 app.post('/api/wallet/topup', async (req, res) => {
   const m2mAuth = authenticateM2MRequest(req);
   if (!m2mAuth.authorized) {

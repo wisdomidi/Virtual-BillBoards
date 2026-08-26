@@ -413,6 +413,34 @@ export default function App() {
     }
   };
 
+  const handleClaimStarterCredit = async (): Promise<void> => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      addToast('info', 'Sign In Required', 'Please sign in to claim your $1.00 Free Slot!');
+      return;
+    }
+    try {
+      const res = await fetch('/api/wallet/claim-starter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-uid': currentUser.uid
+        },
+        body: JSON.stringify({ userId: currentUser.uid })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWalletBalanceCents(100);
+        await fetchWallet(currentUser.uid);
+        addToast('success', 'Starter Credit Claimed!', '🎉 $1.00 (1,000 Tokens) added to your Ad Wallet! Place your ad now.');
+      } else {
+        addToast('warning', 'Claim Notice', data.error || 'Failed to claim starter credit.');
+      }
+    } catch (e: any) {
+      addToast('error', 'Claim Error', e.message || 'Network error claiming credit.');
+    }
+  };
+
   const handlePlaceBidQuick = async (
     title: string,
     imageUrl: string,
@@ -910,6 +938,7 @@ export default function App() {
           transactions={walletTransactions}
           userId={effectiveUid}
           onTopUp={handleTopUpWallet}
+          onClaimStarter={handleClaimStarterCredit}
         />
 
         {/* My Placed Ads & Broadcast History Modal */}

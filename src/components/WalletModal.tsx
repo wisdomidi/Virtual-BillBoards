@@ -22,6 +22,7 @@ interface WalletModalProps {
   userId?: string;
   onTopUp: (amountDollars: number) => Promise<boolean>;
   onPurchaseTokenPackage?: (packageId: string) => Promise<boolean>;
+  onClaimStarter?: () => Promise<void>;
 }
 
 const PRESET_TIERS = [
@@ -74,17 +75,33 @@ export const WalletModal: React.FC<WalletModalProps> = ({
   tokensBalance,
   balanceDollars,
   userId,
-  onTopUp
+  onTopUp,
+  onClaimStarter
 }) => {
   const [selectedAmount, setSelectedAmount] = useState<number>(5.00);
   const [customAmount, setCustomAmount] = useState<string>('5');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isClaimingStarter, setIsClaimingStarter] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [successMessage, setSuccessMessage] = useState<string>('');
 
   const safeTokensBalance = typeof tokensBalance === 'number'
     ? tokensBalance
     : Math.round((parseFloat(balanceDollars || '0') || 0) * 1000);
+
+  const handleClaimClick = async () => {
+    if (!onClaimStarter) return;
+    setIsClaimingStarter(true);
+    setErrorMessage('');
+    try {
+      await onClaimStarter();
+      setSuccessMessage('🎉 $1.00 Free Starter Credit (1,000 Tokens) claimed successfully!');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to claim starter credit.');
+    } finally {
+      setIsClaimingStarter(false);
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -205,7 +222,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({
         </div>
 
         {/* Current Ad Wallet Balance */}
-        <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 mb-5 flex items-center justify-between">
+        <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 mb-4 flex items-center justify-between">
           <div>
             <span className="text-[11px] text-slate-400 font-semibold block uppercase">Current Balance</span>
             <div className="flex items-baseline gap-2">
@@ -222,6 +239,32 @@ export const WalletModal: React.FC<WalletModalProps> = ({
             {Math.floor(safeTokensBalance / 1000)} Slots Ready
           </span>
         </div>
+
+        {/* Free Starter Credit Claim Banner (if balance is 0) */}
+        {safeTokensBalance <= 0 && onClaimStarter && (
+          <div className="bg-gradient-to-r from-cyan-950/80 via-indigo-950/60 to-slate-950 border border-cyan-500/40 rounded-2xl p-3.5 mb-4 flex items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-cyan-500/20 border border-cyan-500/40 rounded-xl text-cyan-400 shrink-0">
+                <Sparkles className="w-4 h-4 animate-pulse" />
+              </div>
+              <div className="text-xs">
+                <div className="font-black text-white flex items-center gap-1.5">
+                  Claim $1.00 Free Starter Slot
+                  <span className="bg-cyan-950 text-cyan-300 border border-cyan-700 text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">1,000 Tokens</span>
+                </div>
+                <p className="text-[11px] text-slate-400">Free starter ad slot for verified accounts</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleClaimClick}
+              disabled={isClaimingStarter}
+              className="px-3.5 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              {isClaimingStarter ? 'Claiming...' : 'Claim $1.00'}
+            </button>
+          </div>
+        )}
 
         {/* Amount Presets Grid */}
         <div className="space-y-3 mb-5">
