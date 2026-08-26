@@ -441,22 +441,19 @@ async function deductUserTokensInFirestore(
   cityCode?: string,
   slotId?: string
 ) {
-  if (!userWalletsMemoryMap.has(userId)) {
-    userWalletsMemoryMap.set(userId, {
-      tokensBalance: 1000,
-      walletBalanceCents: 100,
-      freeSlotClaimed: false,
-      bidsPlacedCount: 0
-    });
-  }
-  const memoryRecord = userWalletsMemoryMap.get(userId)!;
-  const newTokens = Math.max(0, memoryRecord.tokensBalance - tokens);
+  // Ensure we fetch the true live wallet from Firestore first
+  const currentProfile = await getUserWalletFromFirestore(userId);
+  const currentTokens = typeof currentProfile.tokensBalance === 'number' ? currentProfile.tokensBalance : 1000;
+  const newTokens = Math.max(0, currentTokens - tokens);
   const newCents = Math.round(newTokens / 10);
 
-  memoryRecord.tokensBalance = newTokens;
-  memoryRecord.walletBalanceCents = newCents;
-  memoryRecord.freeSlotClaimed = true;
-  memoryRecord.bidsPlacedCount += 1;
+  const memoryRecord = {
+    tokensBalance: newTokens,
+    walletBalanceCents: newCents,
+    freeSlotClaimed: true,
+    bidsPlacedCount: ((currentProfile as any).bidsPlacedCount || 0) + 1
+  };
+  userWalletsMemoryMap.set(userId, memoryRecord);
 
   try {
     const userRef = doc(db, 'users', userId);
@@ -3057,32 +3054,34 @@ app.get('/api/user/campaigns', async (req, res) => {
 
 function getResolvedStripeKey(): string | undefined {
   try {
-    dotenv.config();
+    dotenv.config({ override: true });
   } catch (_) {}
 
   const mode = (process.env.STRIPE_MODE || '').toLowerCase();
   if (mode === 'test' && process.env.STRIPE_TEST_SECRET_KEY) {
-    return process.env.STRIPE_TEST_SECRET_KEY;
+    return process.env.STRIPE_TEST_SECRET_KEY.trim();
   }
   if (mode === 'live' && process.env.STRIPE_LIVE_SECRET_KEY) {
-    return process.env.STRIPE_LIVE_SECRET_KEY;
+    return process.env.STRIPE_LIVE_SECRET_KEY.trim();
   }
-  return process.env.STRIPE_SECRET_KEY || process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_TEST_SECRET_KEY || process.env.STRIPE_M2M_SECRET_KEY;
+  const key = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_TEST_SECRET_KEY || process.env.STRIPE_M2M_SECRET_KEY;
+  return key ? key.trim() : undefined;
 }
 
 function getResolvedStripeWebhookSecret(): string | undefined {
   try {
-    dotenv.config();
+    dotenv.config({ override: true });
   } catch (_) {}
 
   const mode = (process.env.STRIPE_MODE || '').toLowerCase();
   if (mode === 'test' && process.env.STRIPE_TEST_WEBHOOK_SECRET) {
-    return process.env.STRIPE_TEST_WEBHOOK_SECRET;
+    return process.env.STRIPE_TEST_WEBHOOK_SECRET.trim();
   }
   if (mode === 'live' && process.env.STRIPE_LIVE_WEBHOOK_SECRET) {
-    return process.env.STRIPE_LIVE_WEBHOOK_SECRET;
+    return process.env.STRIPE_LIVE_WEBHOOK_SECRET.trim();
   }
-  return process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_LIVE_WEBHOOK_SECRET || process.env.STRIPE_TEST_WEBHOOK_SECRET;
+  const sec = process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_LIVE_WEBHOOK_SECRET || process.env.STRIPE_TEST_WEBHOOK_SECRET;
+  return sec ? sec.trim() : undefined;
 }
 
 let cachedStripeKey: string | null = null;

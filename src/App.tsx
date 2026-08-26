@@ -354,8 +354,8 @@ export default function App() {
           const data = JSON.parse(text);
           const newCents = typeof data.walletBalanceCents === 'number'
             ? data.walletBalanceCents
-            : (typeof data.tokensBalance === 'number' ? Math.round(data.tokensBalance / 10) : 100);
-          if (newCents > 0) {
+            : (typeof data.tokensBalance === 'number' ? Math.round(data.tokensBalance / 10) : 0);
+          if (typeof newCents === 'number' && !isNaN(newCents)) {
             setWalletBalanceCents(newCents);
             if (typeof window !== 'undefined') {
               localStorage.setItem('vb_cached_balance_cents', String(newCents));
