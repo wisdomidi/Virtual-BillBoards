@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import dotenv from 'dotenv';
 import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
 import path from 'path';
@@ -3055,6 +3056,10 @@ app.get('/api/user/campaigns', async (req, res) => {
 // ------------------------------------------------------------------------------
 
 function getResolvedStripeKey(): string | undefined {
+  try {
+    dotenv.config();
+  } catch (_) {}
+
   const mode = (process.env.STRIPE_MODE || '').toLowerCase();
   if (mode === 'test' && process.env.STRIPE_TEST_SECRET_KEY) {
     return process.env.STRIPE_TEST_SECRET_KEY;
@@ -3062,10 +3067,14 @@ function getResolvedStripeKey(): string | undefined {
   if (mode === 'live' && process.env.STRIPE_LIVE_SECRET_KEY) {
     return process.env.STRIPE_LIVE_SECRET_KEY;
   }
-  return process.env.STRIPE_SECRET_KEY || process.env.STRIPE_TEST_SECRET_KEY || process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_M2M_SECRET_KEY;
+  return process.env.STRIPE_SECRET_KEY || process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_TEST_SECRET_KEY || process.env.STRIPE_M2M_SECRET_KEY;
 }
 
 function getResolvedStripeWebhookSecret(): string | undefined {
+  try {
+    dotenv.config();
+  } catch (_) {}
+
   const mode = (process.env.STRIPE_MODE || '').toLowerCase();
   if (mode === 'test' && process.env.STRIPE_TEST_WEBHOOK_SECRET) {
     return process.env.STRIPE_TEST_WEBHOOK_SECRET;
@@ -3073,17 +3082,19 @@ function getResolvedStripeWebhookSecret(): string | undefined {
   if (mode === 'live' && process.env.STRIPE_LIVE_WEBHOOK_SECRET) {
     return process.env.STRIPE_LIVE_WEBHOOK_SECRET;
   }
-  return process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_TEST_WEBHOOK_SECRET || process.env.STRIPE_LIVE_WEBHOOK_SECRET;
+  return process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_LIVE_WEBHOOK_SECRET || process.env.STRIPE_TEST_WEBHOOK_SECRET;
 }
 
+let cachedStripeKey: string | null = null;
 let stripeClient: Stripe | null = null;
 function getStripe(): Stripe {
   const key = getResolvedStripeKey();
   if (!key) {
-    throw new Error('STRIPE_SECRET_KEY or STRIPE_TEST_SECRET_KEY environment variable is not configured.');
+    throw new Error('STRIPE_SECRET_KEY, STRIPE_LIVE_SECRET_KEY, or STRIPE_TEST_SECRET_KEY environment variable is not configured.');
   }
-  if (!stripeClient) {
+  if (!stripeClient || cachedStripeKey !== key) {
     stripeClient = new Stripe(key);
+    cachedStripeKey = key;
   }
   return stripeClient;
 }
