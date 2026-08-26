@@ -458,14 +458,14 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         </div>
 
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
-          Own the Billboard in {currentCityConfig.flagEmoji} {currentCityConfig.cityName}. <br className="hidden sm:inline" />
+          Take Over the 24/7 Virtual Billboard in {currentCityConfig.flagEmoji} {currentCityConfig.cityName}. <br className="hidden sm:inline" />
           <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-amber-300 bg-clip-text text-transparent">
-            Go Live in 15 Seconds.
+            Broadcast 15-Second Live Ad Takeovers Across 200+ Global City Feeds.
           </span>
         </h1>
 
         <p className="text-xs sm:text-sm text-slate-300 font-sans leading-relaxed max-w-3xl">
-          Broadcast your brand, project, or message to live global viewers in 15-second rotations. Outbid competitors in real-time or watch 24/7 streams to earn cash rewards.
+          Broadcast your brand, project, or custom message to live global stream viewers in real-time. Outbid competitors in sub-second RTB auctions or watch 24/7 streams to earn cash rewards.
         </p>
 
         {/* Viral Celebrity & Streamer Live Billboard Banner */}
@@ -981,7 +981,6 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 type="button"
                 onClick={() => {
                   setBidCtaType('website');
-                  if (!bidCtaUrl || bidCtaUrl.includes('wa.me')) setBidCtaUrl('https://yourbrand.com/promo');
                 }}
                 className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                   bidCtaType === 'website'
@@ -997,7 +996,6 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 type="button"
                 onClick={() => {
                   setBidCtaType('whatsapp');
-                  if (!bidCtaUrl || !bidCtaUrl.includes('wa.me')) setBidCtaUrl('https://wa.me/60123456789?text=Hi%20Brand');
                 }}
                 className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                   bidCtaType === 'whatsapp'
@@ -1031,7 +1029,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                   type="text"
                   value={bidCtaUrl}
                   onChange={(e) => setBidCtaUrl(e.target.value)}
-                  placeholder={bidCtaType === 'website' ? 'https://yourbrand.com/promo' : 'https://wa.me/60123456789'}
+                  placeholder={bidCtaType === 'website' ? 'https://yourbrand.com' : 'https://wa.me/1234567890'}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
                   required
                 />
