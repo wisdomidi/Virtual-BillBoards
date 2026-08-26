@@ -373,10 +373,25 @@ async function getUserWalletFromFirestore(userId: string) {
   const defaultInitialTokens = isGuest ? 0 : 1000;
   const defaultInitialCents = isGuest ? 0 : 100;
 
+  // 1. Immediate in-memory fast return (0ms execution)
+  const cached = userWalletsMemoryMap.get(userId);
+  if (cached) {
+    return {
+      uid: userId,
+      tokensBalance: cached.tokensBalance,
+      walletBalanceCents: cached.walletBalanceCents,
+      email: isGuest ? 'guest@example.com' : 'user@example.com',
+      role: 'advertiser'
+    };
+  }
+
   try {
     const userRef = doc(db, 'users', userId);
-    const snap = await getDoc(userRef);
-    if (snap.exists()) {
+    // Strict 1200ms timeout for Firestore network reads to prevent any Cloud Run request hanging
+    const timeoutPromise = new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 1200));
+    const snap: any = await Promise.race([getDoc(userRef), timeoutPromise]);
+
+    if (snap && snap.exists && snap.exists()) {
       const data = snap.data();
       const tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
@@ -401,7 +416,7 @@ async function getUserWalletFromFirestore(userId: string) {
       };
     } else {
       // First-time user profile initialization
-      const memoryRecord = userWalletsMemoryMap.get(userId) || {
+      const memoryRecord = {
         tokensBalance: defaultInitialTokens,
         walletBalanceCents: defaultInitialCents,
         freeSlotClaimed: isGuest,
@@ -420,12 +435,12 @@ async function getUserWalletFromFirestore(userId: string) {
       };
       userWalletsMemoryMap.set(userId, memoryRecord);
       if (!isGuest) {
-        await setDoc(userRef, newProfile, { merge: true });
+        setDoc(userRef, newProfile, { merge: true }).catch((e) => console.warn('Background user init warning:', e));
       }
       return newProfile;
     }
   } catch (err) {
-    const fallback = userWalletsMemoryMap.get(userId) || {
+    const fallback = {
       tokensBalance: defaultInitialTokens,
       walletBalanceCents: defaultInitialCents,
       freeSlotClaimed: isGuest,
@@ -449,7 +464,7 @@ async function deductUserTokensInFirestore(
   cityCode?: string,
   slotId?: string
 ) {
-  // Ensure we fetch the true live wallet from Firestore first
+  // Ensure we get current profile
   const currentProfile = await getUserWalletFromFirestore(userId);
   const currentTokens = typeof currentProfile.tokensBalance === 'number' ? currentProfile.tokensBalance : 1000;
   const newTokens = Math.max(0, currentTokens - tokens);
@@ -461,45 +476,49 @@ async function deductUserTokensInFirestore(
     freeSlotClaimed: true,
     bidsPlacedCount: ((currentProfile as any).bidsPlacedCount || 0) + 1
   };
+  // Update memory state immediately
   userWalletsMemoryMap.set(userId, memoryRecord);
 
-  try {
-    const userRef = doc(db, 'users', userId);
-    await setDoc(userRef, {
-      tokensBalance: newTokens,
-      walletBalanceCents: newCents,
-      freeSlotClaimed: true
-    }, { merge: true });
+  // Sync to Firestore in the background asynchronously (non-blocking)
+  setTimeout(async () => {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await setDoc(userRef, {
+        tokensBalance: newTokens,
+        walletBalanceCents: newCents,
+        freeSlotClaimed: true
+      }, { merge: true });
 
-    const txnsCol = collection(db, 'users', userId, 'transactions');
-    await addDoc(txnsCol, {
-      id: `tx_token_${Date.now()}`,
-      type: 'slot_burn',
-      tokens,
-      amountCents: Math.round(tokens / 10),
-      amountDollars: (tokens * 0.001).toFixed(3),
-      description,
-      cityCode: cityCode || 'GLOBAL',
-      slotId: slotId || '',
-      timestamp: new Date().toISOString()
-    });
-
-    if (slotId) {
-      const burnsCol = collection(db, 'slot_burns');
-      await addDoc(burnsCol, {
-        userId,
-        slotId,
+      const txnsCol = collection(db, 'users', userId, 'transactions');
+      await addDoc(txnsCol, {
+        id: `tx_token_${Date.now()}`,
+        type: 'slot_burn',
         tokens,
         amountCents: Math.round(tokens / 10),
         amountDollars: (tokens * 0.001).toFixed(3),
         description,
         cityCode: cityCode || 'GLOBAL',
+        slotId: slotId || '',
         timestamp: new Date().toISOString()
       });
+
+      if (slotId) {
+        const burnsCol = collection(db, 'slot_burns');
+        await addDoc(burnsCol, {
+          userId,
+          slotId,
+          tokens,
+          amountCents: Math.round(tokens / 10),
+          amountDollars: (tokens * 0.001).toFixed(3),
+          description,
+          cityCode: cityCode || 'GLOBAL',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (fsErr) {
+      console.warn('Background Firestore token deduction warning:', fsErr);
     }
-  } catch (err) {
-    console.warn('Firestore deduction sync warning:', err);
-  }
+  }, 0);
 
   return { newTokens, newCents };
 }
