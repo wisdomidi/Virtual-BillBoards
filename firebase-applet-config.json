@@ -1,12 +1,12 @@
 {
   "projectId": "livebillboards-production",
-  "appId": "",
-  "apiKey": "",
+  "appId": "1:956720374475:web:72b781216f12df6ef2314e",
+  "apiKey": "AIzaSyABGBRrkBpZHLExneNqGbQd-JqbYP6IvsI",
   "authDomain": "livebillboards-production.firebaseapp.com",
   "firestoreDatabaseId": "(default)",
   "storageBucket": "livebillboards-production.firebasestorage.app",
-  "messagingSenderId": "",
-  "measurementId": "",
-  "oAuthClientId": "",
+  "messagingSenderId": "956720374475",
+  "measurementId": "G-MRYQR4FRBJ",
+  "oAuthClientId": "956720374475-0e3sfvig4a9c62netccs24dtr3o31n7i.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

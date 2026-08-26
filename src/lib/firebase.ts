@@ -23,13 +23,13 @@ import {
 import { UserRole } from '../types';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyC_XcfJLWyYbb7kR1alyeED4B2mCZn8y-s',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyABGBRrkBpZHLExneNqGbQd-JqbYP6IvsI',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || `${import.meta.env.VITE_FIREBASE_PROJECT_ID || 'livebillboards-production'}.firebaseapp.com`,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'livebillboards-production',
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || `${import.meta.env.VITE_FIREBASE_PROJECT_ID || 'livebillboards-production'}.firebasestorage.app`,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '629783299757',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:629783299757:web:84f7cf53685c063eee6824',
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ''
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '956720374475',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:956720374475:web:72b781216f12df6ef2314e',
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-MRYQR4FRBJ'
 };
 
 // Initialize Firebase App safely
