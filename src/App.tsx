@@ -414,11 +414,11 @@ export default function App() {
   };
 
   const handlePlaceBidQuick = async (
-    title: string,
-    imageUrl: string,
     amountDollars: number,
     cityCode: string,
     countryCode: string,
+    title: string,
+    imageUrl: string,
     landingPageUrl?: string,
     whatsappLink?: string,
     qrCodeUrl?: string
@@ -426,7 +426,7 @@ export default function App() {
     const uid = effectiveUid;
     const advertiserName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Fast Bidding Console';
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
     try {
       const cents = Math.round(amountDollars * 100);
       const res = await fetch('/api/bid', {
@@ -478,6 +478,10 @@ export default function App() {
         return { success: false, message: data.error || 'Bid submission failed.' };
       }
     } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        return { success: false, message: 'Upload took longer than expected. Please try again or use a smaller image/video.' };
+      }
       return { success: false, message: err.message || 'Network error submitting bid.' };
     }
   };
