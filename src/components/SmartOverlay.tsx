@@ -14,7 +14,12 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
   cityName,
   className = ''
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
   const { update, lastUpdatedTime, isRefreshing, refreshLocalContext } = useLocalContext();
   const [activeRoadIdx, setActiveRoadIdx] = useState(0);
   const [tempOffset, setTempOffset] = useState(0);

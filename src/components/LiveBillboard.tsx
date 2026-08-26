@@ -634,40 +634,42 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => setIsShareModalOpen(true)}
-              className="px-2.5 py-1 bg-gradient-to-r from-purple-500/30 to-indigo-500/30 hover:from-purple-500/40 hover:to-indigo-500/40 border border-purple-500/40 text-purple-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-              title="Share Live Ad Takeover Proof on Twitter / X & TikTok"
+              className="px-2 sm:px-2.5 py-1 bg-gradient-to-r from-purple-500/30 to-indigo-500/30 hover:from-purple-500/40 hover:to-indigo-500/40 border border-purple-500/40 text-purple-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Share Live Ad Takeover Proof"
             >
               <Camera className="w-3.5 h-3.5 text-purple-400" />
-              <span>📸 Share Proof to X</span>
+              <span className="hidden sm:inline">📸 Share Proof to X</span>
+              <span className="sm:hidden">Share</span>
             </button>
 
             <button
               onClick={handleCopyLiveLink}
-              className="px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-2 sm:px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
               title="Copy shareable live billboard link"
             >
               {copiedLink ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5 text-cyan-400" />}
-              <span>{copiedLink ? 'Link Copied!' : 'Share Live Link'}</span>
+              <span className="hidden sm:inline">{copiedLink ? 'Link Copied!' : 'Share Live Link'}</span>
+              <span className="sm:hidden">{copiedLink ? '✓' : 'Link'}</span>
             </button>
 
             <button
               onClick={() => setAmbientGlow(!ambientGlow)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+              className={`hidden sm:flex px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
                 ambientGlow ? 'bg-cyan-950 text-cyan-400 border-cyan-800' : 'bg-slate-900 text-slate-500 border-slate-800'
               }`}
             >
-              Glow Effect
+              Glow
             </button>
             <button
               onClick={() => setGlassGlare(!glassGlare)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+              className={`hidden sm:flex px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
                 glassGlare ? 'bg-indigo-950 text-indigo-400 border-indigo-800' : 'bg-slate-900 text-slate-500 border-slate-800'
               }`}
             >
-              Reflection
+              Reflect
             </button>
             <button
               onClick={() => setFullscreen(!fullscreen)}
@@ -688,7 +690,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         </div>
 
         {/* Real Billboard High-Res Canvas */}
-        <div className="relative aspect-video max-h-[520px] w-full bg-slate-950 flex items-center justify-center overflow-hidden group">
+        <div className="relative aspect-video max-h-[280px] sm:max-h-[520px] w-full bg-slate-950 flex items-center justify-center overflow-hidden group">
           {/* Glass Glare Overlay Shader */}
           {glassGlare && (
             <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none z-10" />
@@ -757,7 +759,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
           </div>
 
           {/* Bottom Floating Banner - Advertiser Title & Winning Price */}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent p-6 sm:p-8 flex flex-wrap items-end justify-between gap-4 z-20">
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent p-3 sm:p-6 lg:p-8 flex flex-wrap items-end justify-between gap-2 sm:gap-4 z-20">
             <div className="max-w-2xl space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="bg-slate-900/95 text-cyan-300 border border-cyan-500/40 px-3 py-1 rounded-xl text-xs font-mono font-bold shadow-lg">
@@ -765,7 +767,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 </span>
               </div>
 
-              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-lg leading-tight">
+              <h2 className="text-base sm:text-2xl lg:text-3xl font-black text-white tracking-tight drop-shadow-lg leading-tight line-clamp-2">
                 {winningAd.title}
               </h2>
 
@@ -1095,10 +1097,10 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-2">
+          <div className="space-y-3 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-slate-300 uppercase">Bid Amount:</span>
-              <div className="relative w-32">
+              <div className="relative w-28 sm:w-32">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
                 <input
                   type="number"
@@ -1112,12 +1114,12 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
 
               {/* Exact Token Deduction Indicator */}
               <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-amber-400 bg-amber-950/40 px-2.5 py-1.5 rounded-xl border border-amber-500/30">
-                <Coins className="w-3.5 h-3.5 text-amber-400" />
+                <Coins className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>{Math.round(bidAmountDollars * 1000).toLocaleString()} tokens</span>
               </div>
 
               {/* Quick Outbid Presets */}
-              <div className="flex items-center gap-1.5 ml-1">
+              <div className="flex items-center gap-1.5">
                 {[
                   Number(currentTopDollars) + 1,
                   Number(currentTopDollars) + 2,
@@ -1127,7 +1129,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                     key={preset}
                     type="button"
                     onClick={() => setBidAmountDollars(preset)}
-                    className={`px-2 py-1 rounded-lg text-xs font-mono font-bold border transition-all ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border transition-all cursor-pointer ${
                       bidAmountDollars === preset
                         ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
@@ -1139,24 +1141,24 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {Number(walletBalanceDollars) < bidAmountDollars && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-1">
+              {Number(walletBalanceDollars) < bidAmountDollars ? (
                 <button
                   type="button"
                   onClick={onOpenWalletModal}
-                  className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5 bg-amber-950/50 border border-amber-500/40 px-3 py-1.5 rounded-xl transition hover:bg-amber-950/80"
+                  className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center justify-center gap-1.5 bg-amber-950/50 border border-amber-500/40 px-3 py-2 rounded-xl transition hover:bg-amber-950/80 cursor-pointer"
                 >
                   <Coins className="w-3.5 h-3.5 text-amber-400" />
                   <span>Ad Wallet: ${walletBalanceDollars} (Top-Up Needed)</span>
                 </button>
-              )}
+              ) : <div />}
 
               <button
                 type="submit"
                 disabled={isSubmittingBid}
-                className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Zap className="w-4 h-4 fill-current" />
+                <Zap className="w-4 h-4 fill-current shrink-0" />
                 <span>{isSubmittingBid ? 'Submitting Creative...' : 'Place Bid in 2 Secs'}</span>
               </button>
             </div>

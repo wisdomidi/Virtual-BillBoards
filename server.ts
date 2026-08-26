@@ -3054,31 +3054,24 @@ app.get('/api/user/campaigns', async (req, res) => {
 // ------------------------------------------------------------------------------
 
 function getResolvedStripeKey(): string | undefined {
-  try {
-    dotenv.config({ override: true });
-  } catch (_) {}
-
-  const mode = (process.env.STRIPE_MODE || '').toLowerCase();
-  if (mode === 'test' && process.env.STRIPE_TEST_SECRET_KEY) {
+  const mode = (process.env.STRIPE_MODE || '').toLowerCase().trim();
+  if (mode === 'test' && process.env.STRIPE_TEST_SECRET_KEY?.trim()) {
     return process.env.STRIPE_TEST_SECRET_KEY.trim();
   }
-  if (mode === 'live' && process.env.STRIPE_LIVE_SECRET_KEY) {
+  if (mode === 'live' && process.env.STRIPE_LIVE_SECRET_KEY?.trim()) {
     return process.env.STRIPE_LIVE_SECRET_KEY.trim();
   }
-  const key = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_TEST_SECRET_KEY || process.env.STRIPE_M2M_SECRET_KEY;
+  // Fallback: any Stripe key present
+  const key = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_TEST_SECRET_KEY;
   return key ? key.trim() : undefined;
 }
 
 function getResolvedStripeWebhookSecret(): string | undefined {
-  try {
-    dotenv.config({ override: true });
-  } catch (_) {}
-
-  const mode = (process.env.STRIPE_MODE || '').toLowerCase();
-  if (mode === 'test' && process.env.STRIPE_TEST_WEBHOOK_SECRET) {
+  const mode = (process.env.STRIPE_MODE || '').toLowerCase().trim();
+  if (mode === 'test' && process.env.STRIPE_TEST_WEBHOOK_SECRET?.trim()) {
     return process.env.STRIPE_TEST_WEBHOOK_SECRET.trim();
   }
-  if (mode === 'live' && process.env.STRIPE_LIVE_WEBHOOK_SECRET) {
+  if (mode === 'live' && process.env.STRIPE_LIVE_WEBHOOK_SECRET?.trim()) {
     return process.env.STRIPE_LIVE_WEBHOOK_SECRET.trim();
   }
   const sec = process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_LIVE_WEBHOOK_SECRET || process.env.STRIPE_TEST_WEBHOOK_SECRET;
@@ -4843,6 +4836,14 @@ async function startServer() {
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server listening on http://0.0.0.0:${PORT}`);
+    // Stripe boot diagnostic
+    const stripeKey = getResolvedStripeKey();
+    const stripeMode = (process.env.STRIPE_MODE || 'unset').toUpperCase();
+    if (stripeKey) {
+      console.log(`✅ Stripe [${stripeMode}] loaded: ${stripeKey.substring(0, 12)}...`);
+    } else {
+      console.warn(`⚠️  Stripe key NOT found! STRIPE_MODE=${stripeMode}. Check .env has STRIPE_LIVE_SECRET_KEY or STRIPE_TEST_SECRET_KEY.`);
+    }
   });
 }
 
