@@ -247,12 +247,12 @@ export default function App() {
   const [walletBalanceCents, setWalletBalanceCents] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const cached = localStorage.getItem('vb_cached_balance_cents');
-      if (cached) {
+      if (cached !== null) {
         const parsed = parseInt(cached, 10);
-        if (!isNaN(parsed) && parsed > 0) return parsed;
+        if (!isNaN(parsed) && parsed >= 0) return parsed;
       }
     }
-    return 100; // $1.00 starter balance
+    return 100; // 1 Free 15s Slot Credit for brand-new visitors
   });
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
 
@@ -428,10 +428,13 @@ export default function App() {
   ): Promise<{ success: boolean; message: string }> => {
     const uid = effectiveUid;
     const advertiserName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Fast Bidding Console';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
       const cents = Math.round(amountDollars * 100);
       const res = await fetch('/api/bid', {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'x-user-uid': uid
@@ -449,6 +452,7 @@ export default function App() {
           userId: uid
         })
       });
+      clearTimeout(timeoutId);
       
       const resText = await res.text();
       let data: any = {};

@@ -747,63 +747,63 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
           )}
 
           {/* Top Floating Badge - Countdown Timer & Watcher Points */}
-          <div className="absolute top-4 inset-x-4 flex items-center justify-between z-20 pointer-events-none">
-            <div className="bg-slate-950/85 backdrop-blur-md border border-slate-800/80 px-3 py-1.5 rounded-2xl flex items-center gap-2 text-xs font-mono shadow-xl pointer-events-auto">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-              <span className="font-black text-white text-sm">{remainingSeconds}s Slot Remaining</span>
+          <div className="absolute top-2 sm:top-4 inset-x-2 sm:inset-x-4 flex items-center justify-between z-20 pointer-events-none">
+            <div className="bg-slate-950/90 backdrop-blur-md border border-slate-800/80 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-mono shadow-xl pointer-events-auto">
+              <span className="w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-cyan-400 animate-ping" />
+              <span className="font-black text-white text-xs sm:text-sm">{remainingSeconds}s Left</span>
             </div>
 
             {(userRole === 'paid_watcher' || userRole === 'admin') ? (
-              <div className="bg-slate-950/85 backdrop-blur-md border border-amber-500/40 px-3.5 py-1.5 rounded-2xl flex items-center gap-2 text-xs font-mono shadow-xl pointer-events-auto">
-                <Award className="w-4 h-4 text-amber-400" />
-                <span className="text-slate-300">Watcher Balance:</span>
+              <div className="bg-slate-950/90 backdrop-blur-md border border-amber-500/40 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl flex items-center gap-1.5 text-[10px] sm:text-xs font-mono shadow-xl pointer-events-auto">
+                <Award className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-slate-300 hidden xs:inline">Watcher:</span>
                 <span className="text-amber-400 font-black">{viewerPoints} pts</span>
               </div>
             ) : (
-              <div className="bg-slate-950/85 backdrop-blur-md border border-cyan-500/30 px-3 py-1.5 rounded-2xl flex items-center gap-1.5 text-xs font-mono shadow-xl pointer-events-auto text-cyan-300">
-                <Eye className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="font-bold text-[11px] tracking-wider uppercase">SPECTATOR STREAM</span>
+              <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/30 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl flex items-center gap-1 text-[10px] font-mono shadow-xl pointer-events-auto text-cyan-300">
+                <Eye className="w-3 h-3 text-cyan-400" />
+                <span className="font-bold text-[9px] sm:text-[11px] tracking-wider uppercase">LIVE STREAM</span>
               </div>
             )}
           </div>
 
-          {/* Bottom Floating Banner - Advertiser Title & Winning Price */}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent p-3 sm:p-6 lg:p-8 flex flex-wrap items-end justify-between gap-2 sm:gap-4 z-20">
-            <div className="max-w-2xl space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="bg-slate-900/95 text-cyan-300 border border-cyan-500/40 px-3 py-1 rounded-xl text-xs font-mono font-bold shadow-lg">
+          {/* Bottom Floating Banner - Advertiser Title & CTA */}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 via-slate-950/70 to-transparent p-2.5 sm:p-6 flex items-end justify-between gap-2 sm:gap-4 z-20">
+            <div className="max-w-2xl space-y-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="bg-slate-900/95 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-lg text-[9px] sm:text-xs font-mono font-bold shadow-md">
                   {winningAd.advertiserName}
                 </span>
               </div>
 
-              <h2 className="text-base sm:text-2xl lg:text-3xl font-black text-white tracking-tight drop-shadow-lg leading-tight line-clamp-2">
+              <h2 className="text-xs sm:text-2xl font-black text-white tracking-tight drop-shadow-md leading-snug line-clamp-1 sm:line-clamp-2">
                 {winningAd.title}
               </h2>
 
               {/* Single CTA Button Overlay (Website or WhatsApp only) */}
               {((winningAd as any).ctaType !== 'none') && (
-                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                   {((winningAd as any).ctaType === 'whatsapp' || (!(winningAd as any).ctaType && !(winningAd as any).landingPageUrl && (winningAd as any).whatsappLink)) ? (
                     <a
                       href={(winningAd as any).ctaUrl || ((winningAd as any).whatsappLink?.startsWith('http') ? (winningAd as any).whatsappLink : `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}`)}
                       target="_blank"
                       rel="noreferrer"
-                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg transition-transform hover:scale-105"
+                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[10px] sm:text-xs px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 shadow-md transition-transform hover:scale-105"
                     >
-                      <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                      <MessageSquare className="w-3 h-3 fill-current" />
                       <span>WhatsApp Contact</span>
-                      <span className="text-[10px]">↗</span>
+                      <span className="text-[9px]">↗</span>
                     </a>
                   ) : ((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl) ? (
                     <a
                       href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg transition-transform hover:scale-105 font-mono"
+                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[10px] sm:text-xs px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 shadow-md transition-transform hover:scale-105 font-mono"
                     >
-                      <Globe className="w-3.5 h-3.5" />
+                      <Globe className="w-3 h-3" />
                       <span>{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
-                      <span className="text-[10px]">↗</span>
+                      <span className="text-[9px]">↗</span>
                     </a>
                   ) : null}
                 </div>
@@ -838,7 +838,8 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 );
               })()}
 
-              <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/40 px-5 py-3 rounded-2xl text-right shadow-2xl">
+              {/* Active Winning Bid Block (Desktop Only to save mobile screen real estate) */}
+              <div className="hidden sm:block bg-slate-950/90 backdrop-blur-md border border-cyan-500/40 px-5 py-3 rounded-2xl text-right shadow-2xl">
                 <div className="text-[10px] text-slate-400 uppercase tracking-widest font-extrabold">Active Winning Bid</div>
                 <div className="text-2xl font-black text-cyan-400 font-mono">
                   ${(winningAd.bidAmountCents / 100).toFixed(2)}
