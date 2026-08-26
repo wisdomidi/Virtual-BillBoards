@@ -133,36 +133,42 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               )}
 
-              {/* Auth */}
+              {/* Auth Profile / Sign In */}
               {currentUser ? (
-                <div className="flex items-center gap-1">
-                  <div className="hidden sm:flex bg-slate-950 border border-slate-800 px-2 py-1 rounded-xl items-center gap-1.5">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-slate-950 text-[10px] shrink-0">
-                      {currentUser.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
+                <div className="flex items-center gap-1.5">
+                  <div className="hidden sm:flex bg-slate-950 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded-xl items-center gap-2 shadow-inner">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-400 via-teal-400 to-blue-500 flex items-center justify-center font-black text-slate-950 text-[11px] shadow-sm shrink-0">
+                      {currentUser.displayName ? currentUser.displayName[0].toUpperCase() : (currentUser.email ? currentUser.email[0].toUpperCase() : 'U')}
                     </div>
-                    <span className="text-[11px] text-slate-200 font-bold truncate max-w-[70px] hidden md:inline">
-                      {currentUser.displayName || currentUser.email}
-                    </span>
+                    <div className="text-left leading-none">
+                      <div className="text-[11px] text-white font-bold truncate max-w-[85px]">
+                        {currentUser.displayName || currentUser.email?.split('@')[0]}
+                      </div>
+                      <div className="text-[9px] text-cyan-400 font-mono font-extrabold uppercase mt-0.5">
+                        {currentUser.role || 'Advertiser'}
+                      </div>
+                    </div>
                   </div>
                   <button
                     onClick={onSignOut}
-                    className="p-1.5 bg-slate-950 hover:bg-rose-950/60 border border-slate-800 hover:border-rose-800 text-slate-400 hover:text-rose-300 rounded-xl transition-colors cursor-pointer"
-                    title="Sign Out"
+                    className="px-2 sm:px-2.5 py-1.5 bg-slate-950 hover:bg-rose-950/70 border border-slate-800 hover:border-rose-700/80 text-slate-400 hover:text-rose-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                    title="Sign Out of Account"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <span className="hidden md:inline text-[11px]">Sign Out</span>
                   </button>
                 </div>
               ) : (
                 <button
                   onClick={onOpenAuthModal}
-                  className="px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1 cursor-pointer shrink-0"
+                  className="px-3 py-1.5 bg-gradient-to-r from-cyan-500 via-teal-400 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs rounded-xl transition-all shadow-md shadow-cyan-500/20 flex items-center gap-1.5 cursor-pointer shrink-0 hover:scale-[1.02]"
                 >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Sign In</span>
+                  <LogIn className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Sign In</span>
                 </button>
               )}
 
-              {/* Mobile hamburger — shows My Ads + Claim Handle */}
+              {/* Mobile hamburger — shows My Ads + Claim Handle + Sign Out */}
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="sm:hidden p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition-all cursor-pointer"
@@ -173,25 +179,36 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Mobile dropdown for My Ads + Claim Handle */}
+          {/* Mobile dropdown for My Ads + Claim Handle + Mobile Auth */}
           {showMobileMenu && (
-            <div className="sm:hidden border-t border-slate-800/60 py-2.5 flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
-              {onOpenMyAdsModal && (
+            <div className="sm:hidden border-t border-slate-800/60 py-2.5 flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="flex flex-wrap gap-2">
+                {onOpenMyAdsModal && (
+                  <button
+                    onClick={() => { onOpenMyAdsModal(); setShowMobileMenu(false); }}
+                    className="flex-1 min-w-[120px] px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-200 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Megaphone className="w-3.5 h-3.5 text-cyan-400" />
+                    My Placed Ads
+                  </button>
+                )}
+                {onOpenClaimModal && (
+                  <button
+                    onClick={() => { onOpenClaimModal(); setShowMobileMenu(false); }}
+                    className="flex-1 min-w-[120px] px-3 py-2 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/40 rounded-xl text-xs font-bold text-purple-300 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                    Claim @Handle (80%)
+                  </button>
+                )}
+              </div>
+              {currentUser && (
                 <button
-                  onClick={() => { onOpenMyAdsModal(); setShowMobileMenu(false); }}
-                  className="flex-1 min-w-[130px] px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-xs font-bold text-slate-200 flex items-center justify-center gap-2 cursor-pointer"
+                  onClick={() => { onSignOut?.(); setShowMobileMenu(false); }}
+                  className="w-full py-2 bg-rose-950/40 hover:bg-rose-950/70 border border-rose-800/60 text-rose-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Megaphone className="w-3.5 h-3.5 text-cyan-400" />
-                  My Placed Ads
-                </button>
-              )}
-              {onOpenClaimModal && (
-                <button
-                  onClick={() => { onOpenClaimModal(); setShowMobileMenu(false); }}
-                  className="flex-1 min-w-[130px] px-3 py-2.5 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/40 rounded-2xl text-xs font-bold text-purple-300 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                  Claim @Handle (80%)
+                  <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Sign Out ({currentUser.displayName || currentUser.email?.split('@')[0]})</span>
                 </button>
               )}
             </div>

@@ -3,15 +3,15 @@ import {
   X,
   Lock,
   Mail,
-  User,
   ShieldCheck,
   Megaphone,
   Tv,
   Sparkles,
   Eye,
-  Crown,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  UserCheck,
+  LogIn
 } from 'lucide-react';
 import {
   auth,
@@ -39,6 +39,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
   if (!isOpen) return null;
 
+  const mapAuthError = (err: any): string => {
+    const msg = err?.message || err?.code || '';
+    if (msg.includes('auth/unauthorized-domain')) {
+      return "⚠️ Google Sign-In requires adding 'livebillboards.lol' to Firebase Console -> Authentication -> Settings -> Authorized Domains. In the meantime, please sign in or register with Email & Password below!";
+    }
+    if (msg.includes('auth/email-already-in-use')) {
+      return "An account with this email already exists. Please switch to 'Sign In' or use a different email.";
+    }
+    if (msg.includes('auth/wrong-password') || msg.includes('auth/invalid-credential') || msg.includes('auth/user-not-found')) {
+      return "Invalid email or password. Please verify your credentials or switch to Sign Up.";
+    }
+    if (msg.includes('auth/weak-password')) {
+      return "Password is too short. Please use at least 6 characters.";
+    }
+    if (msg.includes('auth/invalid-email')) {
+      return "Please enter a valid email address.";
+    }
+    if (msg.includes('auth/popup-closed-by-user')) {
+      return "Google Sign-In was cancelled.";
+    }
+    return msg || 'Authentication failed. Please try again.';
+  };
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError(null);
@@ -49,7 +72,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       onClose();
     } catch (err: any) {
       console.error('Google Auth Error:', err);
-      setError(err.message || 'Google Authentication failed. Please try again.');
+      setError(mapAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -73,40 +96,73 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       onClose();
     } catch (err: any) {
       console.error('Email Auth Error:', err);
-      setError(err.message || 'Authentication failed. Check your credentials.');
+      setError(mapAuthError(err));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 text-white shadow-2xl relative overflow-hidden">
         {/* Ambient Glow */}
         <div className="absolute -right-20 -top-20 w-60 h-60 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -left-20 -bottom-20 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
-          <div>
-            <h2 className="text-lg font-black text-white flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-cyan-400" />
-              <span>{mode === 'signin' ? 'Sign In to Account' : 'Create Verified Account'}</span>
-            </h2>
-            <p className="text-xs text-slate-400">
-              Secure Cloud Authentication Active
-            </p>
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3.5 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/40 rounded-xl text-cyan-400">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-white">
+                {mode === 'signin' ? 'Sign In to Account' : 'Create Verified Account'}
+              </h2>
+              <p className="text-[11px] text-slate-400">
+                24/7 Virtual Billboard Cloud Access
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Mode Switcher Tabs */}
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950 border border-slate-800 rounded-2xl mb-4">
+          <button
+            type="button"
+            onClick={() => { setMode('signin'); setError(null); }}
+            className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              mode === 'signin'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Sign In</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('signup'); setError(null); }}
+            className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              mode === 'signup'
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Create Account</span>
+          </button>
+        </div>
+
         {error && (
-          <div className="mb-4 p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs font-bold text-rose-300 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          <div className="mb-4 p-3 bg-rose-950/80 border border-rose-500/40 rounded-xl text-xs font-bold text-rose-300 flex items-start gap-2 leading-relaxed">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
@@ -115,9 +171,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         <button
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2.5 mb-4 disabled:opacity-50 cursor-pointer"
+          className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2.5 mb-3.5 disabled:opacity-50 cursor-pointer"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -135,27 +191,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          <span>Continue with Google Account</span>
+          <span>Continue with Google</span>
         </button>
 
         <div className="flex items-center gap-3 my-3">
           <div className="h-px bg-slate-800 flex-1" />
-          <span className="text-[10px] text-slate-500 uppercase font-mono font-bold">OR EMAIL SIGN IN</span>
+          <span className="text-[10px] text-slate-500 uppercase font-mono font-bold">OR EMAIL & PASSWORD</span>
           <div className="h-px bg-slate-800 flex-1" />
         </div>
 
         {/* Signup Role Selector */}
         {mode === 'signup' && (
-          <div className="mb-4">
+          <div className="mb-3.5">
             <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-              Select Account Primary Role
+              Select Primary Account Role
             </label>
             <div className="grid grid-cols-2 gap-2">
               {[
                 { id: 'advertiser' as UserRole, label: 'Advertiser', icon: Megaphone, desc: 'Buy & bid on billboards' },
-                { id: 'streamer' as UserRole, label: 'Streamer', icon: Tv, desc: 'Earn 70% rev share on Stream Overlay' },
-                { id: 'paid_watcher' as UserRole, label: 'Paid Watcher', icon: Sparkles, desc: 'Watch streams for cash' },
-                { id: 'guest' as UserRole, label: 'Spectator', icon: Eye, desc: 'View global billboards' }
+                { id: 'streamer' as UserRole, label: 'Streamer', icon: Tv, desc: 'Earn 80% rev share on Overlay' },
+                { id: 'paid_watcher' as UserRole, label: 'Paid Watcher', icon: Sparkles, desc: 'Watch streams for tokens' },
+                { id: 'guest' as UserRole, label: 'Spectator', icon: Eye, desc: 'View global live screens' }
               ].map((r) => {
                 const Icon = r.icon;
                 const isSel = selectedRole === r.id;
@@ -164,17 +220,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
                     key={r.id}
                     type="button"
                     onClick={() => setSelectedRole(r.id)}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                    className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
                       isSel
                         ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
                         : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-1.5 text-xs font-bold mb-0.5">
-                      <Icon className="w-3.5 h-3.5 text-cyan-400" />
+                      <Icon className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                       <span>{r.label}</span>
                     </div>
-                    <div className="text-[10px] text-slate-400">{r.desc}</div>
+                    <div className="text-[10px] text-slate-400 leading-tight">{r.desc}</div>
                   </button>
                 );
               })}
@@ -205,6 +261,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               <input
                 type="password"
                 required
+                minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -216,24 +273,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 mt-1"
           >
-            <span>{mode === 'signin' ? 'Sign In Now' : 'Create Verified Account'}</span>
+            <span>{loading ? 'Authenticating...' : mode === 'signin' ? 'Sign In Now' : 'Create Verified Account'}</span>
             <ArrowRight className="w-3.5 h-3.5 text-slate-950" />
           </button>
         </form>
 
         <div className="mt-4 pt-3 border-t border-slate-800 text-center">
           <button
+            type="button"
             onClick={() => {
               setMode(mode === 'signin' ? 'signup' : 'signin');
               setError(null);
             }}
-            className="text-xs text-cyan-400 hover:text-cyan-300 font-bold transition-colors"
+            className="text-xs text-cyan-400 hover:text-cyan-300 font-bold transition-colors cursor-pointer"
           >
             {mode === 'signin'
               ? "Don't have an account? Sign up here"
-              : 'Already have an account? Sign in'}
+              : 'Already have an account? Sign in here'}
           </button>
         </div>
       </div>
