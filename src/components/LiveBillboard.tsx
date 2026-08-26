@@ -802,17 +802,21 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
             <div className="flex items-center gap-3">
               {/* Live QR Code (if ad has website, whatsapp, or CTA link) */}
               {(() => {
-                const rawLink =
+                let rawLink =
                   (winningAd as any).ctaUrl ||
                   (winningAd as any).landingPageUrl ||
                   ((winningAd as any).whatsappLink ? ((winningAd as any).whatsappLink.startsWith('http') ? (winningAd as any).whatsappLink : `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}`) : null);
                 
                 if (!rawLink || (winningAd as any).ctaType === 'none') return null;
 
+                const cleanLink = rawLink.startsWith('http://') || rawLink.startsWith('https://')
+                  ? rawLink
+                  : `https://${rawLink}`;
+
                 return (
                   <div className="hidden sm:flex flex-col items-center bg-white p-1.5 rounded-xl shadow-2xl border border-slate-700 shrink-0">
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(rawLink)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(cleanLink)}`}
                       alt="Scan QR"
                       className="w-12 h-12 rounded"
                     />
