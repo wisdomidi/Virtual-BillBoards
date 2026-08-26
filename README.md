@@ -104,7 +104,7 @@ Traditional physical and digital out-of-home (DOOH) billboards are locked in the
 
 We built **LiveBillboards.lol** to bring billboard advertising into the internet and AI age: a 24/7 borderless live-stream screen network spanning 200+ global city feeds, creator channels, and space feeds.
 
-By combining sub-second Real-Time Bidding (RTB) with the open **WebMCP standard**, anyone—from an individual founder to an autonomous AI agent—can take over digital screens worldwide in under 15 seconds for as little as $1.00.
+By combining sub-second Real-Time Bidding (RTB) with the open **WebMCP standard**, anyone—from an individual founder to an autonomous AI agent—can broadcast a 15-second live ad takeover across 200+ global city feeds in real-time for as little as $1.00.
 
 ### ⚙️ How It Was Built
 * **Frontend**: React 19, Vite, Tailwind CSS, Motion (Framer Motion), Lucide Icons, Canvas Confetti.
