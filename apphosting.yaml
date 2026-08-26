@@ -1,0 +1,14 @@
+# Firebase App Hosting Configuration
+# https://firebase.google.com/docs/app-hosting/configure
+
+env:
+  - variable: STRIPE_MODE
+    value: live
+  - variable: STRIPE_LIVE_SECRET_KEY
+    secret: STRIPE_LIVE_SECRET_KEY
+  - variable: STRIPE_LIVE_PUBLISHABLE_KEY
+    secret: STRIPE_LIVE_PUBLISHABLE_KEY
+  - variable: STRIPE_LIVE_WEBHOOK_SECRET
+    secret: STRIPE_LIVE_WEBHOOK_SECRET
+  - variable: VITE_HEARTBEAT_HMAC_SECRET
+    value: hb_vb_live_2026_secure_rtb_key
