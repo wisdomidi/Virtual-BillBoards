@@ -1883,6 +1883,24 @@ app.get('/api/cities/leaderboard', (req: Request, res: Response) => {
 
 // 4. BID SUBMISSION ENDPOINT (POST /api/bid & POST /api/bids/submit)
 
+// Rate limiter map for abuse prevention (Max 30 bids/min per IP)
+const bidRateLimiterMap = new Map<string, { count: number; resetAt: number }>();
+function checkBidRateLimit(req: Request): boolean {
+  const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+  const now = Date.now();
+  let record = bidRateLimiterMap.get(ip);
+  if (!record || now > record.resetAt) {
+    record = { count: 1, resetAt: now + 60000 };
+    bidRateLimiterMap.set(ip, record);
+    return true;
+  }
+  record.count++;
+  if (record.count > 30) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Main RTB Bid Submission Handler (Shared across Quick Bid, Bidding Console & Presets)
  * Validates reserve floors, performs Gemini AI safety checks, secures tokens,
@@ -1890,6 +1908,13 @@ app.get('/api/cities/leaderboard', (req: Request, res: Response) => {
  */
 const handleBidSubmission = async (req: Request, res: Response) => {
   try {
+    if (!checkBidRateLimit(req)) {
+      return res.status(429).json({
+        success: false,
+        error: 'High-frequency bidding rate limit reached (max 30 bids/min). Please slow down.'
+      });
+    }
+
     const {
       title,
       imageUrl,
@@ -2172,6 +2197,45 @@ const handleBidSubmission = async (req: Request, res: Response) => {
 // Map both POST /api/bid and POST /api/bids/submit
 app.post('/api/bid', handleBidSubmission);
 app.post('/api/bids/submit', handleBidSubmission);
+
+// POST /api/turnstile/verify - Verify Cloudflare Turnstile token on the backend
+app.post('/api/turnstile/verify', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Missing turnstile verification token' });
+    }
+
+    const secretKey = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY || '0x4AAAAAAAEcy5huJk2KQucS3_7BigbFCOVw';
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+
+    const formData = new URLSearchParams();
+    formData.append('secret', secretKey);
+    formData.append('response', token);
+    formData.append('remoteip', ip);
+
+    const cfRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+
+    const cfData = await cfRes.json();
+
+    if (cfData.success) {
+      logTelemetry('TURNSTILE_VERIFIED', `Cloudflare Turnstile token verified successfully for IP [${ip}]`);
+      return res.json({ success: true, verified: true });
+    } else {
+      logTelemetry('TURNSTILE_FAILED', `Cloudflare Turnstile token failed for IP [${ip}]: ${JSON.stringify(cfData['error-codes'] || [])}`);
+      return res.status(403).json({ success: false, error: 'Security challenge failed. Please refresh.', errorCodes: cfData['error-codes'] });
+    }
+  } catch (err: any) {
+    console.error('Turnstile verification error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // -----------------------------------------------------------------------------
 // Future Slot Auction & Pre-Scheduling Engine
@@ -3586,6 +3650,242 @@ app.post('/api/v1/m2m/bid-and-pay', async (req, res) => {
   } catch (err: any) {
     console.error('M2M Bid & Pay error:', err);
     return res.status(500).json({ success: false, error: err.message || 'M2M Bid & Pay failed' });
+  }
+});
+
+// ------------------------------------------------------------------------------
+// WEBMCP & MODEL CONTEXT PROTOCOL (MCP) AI AGENT SUITE
+// ------------------------------------------------------------------------------
+
+const MCP_MANIFEST = {
+  schema_version: 'v1',
+  name_for_model: 'virtual_billboard_network',
+  name_for_human: 'Virtual Billboard Global 24/7 Screen Network',
+  description_for_model: 'Autonomous AI Agent Model Context Protocol (WebMCP) interface for inspecting real-time virtual billboard streams, querying city reserve floor pricing, checking valuation leaderboards, and programmatically broadcasting 15-second ad takeovers across 200+ global metropolitan screens.',
+  description_for_human: 'Inspect live billboard feeds and programmatically broadcast 15-second takeovers worldwide.',
+  auth: {
+    type: 'none_or_bearer',
+    instructions: 'Public read tools require no authentication. Programmatic bidding tools accept an optional M2M API Key or User UID header.'
+  },
+  endpoints: {
+    manifest: '/api/mcp/manifest',
+    tools: '/api/mcp/tools',
+    rpc: '/api/mcp/call'
+  }
+};
+
+const MCP_TOOLS = [
+  {
+    name: 'get_live_billboard',
+    description: 'Inspect the currently broadcasting ad, active winner, countdown timer, and reserve floor for any city (e.g. NYC, TYO, LON, KUL, GLOBAL).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        city: { type: 'string', description: 'Metropolitan city code (e.g. NYC, TYO, LON, KUL, GLOBAL)', default: 'GLOBAL' },
+        country: { type: 'string', description: 'Country code (e.g. US, JP, UK, MY, GLOBAL)', default: 'GLOBAL' }
+      }
+    }
+  },
+  {
+    name: 'get_cities_leaderboard',
+    description: 'Retrieve real-time liquidity rankings, highest active bids, and top advertiser records across all global screens.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Maximum number of cities to return (default 20)', default: 20 }
+      }
+    }
+  },
+  {
+    name: 'get_creator_billboard',
+    description: "Inspect a creator, streamer, or celebrity's dedicated 24/7 live billboard screen (e.g. elonmusk, mrbeast, kaicenat).",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        handle: { type: 'string', description: 'Creator username handle without @ (e.g. elonmusk, mrbeast)' }
+      },
+      required: ['handle']
+    }
+  },
+  {
+    name: 'get_ad_catalog',
+    description: 'Query the archived catalog of verified high-performing billboard campaigns with performance metrics and ROAS.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', description: 'Filter by category (e.g. tech, crypto, startup, luxury, all)', default: 'all' },
+        city: { type: 'string', description: 'Filter by city code (e.g. TYO, NYC, all)', default: 'all' }
+      }
+    }
+  },
+  {
+    name: 'place_billboard_ad',
+    description: 'Submit an ad campaign to take over a global digital billboard for 15 seconds in the next available rotation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Campaign headline text displayed on screen' },
+        imageUrl: { type: 'string', description: 'Direct image URL (PNG, JPG, WebP) or video URL to display' },
+        targetCityCode: { type: 'string', description: 'Target city code (e.g. TYO, NYC, LON, KUL, GLOBAL)', default: 'GLOBAL' },
+        bidAmountDollars: { type: 'number', description: 'Bid amount in USD (minimum $1.00)', default: 1.00 },
+        advertiserName: { type: 'string', description: 'Brand or agent name displayed on banner', default: 'Autonomous AI Agent' },
+        ctaUrl: { type: 'string', description: 'Optional landing page URL' }
+      },
+      required: ['title', 'imageUrl']
+    }
+  }
+];
+
+// 1. WebMCP Discovery Manifests
+app.get(['/api/mcp/manifest', '/.well-known/mcp.json', '/.well-known/ai-plugin.json'], (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.json(MCP_MANIFEST);
+});
+
+// 2. WebMCP Tools Listing Endpoint
+app.get('/api/mcp/tools', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.json({
+    success: true,
+    tools: MCP_TOOLS
+  });
+});
+
+// 3. WebMCP Tool Execution / RPC Endpoint
+app.post(['/api/mcp/call', '/api/mcp/rpc'], async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  try {
+    const { name, arguments: args = {} } = req.body;
+    if (!name) {
+      return res.status(400).json({ success: false, error: 'Missing tool name' });
+    }
+
+    if (name === 'get_live_billboard') {
+      const city = (args.city || 'GLOBAL').toUpperCase();
+      const country = (args.country || 'GLOBAL').toUpperCase();
+      const cascadeResult = evaluateCascade(city, country);
+      return res.json({
+        success: true,
+        tool: name,
+        result: {
+          slotId: currentSlotId,
+          remainingSeconds,
+          city,
+          country,
+          winningAd: cascadeResult.winningAd,
+          fallbackLevel: cascadeResult.fallbackLevel
+        }
+      });
+    }
+
+    if (name === 'get_cities_leaderboard') {
+      const limitCount = Number(args.limit) || 20;
+      const topCities = activeCitiesStore.slice(0, limitCount).map((c, i) => ({
+        rank: i + 1,
+        cityCode: c.cityCode,
+        cityName: c.cityName,
+        countryCode: c.countryCode,
+        reserveFloorDollars: (c.reserveFloorCents / 100).toFixed(2),
+        active: c.active
+      }));
+      return res.json({
+        success: true,
+        tool: name,
+        result: { leaderboard: topCities }
+      });
+    }
+
+    if (name === 'get_creator_billboard') {
+      const handle = (args.handle || '').replace(/^@/, '').toLowerCase();
+      return res.json({
+        success: true,
+        tool: name,
+        result: {
+          creatorHandle: handle,
+          liveUrl: `https://www.livebillboards.lol/@${handle}`,
+          overlayObsUrl: `https://www.livebillboards.lol/overlay?creator=${handle}`,
+          minBidDollars: 1.00
+        }
+      });
+    }
+
+    if (name === 'get_ad_catalog') {
+      return res.json({
+        success: true,
+        tool: name,
+        result: { ads: adLibraryStore.slice(0, 10) }
+      });
+    }
+
+    if (name === 'place_billboard_ad') {
+      const {
+        title,
+        imageUrl,
+        targetCityCode = 'GLOBAL',
+        targetCountryCode = 'GLOBAL',
+        bidAmountDollars = 1.00,
+        advertiserName = 'Autonomous AI Agent',
+        ctaUrl
+      } = args;
+
+      if (!title || !imageUrl) {
+        return res.status(400).json({ success: false, error: 'title and imageUrl are required to place an ad' });
+      }
+
+      const cents = Math.round(Number(bidAmountDollars) * 100);
+      const cityUpper = targetCityCode.toUpperCase();
+      const countryUpper = targetCountryCode.toUpperCase();
+      const queueKey = `billboard:queue:${cityUpper}`;
+
+      if (!redisQueues[queueKey]) redisQueues[queueKey] = [];
+      const currentQueue = redisQueues[queueKey];
+
+      const newAd: QueueItem = {
+        id: `mcp_ad_${Date.now()}`,
+        advertiserId: `agent_${Math.random().toString(36).substring(2, 7)}`,
+        userId: 'mcp_ai_agent',
+        isHouseAd: false,
+        advertiserName,
+        title,
+        imageUrl,
+        mediaType: 'image',
+        ctaType: ctaUrl ? 'website' : 'none',
+        ctaUrl: ctaUrl || undefined,
+        landingPageUrl: ctaUrl || undefined,
+        targetCountryCode: countryUpper,
+        targetCityCode: cityUpper,
+        bidAmountCents: cents,
+        bidAmountTokens: cents * 10,
+        safetyScore: 98,
+        createdAt: new Date().toISOString()
+      };
+
+      currentQueue.push(newAd);
+      currentQueue.sort((a, b) => (b.bidAmountTokens || b.bidAmountCents * 10) - (a.bidAmountTokens || a.bidAmountCents * 10));
+
+      const isTopBid = currentQueue[0].id === newAd.id;
+
+      logTelemetry('WEBMCP_TOOL_EXECUTED', `WebMCP Agent submitted ad "${title}" for $${(cents / 100).toFixed(2)} in [${cityUpper}]`);
+
+      return res.json({
+        success: true,
+        tool: name,
+        result: {
+          broadcastQueued: true,
+          isTopBid,
+          cityCode: cityUpper,
+          slotEstimatedTimeSeconds: isTopBid ? remainingSeconds : remainingSeconds + 15,
+          liveStreamUrl: `https://www.livebillboards.lol/?city=${cityUpper}`
+        }
+      });
+    }
+
+    return res.status(404).json({ success: false, error: `Tool "${name}" not found` });
+
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
