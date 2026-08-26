@@ -621,16 +621,17 @@ export default function App() {
 
         ws.onclose = () => {
           setIsConnected(false);
+          // If WS is unavailable on cloud load balancer, backoff to avoid spam
           reconnectTimer = setTimeout(() => {
             connectWs();
-          }, 4000);
+          }, 30000);
         };
 
         ws.onerror = () => {
           setIsConnected(false);
         };
-      } catch (err) {
-        console.warn('WebSocket connection non-fatal warning:', err);
+      } catch (_) {
+        // Graceful fallback to HTTP polling
       }
     };
 
@@ -916,8 +917,8 @@ export default function App() {
           }}
         />
 
-        {/* Trending Creator Billboards Carousel & Social Discovery */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
+        {/* Trending Creator Billboards Carousel & Social Discovery (Desktop/Tablet only) */}
+        <div className="hidden sm:block bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <div className="flex items-center gap-2">
@@ -999,7 +1000,7 @@ export default function App() {
       {/* Toast Notification Overlay */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      <footer className="border-t border-slate-900 bg-slate-950/90 py-12 px-4 sm:px-6 lg:px-8 text-xs text-slate-400 font-sans mt-12">
+      <footer className="hidden sm:block border-t border-slate-900 bg-slate-950/90 py-12 px-4 sm:px-6 lg:px-8 text-xs text-slate-400 font-sans mt-12">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Col 1: Brand & Infinite Mission */}
           <div className="space-y-3 md:col-span-1">

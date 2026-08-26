@@ -369,43 +369,52 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
     setIsSubmittingBid(true);
     setBidFeedback(null);
 
-    const landingPageUrl = bidCtaType === 'website' ? bidCtaUrl : undefined;
-    const whatsappLink = bidCtaType === 'whatsapp' ? bidCtaUrl : undefined;
+    try {
+      const landingPageUrl = bidCtaType === 'website' ? bidCtaUrl : undefined;
+      const whatsappLink = bidCtaType === 'whatsapp' ? bidCtaUrl : undefined;
 
-    const result = await onPlaceBidQuick(
-      bidTitle,
-      bidImageUrl,
-      bidAmountDollars,
-      selectedCity,
-      selectedCountry,
-      landingPageUrl,
-      whatsappLink,
-      undefined,
-      bidMediaType,
-      bidCtaType,
-      bidCtaUrl
-    );
-    setIsSubmittingBid(false);
-    setBidFeedback(result);
+      const result = await onPlaceBidQuick(
+        bidTitle,
+        bidImageUrl,
+        bidAmountDollars,
+        selectedCity,
+        selectedCountry,
+        landingPageUrl,
+        whatsappLink,
+        undefined,
+        bidMediaType,
+        bidCtaType,
+        bidCtaUrl
+      );
+      setBidFeedback(result);
 
-    if (result.success) {
-      soundEffects.playKaChing();
-      triggerConfettiExplosion();
-      window.dispatchEvent(new CustomEvent('user-bid-placed', { detail: { city: selectedCity } }));
-      
-      const initialPrep = (result as any).prepTimeSeconds || slotData.remainingSeconds || 15;
-      setUserBroadcast({
-        title: bidTitle,
-        prepSeconds: initialPrep,
-        isLive: false,
-        liveSecondsLeft: 15
-      });
+      if (result.success) {
+        soundEffects.playKaChing();
+        triggerConfettiExplosion();
+        window.dispatchEvent(new CustomEvent('user-bid-placed', { detail: { city: selectedCity } }));
+        
+        const initialPrep = (result as any).prepTimeSeconds || slotData.remainingSeconds || 15;
+        setUserBroadcast({
+          title: bidTitle,
+          prepSeconds: initialPrep,
+          isLive: false,
+          liveSecondsLeft: 15
+        });
 
-      billboardScreenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      if (result.message && (result.message.includes('Insufficient') || result.message.includes('Top up') || result.message.includes('Wallet') || result.message.includes('402'))) {
-        onOpenWalletModal?.();
+        billboardScreenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        if (result.message && (result.message.includes('Insufficient') || result.message.includes('Top up') || result.message.includes('Wallet') || result.message.includes('402'))) {
+          onOpenWalletModal?.();
+        }
       }
+    } catch (err: any) {
+      console.error('Bid submit error:', err);
+      setBidFeedback({
+        success: false,
+        message: err.message || 'Bid submission failed. Please try again.'
+      });
+    } finally {
+      setIsSubmittingBid(false);
     }
   };
 
@@ -908,32 +917,29 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
             </div>
           </div>
 
-          {/* Wallet Balance Widget (Only shown if logged in) */}
-          {currentUser && userRole !== 'guest' ? (
-            <div className="flex items-center gap-3">
-              <div className="bg-slate-950 border border-emerald-500/30 px-3.5 py-1.5 rounded-2xl flex items-center gap-2 text-xs font-mono">
-                <Wallet className="w-4 h-4 text-emerald-400" />
-                <div>
-                  <div className="text-[9px] text-slate-500 uppercase">Ad Wallet</div>
-                  <div className="font-black text-emerald-400 text-sm">${walletBalanceDollars}</div>
+          {/* Ad Wallet Balance & Instant Top Up Widget */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="bg-slate-950 border border-emerald-500/30 px-3 py-1.5 rounded-2xl flex items-center gap-2 text-xs font-mono shadow-sm">
+              <Wallet className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div>
+                <div className="text-[9px] text-slate-400 uppercase font-sans font-bold leading-tight">Ad Wallet</div>
+                <div className="font-black text-emerald-400 text-xs sm:text-sm leading-tight">
+                  ${walletBalanceDollars}
+                  <span className="text-[10px] text-amber-400 font-normal ml-1 hidden xs:inline">
+                    ({(Math.round(Number(walletBalanceDollars || 0) * 1000)).toLocaleString()} tokens)
+                  </span>
                 </div>
               </div>
-              <button
-                onClick={onOpenWalletModal}
-                className="px-3.5 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" /> Top Up
-              </button>
             </div>
-          ) : (
             <button
               onClick={onOpenWalletModal}
-              className="px-3.5 py-2 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:from-amber-500/30 hover:to-yellow-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-3 py-2 bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0"
+              title="Top Up Tokens or Claim Free Slot"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>🎁 1 Free 15s Slot Credit</span>
+              <Plus className="w-3.5 h-3.5 text-amber-400 stroke-[3]" />
+              <span>Top Up</span>
             </button>
-          )}
+          </div>
         </div>
 
         {bidFeedback && (
