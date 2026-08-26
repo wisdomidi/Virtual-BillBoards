@@ -941,7 +941,12 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleQuickBidSubmit} className="space-y-4">
+        <form
+          onSubmit={handleQuickBidSubmit}
+          className="space-y-4"
+          data-webmcp-tool="placeAdBid"
+          aria-label="Submit Billboard Ad Campaign"
+        >
           {/* Ad Headline / Campaign Title */}
           <div>
             <label className="block text-xs font-bold text-slate-300 uppercase mb-1">

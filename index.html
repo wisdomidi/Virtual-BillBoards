@@ -115,6 +115,69 @@
         ]
       }
     </script>
+
+    <!-- OpenAI & Chrome WebMCP (Model Context Protocol) Schema -->
+    <script type="application/webmcp+json">
+      {
+        "schema_version": "v1",
+        "name": "LiveBillboards.lol",
+        "description": "Infinite 24/7 Virtual Billboard & Live Stream Advertising Network",
+        "tools": [
+          {
+            "name": "placeAdBid",
+            "description": "Submit a 15-second creative ad to the live Real-Time Bidding (RTB) billboard queue for any city feed.",
+            "readOnlyHint": false,
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "title": { "type": "string", "description": "Headline text for the billboard creative" },
+                "imageUrl": { "type": "string", "description": "Direct image URL (PNG, JPG, WebP) or video URL" },
+                "targetCityCode": { "type": "string", "description": "3-letter city code (e.g. NYC, TYO, LON, KUL, GLOBAL)", "default": "GLOBAL" },
+                "bidAmountDollars": { "type": "number", "description": "Bid amount in USD (minimum $1.00)", "default": 1.00 },
+                "advertiserName": { "type": "string", "description": "Brand or agent name", "default": "AI Agent" },
+                "ctaUrl": { "type": "string", "description": "Optional destination URL" }
+              },
+              "required": ["title", "imageUrl"]
+            }
+          },
+          {
+            "name": "fetchActiveBillboard",
+            "description": "Inspect active broadcasting ad, remaining seconds, and floor price for any city feed.",
+            "readOnlyHint": true,
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "city": { "type": "string", "description": "City code (e.g. NYC, TYO, KUL, GLOBAL)", "default": "GLOBAL" }
+              }
+            }
+          },
+          {
+            "name": "getCityLeaderboard",
+            "description": "Retrieve valuation leaderboards and liquidity rankings across 200+ global cities.",
+            "readOnlyHint": true,
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "limit": { "type": "number", "description": "Maximum number of cities to return", "default": 20 }
+              }
+            }
+          },
+          {
+            "name": "claimCreatorHandle",
+            "description": "Claim a vanity 24/7 billboard URL (livebillboards.lol/@yourname) for a streamer or creator.",
+            "readOnlyHint": false,
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "handle": { "type": "string", "description": "Desired handle without @" }
+              },
+              "required": ["handle"]
+            }
+          }
+        ]
+      }
+    </script>
+
     <!-- Cloudflare Turnstile Security Verification -->
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   </head>

@@ -28,6 +28,7 @@ import { CreatorBillboardPage } from './components/CreatorBillboardPage';
 import { ClaimUsernameModal } from './components/ClaimUsernameModal';
 import { BlogEngine } from './components/BlogEngine';
 import { BrandLogo } from './components/BrandLogo';
+import { WebMcpPlayground } from './components/WebMcpPlayground';
 import { Sparkles, Globe, Radio } from 'lucide-react';
 import {
   auth,
@@ -132,6 +133,7 @@ function detectCreatorHandleFromUrl(): string | null {
     '/live-preview',
     '/blog',
     '/leaderboard',
+    '/webmcp',
     '/api_docs',
     '/ai_agents',
     '/robots.txt',
@@ -747,6 +749,9 @@ export default function App() {
             onPlaceBidQuick={handlePlaceBidQuick}
           />
         )}
+
+        {/* VIEW 2.5: OFFICIAL OPENAI WEBMCP AGENT PLAYGROUND */}
+        {activeTab === 'webmcp' && <WebMcpPlayground />}
 
         {/* VIEW 3: CLEAN HOMEPAGE LIVE BILLBOARD */}
         {activeTab === 'live' && (

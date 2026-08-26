@@ -14,7 +14,8 @@ import {
   Plus,
   Wifi,
   Crown,
-  ExternalLink
+  ExternalLink,
+  Bot
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -86,6 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Core Live Real-Time Interactive Tabs ONLY (Secondary pages live cleanly in the footer)
   const coreTabs: Array<{ id: TabType; label: string; icon: any }> = [
     { id: 'live', label: 'Live Billboard', icon: Monitor },
+    { id: 'webmcp', label: '🤖 WebMCP Suite', icon: Bot },
     { id: 'streamer', label: 'Streamer Hub', icon: Tv },
     { id: 'watcher', label: 'Watcher Earn Hub', icon: Sparkles }
   ];
