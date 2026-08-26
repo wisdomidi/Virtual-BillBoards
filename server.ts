@@ -1,8 +1,9 @@
-import 'dotenv/config';
+import path from 'path';
 import dotenv from 'dotenv';
+// Explicitly resolve .env from the project root — fixes tsx cwd ambiguity
+dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true });
 import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
-import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import Stripe from 'stripe';
@@ -3098,13 +3099,10 @@ function getStripe(): Stripe {
   return stripeClient;
 }
 
-// In-Memory Store for Generated M2M API Keys (Supports Machine-to-Machine DSP Bidding)
-const m2mKeysStore = new Set<string>([
-  'm2m_live_demo_d3f4a2b91c8e7f',
-  'm2m_live_rtb_dsp_agent_889211'
-]);
+// In-Memory Store for Generated M2M API Keys (Persisted from Firestore on startup)
+const m2mKeysStore = new Set<string>();
 
-// M2M Authentication Helper
+// M2M Authentication Helper — Keys must be registered or set via M2M_SECRET_KEY env var only
 function authenticateM2MRequest(req: Request): { authorized: boolean; apiKey?: string; error?: string } {
   const authHeader = req.headers['authorization'];
   const apiKeyHeader = req.headers['x-m2m-api-key'] || req.headers['x-api-key'];
@@ -3120,8 +3118,9 @@ function authenticateM2MRequest(req: Request): { authorized: boolean; apiKey?: s
     return { authorized: false, error: 'Unauthorized M2M Access: Missing Authorization header or x-m2m-api-key header.' };
   }
 
-  const envM2mKey = process.env.STRIPE_M2M_SECRET_KEY;
-  if ((envM2mKey && token === envM2mKey) || m2mKeysStore.has(token) || token.startsWith('m2m_live_')) {
+  // Only allow: env-configured M2M key OR keys that were explicitly registered via /api/v1/m2m/keys/generate
+  const envM2mKey = (process.env.M2M_SECRET_KEY || process.env.STRIPE_M2M_SECRET_KEY || '').trim();
+  if ((envM2mKey && token === envM2mKey) || m2mKeysStore.has(token)) {
     return { authorized: true, apiKey: token };
   }
 
@@ -3245,6 +3244,9 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+// Idempotency guard for client-side verify-session (prevents double-credit on page refresh)
+const verifiedSessionIds = new Set<string>();
+
 // Endpoint to verify and fulfill a completed Stripe Checkout session
 app.post('/api/stripe/verify-session', async (req, res) => {
   try {
@@ -3253,6 +3255,12 @@ app.post('/api/stripe/verify-session', async (req, res) => {
 
     if (!sessionId) {
       return res.status(400).json({ success: false, error: 'sessionId is required' });
+    }
+
+    // Idempotency: prevent double-credit if browser calls this twice
+    if (verifiedSessionIds.has(sessionId)) {
+      logTelemetry('STRIPE_SESSION_DUPLICATE', `Duplicate verify-session call blocked for [${sessionId}]`);
+      return res.json({ success: true, paid: true, alreadyProcessed: true, message: 'Session already credited.' });
     }
 
     const resolvedKey = getResolvedStripeKey();
@@ -3264,9 +3272,20 @@ app.post('/api/stripe/verify-session', async (req, res) => {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (session.payment_status === 'paid') {
+      // Mark session as processed immediately to prevent race condition double-credit
+      verifiedSessionIds.add(sessionId);
+
       const amountCents = session.amount_total || Number(session.metadata?.amountCents) || 1000;
       const targetUserId = session.metadata?.userId || userId;
-      const tokensToAdd = Math.round(amountCents * 10);
+      // Apply same bonus tiers shown in UI: >=25=$0.20 bonus, >=10=15%, >=5=10%
+      const baseDollar = amountCents / 100;
+      let bonusPct = 0;
+      if (baseDollar >= 25) bonusPct = 0.20;
+      else if (baseDollar >= 10) bonusPct = 0.15;
+      else if (baseDollar >= 5) bonusPct = 0.10;
+      const baseTokens = Math.round(amountCents * 10);
+      const bonusTokens = Math.round(baseTokens * bonusPct);
+      const tokensToAdd = baseTokens + bonusTokens;
 
       // Get current tokens from Firestore or memory
       const userRef = doc(db, 'users', targetUserId);
@@ -3420,10 +3439,17 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const session = event.data.object as Stripe.Checkout.Session;
       const amountCents = session.amount_total || Number(session.metadata?.amountCents) || 5000;
       const userId = (session.metadata?.userId as string) || (session.client_reference_id as string) || 'default_user';
-      
-      const newBal = await topUpUserWalletInFirestore(userId, amountCents);
+      // Apply bonus token tiers consistent with UI display
+      const baseDollar = amountCents / 100;
+      let bonusPct = 0;
+      if (baseDollar >= 25) bonusPct = 0.20;
+      else if (baseDollar >= 10) bonusPct = 0.15;
+      else if (baseDollar >= 5) bonusPct = 0.10;
+      const bonusTokens = Math.round(amountCents * 10 * bonusPct);
+      const totalCentsEquivalent = amountCents + Math.round(bonusTokens / 10);
+      const newBal = await topUpUserWalletInFirestore(userId, totalCentsEquivalent);
 
-      logTelemetry('STRIPE_WEBHOOK_PAID', `Stripe Checkout Session [${session.id}] completed! Wallet credited +$${(amountCents / 100).toFixed(2)} to user [${userId}]. New Balance: $${(newBal / 100).toFixed(2)}`);
+      logTelemetry('STRIPE_WEBHOOK_PAID', `Stripe Checkout Session [${session.id}] completed! Wallet credited +$${(amountCents / 100).toFixed(2)} (+${bonusTokens} bonus tokens) to user [${userId}]. New Balance: $${(newBal / 100).toFixed(2)}`);
     } else if (event.type === 'payment_intent.succeeded') {
       const intent = event.data.object as Stripe.PaymentIntent;
       const amountCents = intent.amount;

@@ -130,7 +130,7 @@ export function useProofOfAttention({
     };
 
     const payloadStr = JSON.stringify(payloadData);
-    const clientSecret = 'cyber_billboard_secret_key_2026_rtb';
+    const clientSecret = import.meta.env.VITE_HEARTBEAT_HMAC_SECRET || 'hb_client_rtb_2026';
     const hmacSignature = await computeHmacSignature(payloadStr, clientSecret);
 
     setLastHeartbeatStatus('transmitting_heartbeat');
