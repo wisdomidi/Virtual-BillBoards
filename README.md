@@ -14,6 +14,21 @@
 
 ---
 
+## 🎯 60-Second Judge Quick-Test Guide
+
+Judges can test the full end-to-end autonomous WebMCP agent flow in 60 seconds:
+
+1. **Open the WebMCP Suite**: Navigate to **[livebillboards.lol/webmcp](https://www.livebillboards.lol/webmcp)**.
+2. **Click "▶️ Run Autonomous Agent Flow"**: Located at the top of the page.
+3. **Watch the Live Agent Flow**:
+   - 📡 **Discovery**: Inspects the active Tokyo Shibuya screen slot via `fetchActiveBillboard("TYO")`.
+   - 🧠 **Strategy**: Computes the optimal outbid price ($2.50) and headline.
+   - 🛡️ **Verification**: Checks brand safety scores and wallet funds.
+   - ⚡ **Execution**: Executes `placeAdBid()` with sub-20ms RTB settlement and live screen takeover!
+4. **Test Proof-of-Attention**: Open **[livebillboards.lol/watcher](https://www.livebillboards.lol/watcher)** and click the floating attention target to mine cryptographic PoA tickets.
+
+---
+
 ## 💡 What is Virtual BillBoard?
 
 Traditional physical billboards cost **$10,000 to $50,000/month** and take up to 3 weeks for manual agency review.
