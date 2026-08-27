@@ -215,6 +215,36 @@ class WebMCPClientRegistry {
         return await res.json();
       }
     });
+
+    // 6. Tool: sponsorStreamerGameStateEvent
+    this.registerTool({
+      name: 'sponsorStreamerGameStateEvent',
+      description: "Trigger an immediate, celebratory sponsored takeover on a creator's live OBS/Streamlabs overlay during in-game moments (Victory Royale, 5x Kill Streak, ACE clutch). Fires animations, custom copy, sound effects, and 70% direct rev-share to streamer.",
+      readOnlyHint: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          streamerId: { type: 'string', description: "Streamer handle or channel name without @ (e.g. 'ninja', 'shroud', 'creator')", default: 'creator' },
+          eventType: { type: 'string', enum: ['kill_streak', 'victory_royale', 'ace_clutch', 'boss_defeated', 'sub_hype_bomb', 'tournament_champion', 'level_up', 'game_over'], description: 'Game event trigger type', default: 'victory_royale' },
+          headline: { type: 'string', description: "Takeover headline banner copy (e.g. '⚡ VICTORY ROYALE SPONSORED BY APEX GPU')" },
+          subheadline: { type: 'string', description: 'Secondary copy or discount promo code' },
+          sponsorName: { type: 'string', description: 'Brand or AI agent name', default: 'Autonomous WebMCP Sponsor' },
+          sponsorImageUrl: { type: 'string', description: 'Image or logo URL for overlay creative banner' },
+          sponsorCtaUrl: { type: 'string', description: 'Clickable call-to-action link' },
+          bidAmountDollars: { type: 'number', description: 'Sponsorship amount in USD (min $2.00, 70% directly to streamer)', default: 5.00 },
+          gameTitle: { type: 'string', description: 'Game name (e.g. Valorant, CS2, Fortnite, Apex)', default: 'Live Esports' }
+        },
+        required: ['streamerId', 'eventType', 'headline']
+      },
+      handler: async (args) => {
+        const res = await fetch('/api/overlay/trigger-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args)
+        });
+        return await res.json();
+      }
+    });
   }
 
   private exposeGlobalRuntime() {

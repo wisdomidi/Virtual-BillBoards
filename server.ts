@@ -665,6 +665,9 @@ const redisActiveSlots: Record<string, any> = {};
 // Proof-of-Attention (PoA) Cryptographic Ticket Store
 const poaTicketsLedger: ProofOfAttentionTicket[] = [];
 
+// Streamer Game-State In-Game Event Takeover Store
+const streamerEventsLedger: StreamerGameStateEvent[] = [];
+
 // Default House Ad for Tier 0 (Zero-Blank Fallback Guard)
 const houseAd: QueueItem = {
   id: 'cmp_house_default',
@@ -4102,6 +4105,25 @@ const MCP_TOOLS = [
       },
       required: ['title', 'imageUrl']
     }
+  },
+  {
+    name: 'sponsor_streamer_game_event',
+    description: "Trigger an immediate, high-impact sponsored celebration takeover on a streamer's live OBS/Streamlabs overlay during an in-game event (e.g. 'Victory Royale', '5x Kill Streak', 'ACE clutch'). Instantly fires celebratory animations, sound effects, particle blasts, and sponsor creative across Twitch/Kick/YouTube.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        streamerId: { type: 'string', description: "Streamer handle or channel ID (e.g. 'ninja', 'shroud', 'creator')" },
+        eventType: { type: 'string', enum: ['kill_streak', 'victory_royale', 'ace_clutch', 'boss_defeated', 'sub_hype_bomb', 'tournament_champion', 'level_up', 'game_over', 'custom_event'], description: 'In-game trigger event type' },
+        headline: { type: 'string', description: "Celebratory sponsor banner copy (e.g. '⚡ VICTORY ROYALE SPONSORED BY APEX GPU')" },
+        subheadline: { type: 'string', description: 'Secondary copy or promo discount code' },
+        sponsorName: { type: 'string', description: 'Brand or AI agent sponsor name' },
+        sponsorImageUrl: { type: 'string', description: 'High-res logo or banner image URL' },
+        sponsorCtaUrl: { type: 'string', description: 'Clickable call-to-action link' },
+        bidAmountDollars: { type: 'number', description: 'Sponsorship amount in USD (min $2.00, 70% goes directly to streamer)', default: 5.00 },
+        gameTitle: { type: 'string', description: 'Game title (e.g. Valorant, CS2, Fortnite, Apex)', default: 'Live Gaming' }
+      },
+      required: ['streamerId', 'eventType', 'headline', 'sponsorName', 'sponsorImageUrl']
+    }
   }
 ];
 
@@ -4260,6 +4282,68 @@ app.post(['/api/mcp/call', '/api/mcp/rpc'], async (req, res) => {
             poaTelemetryEndpoint: `/api/poa/tickets?cityCode=${cityUpper}`,
             status: 'cryptographic_mining_enforced'
           } : undefined
+        }
+      });
+    }
+
+    if (name === 'sponsor_streamer_game_event') {
+      const {
+        streamerId = 'creator',
+        eventType = 'victory_royale',
+        headline = '⚡ VICTORY ROYALE SPONSORED BY AI',
+        subheadline,
+        sponsorName = 'Autonomous WebMCP Agent',
+        sponsorImageUrl = 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+        sponsorCtaUrl,
+        bidAmountDollars = 5.00,
+        gameTitle = 'Live Esports'
+      } = args;
+
+      const cleanStreamer = streamerId.replace(/^@/, '').toLowerCase();
+      const dollars = Math.max(2.00, Number(bidAmountDollars) || 5.00);
+      const revShareDollars = (dollars * 0.70).toFixed(2);
+      const eventId = `gme_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+      const gameEvent: StreamerGameStateEvent = {
+        eventId,
+        streamerId: cleanStreamer,
+        eventType,
+        gameTitle,
+        headline,
+        subheadline: subheadline || `Sponsored by ${sponsorName}`,
+        sponsorName,
+        sponsorImageUrl,
+        sponsorCtaUrl,
+        bidAmountDollars: dollars,
+        durationSeconds: 10,
+        timestamp: new Date().toISOString(),
+        customVfx: eventType === 'kill_streak' ? 'flame_rampage' : eventType === 'victory_royale' ? 'victory_gold' : 'neon_burst',
+        particlesEmoji: eventType === 'kill_streak' ? '🔥' : eventType === 'victory_royale' ? '👑' : '⚡'
+      };
+
+      streamerEventsLedger.unshift(gameEvent);
+      if (streamerEventsLedger.length > 200) streamerEventsLedger.pop();
+
+      // Broadcast instant live takeover event to all OBS browser sources listening to this streamer
+      broadcastToAll({
+        type: 'GAME_STATE_EVENT_TRIGGER',
+        payload: gameEvent
+      });
+
+      logTelemetry('STREAMER_GAME_EVENT', `[${sponsorName}] sponsored in-game [${eventType}] on [@${cleanStreamer}] for $${dollars.toFixed(2)}.`);
+
+      return res.json({
+        success: true,
+        tool: name,
+        result: {
+          eventTriggered: true,
+          eventId,
+          streamerId: cleanStreamer,
+          eventType,
+          broadcastTakeoverDurationSeconds: 10,
+          streamerRevShareDollars: revShareDollars,
+          obsOverlayUrl: `https://www.livebillboards.lol/overlay?creator=${cleanStreamer}`,
+          status: 'live_takeover_broadcasting'
         }
       });
     }
@@ -5189,6 +5273,96 @@ app.post('/api/streamer/impression', async (req, res) => {
 
   logTelemetry('STREAMER_IMPRESSION', `Streamer [${streamerId}] served 15s billboard ad in [${cityCode}]. Earned +$${earnedDollars.toFixed(2)} (70% rev-share).`);
   return res.json({ success: true, streamerId, earnedDollars: earnedDollars.toFixed(2) });
+});
+
+// ------------------------------------------------------------------------------
+// GAME-STATE TRIGGER & CONTEXT-AWARE OVERLAY INGESTION (/api/overlay/trigger-event)
+// Real-time Event Ingestion for CS2, Valorant, Fortnite, Tournament Feeds & AI Agents
+// ------------------------------------------------------------------------------
+
+app.post('/api/overlay/trigger-event', async (req, res) => {
+  try {
+    const {
+      streamerId = 'creator',
+      eventType = 'victory_royale',
+      gameTitle = 'Live Esports',
+      headline,
+      subheadline,
+      sponsorName = 'Autonomous Sponsor',
+      sponsorImageUrl = 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+      sponsorCtaUrl,
+      bidAmountDollars = 5.00,
+      durationSeconds = 10,
+      customVfx,
+      particlesEmoji
+    } = req.body;
+
+    const cleanStreamer = (streamerId || 'creator').replace(/^@/, '').toLowerCase();
+    const dollars = Math.max(1.00, Number(bidAmountDollars) || 5.00);
+    const revShareDollars = (dollars * 0.70).toFixed(2);
+    const eventId = `gme_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+    // Default high-impact headlines based on in-game context
+    let defaultHeadline = `⚡ ${eventType.toUpperCase().replace(/_/g, ' ')} TAKEOVER!`;
+    if (eventType === 'kill_streak') defaultHeadline = `🔥 5X KILL STREAK SPONSORED BY ${sponsorName.toUpperCase()}!`;
+    if (eventType === 'victory_royale') defaultHeadline = `👑 VICTORY ROYALE SPONSORED BY ${sponsorName.toUpperCase()}!`;
+    if (eventType === 'ace_clutch') defaultHeadline = `🎯 1v5 ACE CLUTCH SPONSORED BY ${sponsorName.toUpperCase()}!`;
+    if (eventType === 'sub_hype_bomb') defaultHeadline = `💥 HYPE TRAIN BOMB SPONSORED BY ${sponsorName.toUpperCase()}!`;
+
+    const gameEvent: StreamerGameStateEvent = {
+      eventId,
+      streamerId: cleanStreamer,
+      eventType: eventType as GameStateEventType,
+      gameTitle,
+      headline: headline || defaultHeadline,
+      subheadline: subheadline || `Sponsored by ${sponsorName} • 70% rev-share to @${cleanStreamer}`,
+      sponsorName,
+      sponsorImageUrl,
+      sponsorCtaUrl,
+      bidAmountDollars: dollars,
+      durationSeconds: Math.min(30, Math.max(5, Number(durationSeconds) || 10)),
+      timestamp: new Date().toISOString(),
+      customVfx: customVfx || (eventType === 'kill_streak' ? 'flame_rampage' : eventType === 'victory_royale' ? 'victory_gold' : 'neon_burst'),
+      particlesEmoji: particlesEmoji || (eventType === 'kill_streak' ? '🔥' : eventType === 'victory_royale' ? '👑' : '⚡')
+    };
+
+    streamerEventsLedger.unshift(gameEvent);
+    if (streamerEventsLedger.length > 200) streamerEventsLedger.pop();
+
+    // Broadcast instant live takeover event to all OBS browser sources listening to this streamer
+    broadcastToAll({
+      type: 'GAME_STATE_EVENT_TRIGGER',
+      payload: gameEvent
+    });
+
+    logTelemetry('GAME_STATE_TRIGGER', `In-game [${eventType}] triggered on [@${cleanStreamer}] by [${sponsorName}]. Rev-share: +$${revShareDollars}`);
+
+    return res.json({
+      success: true,
+      event: gameEvent,
+      streamerRevShareDollars: revShareDollars,
+      obsOverlayUrl: `https://www.livebillboards.lol/overlay?creator=${cleanStreamer}`,
+      message: `Successfully triggered ${eventType} takeover on @${cleanStreamer}'s live OBS overlay.`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Streamer Event History & Polling Endpoint
+app.get('/api/overlay/events', (req, res) => {
+  const streamerId = ((req.query.streamerId as string) || '').replace(/^@/, '').toLowerCase();
+  const limitCount = Math.min(50, Number(req.query.limit) || 20);
+
+  const filtered = streamerId
+    ? streamerEventsLedger.filter(e => e.streamerId === streamerId || e.streamerId === 'creator' || streamerId === 'all')
+    : streamerEventsLedger;
+
+  res.json({
+    success: true,
+    streamerId: streamerId || 'all',
+    events: filtered.slice(0, limitCount)
+  });
 });
 
 // Hydrate In-Memory Stores from Cloud Firestore on Boot

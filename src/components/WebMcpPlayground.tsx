@@ -64,6 +64,15 @@ export const WebMcpPlayground: React.FC = () => {
           advertiserName: 'Tier 1 WebMCP AI Agent',
           ctaUrl: 'https://livebillboards.lol'
         };
+      } else if (selectedTool === 'sponsorStreamerGameStateEvent') {
+        args = {
+          streamerId: handleArg || 'creator',
+          eventType: 'victory_royale',
+          headline: titleArg || '👑 VICTORY ROYALE SPONSORED BY APEX GPU!',
+          sponsorName: 'Apex Cloud & AI',
+          sponsorImageUrl: imgArg || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+          bidAmountDollars: Math.max(5.00, bidArg)
+        };
       } else if (selectedTool === 'claimCreatorHandle') {
         args = { handle: handleArg };
       } else if (selectedTool === 'getCityLeaderboard') {

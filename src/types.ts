@@ -513,3 +513,56 @@ export interface CityLeaderboardEntry {
   heatLevel: 'volcanic' | 'hot' | 'warm' | 'steady';
   volumeGrowthPercent: number;
 }
+
+// -----------------------------------------------------------------------------
+// GAME-STATE TRIGGER & WHITELABEL OVERLAY TYPES
+// -----------------------------------------------------------------------------
+
+export type GameStateEventType =
+  | 'kill_streak'
+  | 'victory_royale'
+  | 'ace_clutch'
+  | 'boss_defeated'
+  | 'sub_hype_bomb'
+  | 'tournament_champion'
+  | 'level_up'
+  | 'game_over'
+  | 'custom_event';
+
+export type OverlayLayoutType =
+  | 'corner_pip'
+  | 'bottom_ticker'
+  | 'side_dock'
+  | 'event_alert_only'
+  | 'full_takeover';
+
+export interface StreamerGameStateEvent {
+  eventId: string;
+  streamerId: string;
+  eventType: GameStateEventType;
+  gameTitle?: string;
+  headline: string;
+  subheadline?: string;
+  sponsorName: string;
+  sponsorImageUrl?: string;
+  sponsorCtaUrl?: string;
+  bidAmountDollars: number;
+  durationSeconds: number;
+  timestamp: string;
+  particlesEmoji?: string;
+  customVfx?: 'neon_burst' | 'victory_gold' | 'flame_rampage' | 'cyber_glitch';
+}
+
+export interface StreamerRevenueRecord {
+  streamerId: string;
+  handle: string;
+  totalImpressions: number;
+  totalEventsTriggered: number;
+  totalEarningsDollars: string;
+  unclaimedEarningsDollars: string;
+  minReservePriceDollars: number;
+  activeLayout: OverlayLayoutType;
+  customTheme: string;
+  webhookSecret: string;
+}
+

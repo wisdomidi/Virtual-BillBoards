@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ActiveBillboardSlot, ChatMessage, TelemetryLog } from '../types';
 import { StreamerLeaderboard } from './StreamerLeaderboard';
+import { StreamerOverlayStudio } from './StreamerOverlayStudio';
 import {
   Monitor,
   Volume2,
@@ -49,6 +50,7 @@ export const StreamerBillboardView: React.FC<StreamerBillboardViewProps> = ({
   // Audio & Visual Effects State
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [streamerSubTab, setStreamerSubTab] = useState<'studio' | 'stage' | 'leaderboard'>('studio');
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isObsModalOpen, setIsObsModalOpen] = useState(false);
   const [obsTheme, setObsTheme] = useState<'cyberpunk' | 'minimal' | 'glass' | 'neon'>('cyberpunk');
@@ -492,6 +494,53 @@ export const StreamerBillboardView: React.FC<StreamerBillboardViewProps> = ({
         </div>
       </div>
 
+      {/* Streamer Sub-Tabs: Overlay Studio vs 4K Stage Screen vs Creator Leaderboard */}
+      <div className="flex p-1 bg-slate-900 border border-slate-800 rounded-2xl gap-1 text-xs font-mono font-bold shadow-xl">
+        <button
+          onClick={() => setStreamerSubTab('studio')}
+          className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            streamerSubTab === 'studio'
+              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-lg'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Tv className="w-4 h-4" />
+          <span>🎛️ OBS / Streamlabs Overlay Studio</span>
+        </button>
+
+        <button
+          onClick={() => setStreamerSubTab('stage')}
+          className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            streamerSubTab === 'stage'
+              ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-black shadow-lg'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Monitor className="w-4 h-4" />
+          <span>📺 Live 4K Stage Screen & Chat</span>
+        </button>
+
+        <button
+          onClick={() => setStreamerSubTab('leaderboard')}
+          className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            streamerSubTab === 'leaderboard'
+              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black shadow-lg'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Award className="w-4 h-4" />
+          <span>🏆 Creator Payout Leaderboard</span>
+        </button>
+      </div>
+
+      {streamerSubTab === 'studio' && (
+        <StreamerOverlayStudio initialHandle={customStreamerHandle} selectedCity={selectedCity} />
+      )}
+
+      {streamerSubTab === 'leaderboard' && (
+        <StreamerLeaderboard />
+      )}
+
       {/* Universal Live Stream Overlay Modal */}
       {isObsModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
@@ -833,9 +882,10 @@ export const StreamerBillboardView: React.FC<StreamerBillboardViewProps> = ({
       )}
 
       {/* Main Grid: Billboard Stream Canvas (Left 8/12) + Live Stream Chat (Right 4/12) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN: Modern Virtual Billboard Canvas */}
-        <div className="lg:col-span-8 space-y-4">
+      {streamerSubTab === 'stage' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-fade-in">
+          {/* LEFT COLUMN: Modern Virtual Billboard Canvas */}
+          <div className="lg:col-span-8 space-y-4">
           <div className="relative bg-slate-950 border-2 border-slate-800 rounded-3xl overflow-hidden shadow-2xl group min-h-[460px] flex flex-col justify-between">
             {/* Ambient Animated Canvas Background */}
             <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none opacity-40 z-0" />
@@ -1124,6 +1174,7 @@ export const StreamerBillboardView: React.FC<StreamerBillboardViewProps> = ({
           </div>
         </div>
       </div>
-    </div>
-  );
+    )}
+  </div>
+);
 };
