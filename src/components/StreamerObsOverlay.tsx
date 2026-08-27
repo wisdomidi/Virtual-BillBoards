@@ -41,7 +41,18 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
   const showBadge = searchParams.get('badge') !== 'false';
   const showQr = searchParams.get('qr') !== 'false';
   const audioDefault = searchParams.get('audio') !== 'false'; // Default audio enabled for streamers
-  const creatorId = (searchParams.get('creator') || searchParams.get('streamerId') || streamerId).replace(/^@/, '').toLowerCase();
+  const creatorId = (searchParams.get('creator') || searchParams.get('venue') || searchParams.get('streamerId') || streamerId).replace(/^@/, '').toLowerCase();
+
+  const isVenueMode =
+    typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/venue') ||
+      window.location.pathname.startsWith('/stage') ||
+      window.location.pathname.startsWith('/event') ||
+      window.location.pathname.startsWith('/kiosk') ||
+      searchParams.get('mode') === 'venue' ||
+      searchParams.get('mode') === 'stage' ||
+      searchParams.get('mode') === 'event' ||
+      searchParams.get('venue') === 'true');
 
   const [slotData, setSlotData] = useState<ActiveBillboardSlot | null>(null);
   const [selectedCity, setSelectedCity] = useState(cityParam);
@@ -56,6 +67,31 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
 
   const wsRef = useRef<WebSocket | null>(null);
   const eventTimeoutRef = useRef<any>(null);
+
+  // Screen Wake Lock for In-Venue Screens, TV displays and LED walls
+  useEffect(() => {
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch {
+        // Safe fallback
+      }
+    };
+    if (isVenueMode) {
+      requestWakeLock();
+      const onVisibilityChange = () => {
+        if (document.visibilityState === 'visible') requestWakeLock();
+      };
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      return () => {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        if (wakeLock) wakeLock.release();
+      };
+    }
+  }, [isVenueMode]);
 
   // Trigger celebratory particle blast
   const triggerParticleBlast = (emoji = '👑') => {
@@ -463,7 +499,7 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-[11px] font-black tracking-wider text-white flex items-center gap-1.5">
-                  <span>VIRTUAL BILLBOARD</span>
+                  <span>{isVenueMode ? `🎪 LIVE VENUE DISPLAY: @${creatorId.toUpperCase()}` : 'VIRTUAL BILLBOARD'}</span>
                   <span className="text-[9px] text-cyan-400 bg-cyan-950/70 px-1 py-0.2 rounded border border-cyan-500/40 font-mono">
                     [{selectedCity}]
                   </span>

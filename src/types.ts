@@ -527,6 +527,13 @@ export type GameStateEventType =
   | 'tournament_champion'
   | 'level_up'
   | 'game_over'
+  | 'keynote_live'
+  | 'award_announcement'
+  | 'sponsor_showcase'
+  | 'networking_hour'
+  | 'flash_takeover'
+  | 'hackathon_winner'
+  | 'crowd_hype'
   | 'custom_event';
 
 export type OverlayLayoutType =

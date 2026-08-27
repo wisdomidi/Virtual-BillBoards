@@ -171,13 +171,20 @@ function detectInitialTabFromUrl(): TabType {
 }
 
 export default function App() {
-  // Check if current view is a dedicated Full Screen Live Billboard Preview (for Events, Projectors, Live Stream Displays)
+  // Check if current view is a dedicated Full Screen Live Billboard Preview (for In-Venue Screens, Stage Displays, Events, Projectors, Live Stream Displays)
   const isScreenOnlyMode =
     typeof window !== 'undefined' &&
     (window.location.pathname.startsWith('/overlay') ||
       window.location.pathname.startsWith('/screen') ||
+      window.location.pathname.startsWith('/venue') ||
+      window.location.pathname.startsWith('/stage') ||
+      window.location.pathname.startsWith('/event') ||
+      window.location.pathname.startsWith('/kiosk') ||
       window.location.pathname.startsWith('/live-preview') ||
       new URLSearchParams(window.location.search).get('mode') === 'screen_only' ||
+      new URLSearchParams(window.location.search).get('mode') === 'venue' ||
+      new URLSearchParams(window.location.search).get('mode') === 'stage' ||
+      new URLSearchParams(window.location.search).get('mode') === 'kiosk' ||
       new URLSearchParams(window.location.search).get('mode') === 'event' ||
       new URLSearchParams(window.location.search).get('mode') === 'preview' ||
       new URLSearchParams(window.location.search).get('mode') === 'overlay');

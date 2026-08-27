@@ -5302,8 +5302,14 @@ app.post('/api/overlay/trigger-event', async (req, res) => {
     const revShareDollars = (dollars * 0.70).toFixed(2);
     const eventId = `gme_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
-    // Default high-impact headlines based on in-game context
+    // Default high-impact headlines based on in-game or in-venue event context
     let defaultHeadline = `⚡ ${eventType.toUpperCase().replace(/_/g, ' ')} TAKEOVER!`;
+    if (eventType === 'keynote_live') defaultHeadline = `🎙️ KEYNOTE SPEAKER LIVE SPONSORED BY ${sponsorName.toUpperCase()}!`;
+    if (eventType === 'hackathon_winner') defaultHeadline = `🏆 HACKATHON WINNER SPONSORED BY ${sponsorName.toUpperCase()}!`;
+    if (eventType === 'sponsor_showcase') defaultHeadline = `⚡ VIP SPONSOR SHOWCASE: ${sponsorName.toUpperCase()}!`;
+    if (eventType === 'networking_hour') defaultHeadline = `🥂 NETWORKING RECEPTION SPONSORED BY ${sponsorName.toUpperCase()}!`;
+    if (eventType === 'flash_takeover') defaultHeadline = `🚀 LIVE AUDIENCE SHOUTOUT SPONSORED BY ${sponsorName.toUpperCase()}!`;
+    if (eventType === 'award_announcement') defaultHeadline = `🥇 OFFICIAL AWARD CEREMONY SPONSORED BY ${sponsorName.toUpperCase()}!`;
     if (eventType === 'kill_streak') defaultHeadline = `🔥 5X KILL STREAK SPONSORED BY ${sponsorName.toUpperCase()}!`;
     if (eventType === 'victory_royale') defaultHeadline = `👑 VICTORY ROYALE SPONSORED BY ${sponsorName.toUpperCase()}!`;
     if (eventType === 'ace_clutch') defaultHeadline = `🎯 1v5 ACE CLUTCH SPONSORED BY ${sponsorName.toUpperCase()}!`;
@@ -5322,8 +5328,8 @@ app.post('/api/overlay/trigger-event', async (req, res) => {
       bidAmountDollars: dollars,
       durationSeconds: Math.min(30, Math.max(5, Number(durationSeconds) || 10)),
       timestamp: new Date().toISOString(),
-      customVfx: customVfx || (eventType === 'kill_streak' ? 'flame_rampage' : eventType === 'victory_royale' ? 'victory_gold' : 'neon_burst'),
-      particlesEmoji: particlesEmoji || (eventType === 'kill_streak' ? '🔥' : eventType === 'victory_royale' ? '👑' : '⚡')
+      customVfx: customVfx || (eventType === 'kill_streak' || eventType === 'flash_takeover' ? 'flame_rampage' : eventType === 'victory_royale' || eventType === 'keynote_live' || eventType === 'hackathon_winner' ? 'victory_gold' : 'neon_burst'),
+      particlesEmoji: particlesEmoji || (eventType === 'keynote_live' ? '🎙️' : eventType === 'hackathon_winner' ? '🏆' : eventType === 'networking_hour' ? '🥂' : eventType === 'kill_streak' ? '🔥' : eventType === 'victory_royale' ? '👑' : '⚡')
     };
 
     streamerEventsLedger.unshift(gameEvent);
