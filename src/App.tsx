@@ -248,6 +248,12 @@ export default function App() {
   const [isMyAdsModalOpen, setIsMyAdsModalOpen] = useState(false);
   const [walletBalanceCents, setWalletBalanceCents] = useState<number>(0);
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
+  const [hasClaimedStarter, setHasClaimedStarter] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('vb_starter_claimed') === 'true';
+    }
+    return false;
+  });
 
   // Toast Notification State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -355,13 +361,22 @@ export default function App() {
               localStorage.setItem('vb_cached_balance_cents', String(newCents));
             }
           }
+          const isClaimed = data.starterGrantClaimed === true || data.hasClaimedFreeSlot === true;
+          if (isClaimed) {
+            setHasClaimedStarter(true);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('vb_starter_claimed', 'true');
+            }
+          }
           setWalletTransactions(data.transactions || []);
           setCurrentUser((prev) =>
             prev
               ? {
                   ...prev,
                   tokensBalance: Math.round(newCents * 10),
-                  walletBalanceCents: newCents
+                  walletBalanceCents: newCents,
+                  hasClaimedFreeSlot: isClaimed || prev.hasClaimedFreeSlot,
+                  starterGrantClaimed: isClaimed || prev.starterGrantClaimed
                 }
               : prev
           );
@@ -416,6 +431,10 @@ export default function App() {
       addToast('info', 'Sign In Required', 'Please sign in to claim your $1.00 Free Slot!');
       return;
     }
+    if (hasClaimedStarter || currentUser.hasClaimedFreeSlot || (currentUser as any).starterGrantClaimed) {
+      addToast('info', 'Already Claimed', 'You have already claimed your 1 Free 15s Slot ($1.00 starter grant)!');
+      return;
+    }
     try {
       const res = await fetch('/api/wallet/claim-starter', {
         method: 'POST',
@@ -428,9 +447,17 @@ export default function App() {
       const data = await res.json();
       if (data.success) {
         setWalletBalanceCents(100);
+        setHasClaimedStarter(true);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('vb_starter_claimed', 'true');
+        }
         await fetchWallet(currentUser.uid);
         addToast('success', 'Starter Credit Claimed!', '🎉 $1.00 (1,000 Tokens) added to your Ad Wallet! Place your ad now.');
       } else {
+        setHasClaimedStarter(true);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('vb_starter_claimed', 'true');
+        }
         addToast('warning', 'Claim Notice', data.error || 'Failed to claim starter credit.');
       }
     } catch (e: any) {
@@ -892,6 +919,7 @@ export default function App() {
               userRole={userRole}
               isPureViewerMode={userRole === 'viewer'}
               walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
+              hasClaimedStarter={hasClaimedStarter || (currentUser?.hasClaimedFreeSlot ?? false)}
               onOpenWalletModal={() => setIsWalletModalOpen(true)}
               onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
               onOpenClaimModal={() => setIsClaimModalOpen(true)}
@@ -959,6 +987,7 @@ export default function App() {
           balanceDollars={(walletBalanceCents / 100).toFixed(2)}
           transactions={walletTransactions}
           userId={effectiveUid}
+          hasClaimedStarter={hasClaimedStarter || (currentUser?.hasClaimedFreeSlot ?? false)}
           onTopUp={handleTopUpWallet}
           onClaimStarter={handleClaimStarterCredit}
         />

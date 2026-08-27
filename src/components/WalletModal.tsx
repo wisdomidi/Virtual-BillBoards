@@ -20,6 +20,7 @@ interface WalletModalProps {
   balanceDollars: string;
   transactions: TokenTransaction[];
   userId?: string;
+  hasClaimedStarter?: boolean;
   onTopUp: (amountDollars: number) => Promise<boolean>;
   onPurchaseTokenPackage?: (packageId: string) => Promise<boolean>;
   onClaimStarter?: () => Promise<void>;
@@ -75,6 +76,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({
   tokensBalance,
   balanceDollars,
   userId,
+  hasClaimedStarter = false,
   onTopUp,
   onClaimStarter
 }) => {
@@ -91,6 +93,10 @@ export const WalletModal: React.FC<WalletModalProps> = ({
 
   const handleClaimClick = async () => {
     if (!onClaimStarter) return;
+    if (hasClaimedStarter) {
+      setErrorMessage('You have already claimed your 1 Free 15s Slot ($1.00 starter grant)!');
+      return;
+    }
     setIsClaimingStarter(true);
     setErrorMessage('');
     try {
@@ -240,8 +246,8 @@ export const WalletModal: React.FC<WalletModalProps> = ({
           </span>
         </div>
 
-        {/* Free Starter Credit Claim Banner (if balance is 0) */}
-        {safeTokensBalance <= 0 && onClaimStarter && (
+        {/* Free Starter Credit Claim Banner (only if NOT claimed yet and balance is 0) */}
+        {!hasClaimedStarter && safeTokensBalance <= 0 && onClaimStarter && (
           <div className="bg-gradient-to-r from-cyan-950/80 via-indigo-950/60 to-slate-950 border border-cyan-500/40 rounded-2xl p-3.5 mb-4 flex items-center justify-between gap-3 shadow-md">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-cyan-500/20 border border-cyan-500/40 rounded-xl text-cyan-400 shrink-0">

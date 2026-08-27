@@ -58,8 +58,9 @@ interface LiveBillboardProps {
   userRole?: UserRole;
   isPureViewerMode?: boolean;
   walletBalanceDollars?: string;
+  hasClaimedStarter?: boolean;
   onOpenWalletModal?: () => void;
-  currentUser?: { uid: string; email: string; displayName: string; role: UserRole } | null;
+  currentUser?: { uid: string; email: string; displayName: string; role: UserRole; starterGrantClaimed?: boolean; hasClaimedFreeSlot?: boolean } | null;
   onOpenAuthModal?: () => void;
   onOpenMyAdsModal?: () => void;
   onOpenClaimModal?: () => void;
@@ -126,6 +127,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   userRole = 'guest',
   isPureViewerMode = false,
   walletBalanceDollars = '0.00',
+  hasClaimedStarter = false,
   onOpenWalletModal,
   onOpenMyAdsModal,
   onOpenClaimModal,
@@ -590,9 +592,15 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full uppercase shadow-md flex items-center gap-1">
-            <span>🎁 $1.00 Free Starter Slot</span>
-          </span>
+          {!hasClaimedStarter ? (
+            <span className="bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full uppercase shadow-md flex items-center gap-1">
+              <span>🎁 $1.00 Free Starter Slot</span>
+            </span>
+          ) : (
+            <span className="bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <span>✨ 24/7 Live Advertiser</span>
+            </span>
+          )}
           {onOpenClaimModal && (
             <button
               onClick={onOpenClaimModal}
@@ -1077,12 +1085,12 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 <button
                   onClick={onOpenWalletModal}
                   className={`px-2.5 py-1 border font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
-                    Number(walletBalanceDollars || 0) <= 0
+                    !hasClaimedStarter && Number(walletBalanceDollars || 0) <= 0
                       ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300 animate-pulse'
-                      : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                      : 'bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30'
                   }`}
                 >
-                  {Number(walletBalanceDollars || 0) <= 0 ? <span>Claim $1.00</span> : <span>+ Top Up</span>}
+                  {!hasClaimedStarter && Number(walletBalanceDollars || 0) <= 0 ? <span>Claim $1.00</span> : <span>+ Top Up</span>}
                 </button>
               </div>
             </div>

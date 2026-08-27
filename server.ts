@@ -453,11 +453,22 @@ async function getUserWalletFromFirestore(userId: string) {
     }
   } catch (err: any) {
     console.warn(`Firestore read fallback for [${userId}]:`, err.message);
+    const cachedItem = userWalletsMemoryMap.get(userId);
+    if (cachedItem) {
+      return {
+        uid: userId,
+        tokensBalance: cachedItem.tokensBalance,
+        walletBalanceCents: cachedItem.walletBalanceCents,
+        starterGrantClaimed: cachedItem.freeSlotClaimed,
+        email: isGuest ? 'guest@example.com' : 'user@example.com',
+        role: 'advertiser'
+      };
+    }
     return {
       uid: userId,
-      tokensBalance: isGuest ? 0 : 1000,
-      walletBalanceCents: isGuest ? 0 : 100,
-      starterGrantClaimed: !isGuest,
+      tokensBalance: 0,
+      walletBalanceCents: 0,
+      starterGrantClaimed: true, // Do NOT re-grant on errors
       email: isGuest ? 'guest@example.com' : 'user@example.com',
       role: 'advertiser'
     };
@@ -1084,22 +1095,35 @@ app.get('/api/blueprint/data', (req, res) => {
   });
 });
 
-// Active Billboard Slot Winner Lookup
+// Active Billboard Slot Winner Lookup (Locked per 15s Slot Ticker)
 app.get('/api/billboard/active', (req, res) => {
-  const city = (req.query.city as string) || req.geo?.cityCode || 'KUL';
-  const country = (req.query.country as string) || req.geo?.countryCode || 'MY';
+  const city = ((req.query.city as string) || req.geo?.cityCode || 'KUL').toUpperCase();
+  const country = ((req.query.country as string) || req.geo?.countryCode || 'MY').toUpperCase();
 
-  const cascadeResult = evaluateCascade(city, country);
+  const cacheKey = `billboard:active:${city}`;
+  let activeRecord = redisActiveSlots[cacheKey];
+
+  if (!activeRecord) {
+    const cascadeResult = evaluateCascade(city, country);
+    activeRecord = {
+      slotId: currentSlotId,
+      winningAd: cascadeResult.winningAd,
+      fallbackLevel: cascadeResult.fallbackLevel,
+      fallbackChain: cascadeResult.fallbackChain,
+      updatedAt: new Date().toISOString()
+    };
+    redisActiveSlots[cacheKey] = activeRecord;
+  }
 
   res.json({
-    slotId: currentSlotId,
+    slotId: activeRecord.slotId || currentSlotId,
     remainingSeconds,
     city,
     country,
-    roomId: `room_${country.toUpperCase()}_${city.toUpperCase()}`,
-    winningAd: cascadeResult.winningAd,
-    fallbackLevel: cascadeResult.fallbackLevel,
-    fallbackChain: cascadeResult.fallbackChain
+    roomId: `room_${country}_${city}`,
+    winningAd: activeRecord.winningAd,
+    fallbackLevel: activeRecord.fallbackLevel || 'city',
+    fallbackChain: activeRecord.fallbackChain || []
   });
 });
 
@@ -2984,6 +3008,8 @@ const handleWalletGet = async (req: Request, res: Response) => {
       walletBalanceCents: userProfile.walletBalanceCents,
       balanceCents: userProfile.walletBalanceCents,
       balanceDollars: (userProfile.walletBalanceCents / 100).toFixed(2),
+      starterGrantClaimed: userProfile.starterGrantClaimed === true,
+      hasClaimedFreeSlot: userProfile.starterGrantClaimed === true,
       playsRemainingAtFloor: userProfile.tokensBalance,
       transactions: txns
     });
