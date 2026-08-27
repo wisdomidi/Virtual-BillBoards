@@ -222,6 +222,12 @@ function ipGeoMiddleware(req: Request, res: Response, next: NextFunction) {
 
 app.use(ipGeoMiddleware);
 
+// Redirect any /__/auth requests directly to official Firebase Auth handler
+app.use('/__/auth', (req, res) => {
+  const targetUrl = `https://livebillboards-production.firebaseapp.com/__/auth${req.url}`;
+  return res.redirect(307, targetUrl);
+});
+
 // ------------------------------------------------------------------------------
 // IN-MEMORY REDIS & STATE SIMULATOR
 // ------------------------------------------------------------------------------
