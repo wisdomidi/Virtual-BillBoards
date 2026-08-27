@@ -129,10 +129,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
     const eventPayloads: Record<GameStateEventType, any> = {
       victory_royale: {
         eventType: 'victory_royale',
-        gameTitle: 'Fortnite / Warzone',
-        headline: `👑 VICTORY ROYALE SPONSORED BY APEX GPU!`,
-        subheadline: `Use code "${cleanHandle.toUpperCase()}" for 20% off cloud GPU compute`,
-        sponsorName: 'Apex Cloud & AI',
+        gameTitle: 'Battle Royale Match',
+        headline: `👑 VICTORY ROYALE SPONSORED TAKEOVER!`,
+        subheadline: `Use creator code "${cleanHandle.toUpperCase()}" for exclusive perks`,
+        sponsorName: 'High-Performance Cloud GPU',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 10.00,
         customVfx: 'victory_gold',
@@ -140,10 +140,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       kill_streak: {
         eventType: 'kill_streak',
-        gameTitle: 'Valorant / CS2',
+        gameTitle: 'Tactical FPS Tournament',
         headline: `🔥 5X RAMPAGE KILL STREAK TAKEOVER!`,
-        subheadline: `High-performance zero-lag mechanical keyboards`,
-        sponsorName: 'CyberSwitch Pro',
+        subheadline: `Zero-Latency Gaming Gear & Pro Peripherals`,
+        sponsorName: 'Pro Gaming Gear',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 5.00,
         customVfx: 'flame_rampage',
@@ -151,10 +151,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       ace_clutch: {
         eventType: 'ace_clutch',
-        gameTitle: 'Counter-Strike 2',
-        headline: `🎯 1v5 CLUTCH ACE SPONSORED BY RED BULL ENERGY!`,
-        subheadline: `Gives You Wings • Power up your competitive clutch`,
-        sponsorName: 'Red Bull Energy',
+        gameTitle: 'Competitive FPS Match',
+        headline: `🎯 1v5 CLUTCH ACE SPONSORED TAKEOVER!`,
+        subheadline: `Powering peak competitive clutch moments`,
+        sponsorName: 'Apex Energy Labs',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 15.00,
         customVfx: 'neon_burst',
@@ -162,10 +162,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       sub_hype_bomb: {
         eventType: 'sub_hype_bomb',
-        gameTitle: 'Twitch / Kick Stream',
+        gameTitle: 'Live Stream Channel',
         headline: `💥 50 GIFTED SUBS HYPE BOMB!`,
-        subheadline: `Massive community raid powered by LiveBillboards.lol`,
-        sponsorName: 'HyperChat AI',
+        subheadline: `Massive community celebration takeover`,
+        sponsorName: 'Global Ad Network',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 8.00,
         customVfx: 'neon_burst',
@@ -173,10 +173,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       boss_defeated: {
         eventType: 'boss_defeated',
-        gameTitle: 'Elden Ring / MMORPG',
+        gameTitle: 'Action RPG Realm',
         headline: `🏆 MYTHIC BOSS DEFEATED TAKEOVER!`,
-        subheadline: `Sponsor: Mythic Guild Gaming`,
-        sponsorName: 'Mythic Guild',
+        subheadline: `Official Guild Quest Sponsor`,
+        sponsorName: 'Mythic Guild Gaming',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 5.00,
         customVfx: 'victory_gold',
@@ -184,10 +184,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       tournament_champion: {
         eventType: 'tournament_champion',
-        gameTitle: 'Esports Championship',
-        headline: `🥇 TOURNAMENT CHAMPION SPONSORED BY INTEL!`,
+        gameTitle: 'Championship Grand Finals',
+        headline: `🥇 TOURNAMENT GRAND CHAMPION TAKEOVER!`,
         subheadline: `Grand Finals Champion Victory Celebration`,
-        sponsorName: 'Intel Gaming',
+        sponsorName: 'Next-Gen Silicon Sponsor',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 25.00,
         customVfx: 'victory_gold',
@@ -195,10 +195,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       level_up: {
         eventType: 'level_up',
-        gameTitle: 'RPG Gaming',
+        gameTitle: 'Online RPG Adventure',
         headline: `⭐ LEVEL UP SPONSORED TAKEOVER!`,
-        subheadline: `Sponsor: LevelUp Snacks`,
-        sponsorName: 'LevelUp Snacks',
+        subheadline: `Powering your next progression tier`,
+        sponsorName: 'Pro Gamer Nutrition',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 3.00,
         customVfx: 'neon_burst',
@@ -206,7 +206,7 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       game_over: {
         eventType: 'game_over',
-        gameTitle: 'GG / Match Over',
+        gameTitle: 'Match Wrap-up',
         headline: `🎮 GG WP MATCH SPONSORED TAKEOVER!`,
         subheadline: `Next round starts soon`,
         sponsorName: 'GamerFuel',
@@ -577,42 +577,42 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                 type: 'victory_royale' as GameStateEventType,
                 icon: Trophy,
                 title: '🏆 Victory Royale Takeover',
-                sponsor: 'Apex Cloud & AI ($10.00)',
+                sponsor: 'Cloud Infrastructure Sponsor ($10.00)',
                 color: 'from-amber-500/20 to-yellow-600/20 border-amber-500/50 text-amber-300'
               },
               {
                 type: 'kill_streak' as GameStateEventType,
                 icon: Flame,
                 title: '🔥 5x Rampage Kill Streak',
-                sponsor: 'CyberSwitch Pro ($5.00)',
+                sponsor: 'Pro Gaming Gear ($5.00)',
                 color: 'from-red-500/20 to-rose-600/20 border-rose-500/50 text-rose-300'
               },
               {
                 type: 'ace_clutch' as GameStateEventType,
                 icon: Crown,
                 title: '🎯 1v5 ACE Clutch Takeover',
-                sponsor: 'Red Bull Energy ($15.00)',
+                sponsor: 'Apex Energy Labs ($15.00)',
                 color: 'from-purple-500/20 to-indigo-600/20 border-purple-500/50 text-purple-300'
               },
               {
                 type: 'sub_hype_bomb' as GameStateEventType,
                 icon: Sparkles,
                 title: '💥 50 Sub Hype Train Bomb',
-                sponsor: 'HyperChat AI ($8.00)',
+                sponsor: 'Global Ad Network ($8.00)',
                 color: 'from-cyan-500/20 to-blue-600/20 border-cyan-500/50 text-cyan-300'
               },
               {
                 type: 'boss_defeated' as GameStateEventType,
                 icon: Swords,
                 title: '⚔️ Mythic Boss Defeated',
-                sponsor: 'Mythic Guild ($5.00)',
+                sponsor: 'Mythic Guild Gaming ($5.00)',
                 color: 'from-emerald-500/20 to-teal-600/20 border-emerald-500/50 text-emerald-300'
               },
               {
                 type: 'tournament_champion' as GameStateEventType,
                 icon: Trophy,
                 title: '🥇 Tournament Grand Champion',
-                sponsor: 'Intel Gaming ($25.00)',
+                sponsor: 'Next-Gen Silicon Sponsor ($25.00)',
                 color: 'from-amber-500/30 to-yellow-500/30 border-yellow-400 text-yellow-300'
               }
             ].map((card) => {
