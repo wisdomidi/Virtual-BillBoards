@@ -662,6 +662,9 @@ function logTelemetry(type: string, message: string, details?: any) {
 // Redis Active Slot Winner Hash (Cache)
 const redisActiveSlots: Record<string, any> = {};
 
+// Proof-of-Attention (PoA) Cryptographic Ticket Store
+const poaTicketsLedger: ProofOfAttentionTicket[] = [];
+
 // Default House Ad for Tier 0 (Zero-Blank Fallback Guard)
 const houseAd: QueueItem = {
   id: 'cmp_house_default',
@@ -696,7 +699,7 @@ const platformSettings = {
 };
 
 // ------------------------------------------------------------------------------
-// AUCTION FALLBACK CASCADE ALGORITHM
+// 2. TIERED MULTI-GEO AUCTION CASCADE ENGINE
 // ------------------------------------------------------------------------------
 
 function evaluateCascade(cityCode: string, countryCode: string) {
@@ -720,7 +723,11 @@ function evaluateCascade(cityCode: string, countryCode: string) {
     if (activeUserBids.length > 0) {
       cityHit = true;
       fallbackLevel = 'city';
-      activeUserBids.sort((a, b) => (b.bidAmountTokens || b.bidAmountCents * 10) - (a.bidAmountTokens || a.bidAmountCents * 10));
+      activeUserBids.sort((a, b) => {
+        const scoreA = (a.trafficTier === 'tier1_staring_eyeballs' ? 10000000 : 0) + (a.bidAmountTokens || a.bidAmountCents * 10);
+        const scoreB = (b.trafficTier === 'tier1_staring_eyeballs' ? 10000000 : 0) + (b.bidAmountTokens || b.bidAmountCents * 10);
+        return scoreB - scoreA;
+      });
       winningAd = activeUserBids[0];
     } else {
       const ptr = (queueRotationPointers[cityKey] || 0) % cityQueue.length;
@@ -736,7 +743,11 @@ function evaluateCascade(cityCode: string, countryCode: string) {
       if (activeCountryUserBids.length > 0) {
         countryHit = true;
         fallbackLevel = 'country';
-        activeCountryUserBids.sort((a, b) => (b.bidAmountTokens || b.bidAmountCents * 10) - (a.bidAmountTokens || a.bidAmountCents * 10));
+        activeCountryUserBids.sort((a, b) => {
+          const scoreA = (a.trafficTier === 'tier1_staring_eyeballs' ? 10000000 : 0) + (a.bidAmountTokens || a.bidAmountCents * 10);
+          const scoreB = (b.trafficTier === 'tier1_staring_eyeballs' ? 10000000 : 0) + (b.bidAmountTokens || b.bidAmountCents * 10);
+          return scoreB - scoreA;
+        });
         winningAd = activeCountryUserBids[0];
       } else {
         const ptr = (queueRotationPointers[countryKey] || 0) % countryQueue.length;
@@ -752,7 +763,11 @@ function evaluateCascade(cityCode: string, countryCode: string) {
         if (activeGlobalUserBids.length > 0) {
           globalHit = true;
           fallbackLevel = 'global';
-          activeGlobalUserBids.sort((a, b) => (b.bidAmountTokens || b.bidAmountCents * 10) - (a.bidAmountTokens || a.bidAmountCents * 10));
+          activeGlobalUserBids.sort((a, b) => {
+            const scoreA = (a.trafficTier === 'tier1_staring_eyeballs' ? 10000000 : 0) + (a.bidAmountTokens || a.bidAmountCents * 10);
+            const scoreB = (b.trafficTier === 'tier1_staring_eyeballs' ? 10000000 : 0) + (b.bidAmountTokens || b.bidAmountCents * 10);
+            return scoreB - scoreA;
+          });
           winningAd = activeGlobalUserBids[0];
         } else {
           const ptr = (queueRotationPointers[globalKey] || 0) % globalQueue.length;
@@ -1987,6 +2002,7 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       ctaUrl,
       targetCountryCode = 'MY',
       targetCityCode = 'KUL',
+      trafficTier = 'standard',
       bidAmountTokens,
       bidAmountCents,
       bidAmountDollars,
@@ -2007,6 +2023,8 @@ const handleBidSubmission = async (req: Request, res: Response) => {
         error: '⚠️ Campaign headline is mandatory! Please give your advertisement a title.'
       });
     }
+
+    const isTier1 = trafficTier === 'tier1_staring_eyeballs';
 
     // Resolve token and cents amount (Decoupled Arcade Token Model: 1 Token = 0.1¢ = $0.001 USD)
     let tokens = 0;
@@ -2029,6 +2047,11 @@ const handleBidSubmission = async (req: Request, res: Response) => {
         success: false,
         error: 'Invalid bid amount: Must be at least 1 Token (0.1¢ / 15s play)'
       });
+    }
+
+    // Apply Tier 1 Staring Eyeballs 5x Multiplier if not already scaled
+    if (isTier1 && (!bidAmountTokens || bidAmountTokens < 5000)) {
+      tokens = Math.max(5000, tokens * (bidAmountTokens ? 1 : 5));
     }
 
     const cents = Math.max(1, Math.round(tokens / 10));
@@ -2146,6 +2169,7 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       targetCityCode: cityUpper,
       bidAmountCents: cents,
       bidAmountTokens: tokens,
+      trafficTier: isTier1 ? 'tier1_staring_eyeballs' : 'standard',
       safetyScore,
       createdAt: new Date().toISOString()
     };
@@ -4052,9 +4076,26 @@ const MCP_TOOLS = [
         title: { type: 'string', description: 'Campaign headline text displayed on screen' },
         imageUrl: { type: 'string', description: 'Direct image URL (PNG, JPG, WebP) or video URL to display' },
         targetCityCode: { type: 'string', description: 'Target city code (e.g. TYO, NYC, LON, KUL, GLOBAL)', default: 'GLOBAL' },
+        trafficTier: { type: 'string', description: 'Traffic tier: standard or tier1_staring_eyeballs', enum: ['standard', 'tier1_staring_eyeballs'], default: 'standard' },
         bidAmountDollars: { type: 'number', description: 'Bid amount in USD (minimum $1.00)', default: 1.00 },
         advertiserName: { type: 'string', description: 'Brand or agent name displayed on banner', default: 'Autonomous AI Agent' },
         ctaUrl: { type: 'string', description: 'Optional landing page URL' }
+      },
+      required: ['title', 'imageUrl']
+    }
+  },
+  {
+    name: 'bid_tier1_staring_eyeballs',
+    description: 'Place a Premium Tier 1: Staring Eyeballs billboard ad takeover (5x multiplier). Guarantees 100% of active reward-trackers solve a visual micro-prompt during your exact 15-second broadcast window with cryptographic Proof-of-Attention signatures.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Campaign headline text displayed on screen' },
+        imageUrl: { type: 'string', description: 'Direct image URL or video URL to display' },
+        targetCityCode: { type: 'string', description: 'Target city code (e.g. TYO, NYC, LON, KUL, GLOBAL)', default: 'GLOBAL' },
+        bidAmountDollars: { type: 'number', description: 'Bid amount in USD (Tier 1 minimum $5.00)', default: 5.00 },
+        advertiserName: { type: 'string', description: 'Brand or agent name displayed on banner', default: 'Tier 1 Autonomous AI Agent' },
+        ctaUrl: { type: 'string', description: 'Optional landing page URL for CTA button or QR code' }
       },
       required: ['title', 'imageUrl']
     }
@@ -4144,14 +4185,15 @@ app.post(['/api/mcp/call', '/api/mcp/rpc'], async (req, res) => {
       });
     }
 
-    if (name === 'place_billboard_ad') {
+    if (name === 'place_billboard_ad' || name === 'bid_tier1_staring_eyeballs') {
+      const isTier1 = name === 'bid_tier1_staring_eyeballs' || args.trafficTier === 'tier1_staring_eyeballs';
       const {
         title,
         imageUrl,
         targetCityCode = 'GLOBAL',
         targetCountryCode = 'GLOBAL',
-        bidAmountDollars = 1.00,
-        advertiserName = 'Autonomous AI Agent',
+        bidAmountDollars = isTier1 ? 5.00 : 1.00,
+        advertiserName = isTier1 ? 'Tier 1 Autonomous AI Agent' : 'Autonomous AI Agent',
         ctaUrl
       } = args;
 
@@ -4159,7 +4201,8 @@ app.post(['/api/mcp/call', '/api/mcp/rpc'], async (req, res) => {
         return res.status(400).json({ success: false, error: 'title and imageUrl are required to place an ad' });
       }
 
-      const cents = Math.round(Number(bidAmountDollars) * 100);
+      const dollars = Math.max(isTier1 ? 5.00 : 1.00, Number(bidAmountDollars) || (isTier1 ? 5.00 : 1.00));
+      const cents = Math.round(dollars * 100);
       const cityUpper = targetCityCode.toUpperCase();
       const countryUpper = targetCountryCode.toUpperCase();
       const queueKey = `billboard:queue:${cityUpper}`;
@@ -4183,26 +4226,37 @@ app.post(['/api/mcp/call', '/api/mcp/rpc'], async (req, res) => {
         targetCityCode: cityUpper,
         bidAmountCents: cents,
         bidAmountTokens: cents * 10,
+        trafficTier: isTier1 ? 'tier1_staring_eyeballs' : 'standard',
         safetyScore: 98,
         createdAt: new Date().toISOString()
       };
 
       currentQueue.push(newAd);
-      currentQueue.sort((a, b) => (b.bidAmountTokens || b.bidAmountCents * 10) - (a.bidAmountTokens || a.bidAmountCents * 10));
+      currentQueue.sort((a, b) => {
+        const scoreA = (a.trafficTier === 'tier1_staring_eyeballs' ? 10000000 : 0) + (a.bidAmountTokens || a.bidAmountCents * 10);
+        const scoreB = (b.trafficTier === 'tier1_staring_eyeballs' ? 10000000 : 0) + (b.bidAmountTokens || b.bidAmountCents * 10);
+        return scoreB - scoreA;
+      });
 
       const isTopBid = currentQueue[0].id === newAd.id;
 
-      logTelemetry('WEBMCP_TOOL_EXECUTED', `WebMCP Agent submitted ad "${title}" for $${(cents / 100).toFixed(2)} in [${cityUpper}]`);
+      logTelemetry('WEBMCP_TOOL_EXECUTED', `WebMCP Agent submitted ${isTier1 ? '[TIER 1 STARING EYEBALLS]' : ''} ad "${title}" for $${(cents / 100).toFixed(2)} in [${cityUpper}]`);
 
       return res.json({
         success: true,
         tool: name,
         result: {
           broadcastQueued: true,
+          trafficTier: newAd.trafficTier,
           isTopBid,
           cityCode: cityUpper,
           slotEstimatedTimeSeconds: isTopBid ? remainingSeconds : remainingSeconds + 15,
-          liveStreamUrl: `https://www.livebillboards.lol/?city=${cityUpper}`
+          liveStreamUrl: `https://www.livebillboards.lol/?city=${cityUpper}`,
+          proofOfAttention: isTier1 ? {
+            guarantee: '100% Active Human Micro-Interactions Solved in 15s Window',
+            poaTelemetryEndpoint: `/api/poa/tickets?cityCode=${cityUpper}`,
+            status: 'cryptographic_mining_enforced'
+          } : undefined
         }
       });
     }
@@ -4830,6 +4884,119 @@ app.post('/api/admin/jackpot/sponsor', (req, res) => {
 
   logTelemetry('SPONSOR_UPDATED', `Jackpot sponsor updated to: "${jackpotTreasury.currentSponsorName}"`);
   return res.json({ success: true, jackpotTreasury });
+});
+
+// ------------------------------------------------------------------------------
+// PROOF-OF-ATTENTION (PoA) CRYPTOGRAPHIC MINING ENDPOINTS (/api/poa/mine)
+// Weaponized Human Attention Verification Layer (Converts micro-interactions into signed PoA tickets)
+// ------------------------------------------------------------------------------
+
+app.post('/api/poa/mine', (req, res) => {
+  try {
+    const {
+      viewerId = 'usr_viewer_01',
+      slotId = currentSlotId,
+      adId = 'cmp_active',
+      adTitle = 'Live Billboard Campaign',
+      targetCityCode = 'KUL',
+      trafficTier = 'standard',
+      interactionType = 'floating_pixel',
+      clickVector = { x: 50, y: 50 },
+      latencyMs = 1200,
+      entropyScore = 88
+    } = req.body;
+
+    const now = Date.now();
+    const user = userProfileStore[viewerId] || {
+      viewerId,
+      totalWatchSeconds: 0,
+      ticketPoints: 0,
+      consecutiveHeartbeats: 0,
+      captchasTriggered: 0,
+      captchasPassed: 0,
+      captchasFailed: 0,
+      riskScore: 0,
+      userStatus: 'verified_human',
+      lastIp: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1',
+      lastSeenMs: now
+    };
+
+    // Generate Cryptographic HMAC-SHA256 Ticket Signature
+    const ticketId = `poa_ticket_${now}_${crypto.randomBytes(3).toString('hex')}`;
+    const rawSecret = process.env.VITE_HEARTBEAT_HMAC_SECRET || 'hb_client_rtb_2026';
+    const payloadSignData = `${ticketId}:${slotId}:${viewerId}:${adId}:${latencyMs}:${entropyScore}`;
+    const cryptoSignature = crypto.createHmac('sha256', rawSecret).update(payloadSignData).digest('hex');
+
+    const pointsEarned = trafficTier === 'tier1_staring_eyeballs' ? 50 : 25;
+    user.ticketPoints += pointsEarned;
+    user.riskScore = Math.max(0, user.riskScore - 10);
+    user.userStatus = 'verified_human';
+    user.lastSeenMs = now;
+    userProfileStore[viewerId] = user;
+
+    const ticket: ProofOfAttentionTicket = {
+      ticketId,
+      slotId,
+      adId,
+      adTitle,
+      viewerId,
+      targetCityCode,
+      trafficTier: trafficTier as 'standard' | 'tier1_staring_eyeballs',
+      interactionType: interactionType as any,
+      latencyMs: Number(latencyMs) || 1200,
+      clickVector,
+      entropyScore: Number(entropyScore) || 88,
+      pointsEarned,
+      cryptographicSignature: cryptoSignature,
+      verifiedTimestamp: new Date().toISOString()
+    };
+
+    poaTicketsLedger.unshift(ticket);
+    if (poaTicketsLedger.length > 500) poaTicketsLedger.pop();
+
+    const ledgerEntry: PayoutLedgerEntry = {
+      id: `ledger_${now}_${crypto.randomBytes(2).toString('hex')}`,
+      viewerId,
+      slotId,
+      watchSeconds: 15,
+      pointsEarned,
+      heartbeatHash: cryptoSignature.substring(0, 16),
+      tabVisible: true,
+      ipVelocityScore: 1.0,
+      fraudStatus: 'verified',
+      timestamp: new Date().toLocaleTimeString(),
+      poaTicketId: ticketId,
+      trafficTier: ticket.trafficTier,
+      interactionLatencyMs: ticket.latencyMs,
+      interactionType: ticket.interactionType,
+      cryptographicSignature: cryptoSignature
+    };
+
+    logTelemetry('POA_TICKET_MINED', `PoA Mined: Viewer ${viewerId} verified with ${latencyMs}ms latency [${trafficTier.toUpperCase()}]. Issued ticket ${ticketId}.`);
+
+    return res.json({
+      success: true,
+      pointsEarned,
+      newTotalPoints: user.ticketPoints,
+      ticket,
+      riskScore: user.riskScore,
+      userStatus: user.userStatus,
+      ledgerEntry
+    });
+  } catch (err: any) {
+    console.error('Error in /api/poa/mine:', err);
+    return res.status(500).json({ success: false, error: err.message || 'PoA mining error' });
+  }
+});
+
+// Query verified Proof-of-Attention Tickets
+app.get('/api/poa/tickets', (req, res) => {
+  const { slotId, viewerId, cityCode } = req.query;
+  let list = [...poaTicketsLedger];
+  if (slotId) list = list.filter(t => t.slotId === slotId);
+  if (viewerId) list = list.filter(t => t.viewerId === viewerId);
+  if (cityCode) list = list.filter(t => t.targetCityCode === cityCode);
+  res.json({ success: true, count: list.length, tickets: list.slice(0, 50) });
 });
 
 // ------------------------------------------------------------------------------

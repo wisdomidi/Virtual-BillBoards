@@ -213,7 +213,7 @@ export const PayoutLedger: React.FC<PayoutLedgerProps> = ({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 font-mono text-xs">
         <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
           <Clock className="w-4 h-4 text-cyan-400" />
-          Immutable Payout Ledger (<code className="text-cyan-300">payout_ledger</code> Table):
+          Immutable Proof-of-Attention & Payout Ledger (<code className="text-cyan-300">payout_ledger</code> Table):
         </h3>
 
         <div className="overflow-x-auto">
@@ -222,10 +222,11 @@ export const PayoutLedger: React.FC<PayoutLedgerProps> = ({
               <tr className="border-b border-slate-800 text-slate-500 text-[11px]">
                 <th className="p-3">TIMESTAMP</th>
                 <th className="p-3">SLOT ID</th>
-                <th className="p-3">WATCH SECONDS</th>
+                <th className="p-3">TIER</th>
+                <th className="p-3">WATCH/LATENCY</th>
                 <th className="p-3">TAB STATE</th>
-                <th className="p-3">IP VELOCITY</th>
                 <th className="p-3">POINTS EARNED</th>
+                <th className="p-3">POA SIGNATURE</th>
                 <th className="p-3">FRAUD STATUS</th>
               </tr>
             </thead>
@@ -234,7 +235,18 @@ export const PayoutLedger: React.FC<PayoutLedgerProps> = ({
                 <tr key={entry.id} className="hover:bg-slate-950/50">
                   <td className="p-3 text-slate-400">{entry.timestamp}</td>
                   <td className="p-3 font-bold text-cyan-300">{entry.slotId}</td>
-                  <td className="p-3 text-slate-300">{entry.watchSeconds}s</td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                      entry.trafficTier === 'tier1_staring_eyeballs'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : 'bg-slate-800 text-slate-300 border border-slate-700'
+                    }`}>
+                      {entry.trafficTier === 'tier1_staring_eyeballs' ? '🔥 TIER 1' : 'STANDARD'}
+                    </span>
+                  </td>
+                  <td className="p-3 text-slate-300">
+                    {entry.interactionLatencyMs ? `${entry.interactionLatencyMs}ms` : `${entry.watchSeconds}s`}
+                  </td>
                   <td className="p-3">
                     {entry.tabVisible ? (
                       <span className="text-emerald-400 font-bold flex items-center gap-1">
@@ -246,8 +258,16 @@ export const PayoutLedger: React.FC<PayoutLedgerProps> = ({
                       </span>
                     )}
                   </td>
-                  <td className="p-3 font-bold">{entry.ipVelocityScore}x</td>
                   <td className="p-3 font-extrabold text-amber-400">+{entry.pointsEarned} pts</td>
+                  <td className="p-3 text-slate-400 font-mono text-[10px]">
+                    {entry.cryptographicSignature ? (
+                      <span className="text-cyan-400" title={entry.cryptographicSignature}>
+                        {entry.cryptographicSignature.substring(0, 10)}...
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">{entry.heartbeatHash || 'hb_sha256'}</span>
+                    )}
+                  </td>
                   <td className="p-3">
                     {entry.fraudStatus === 'verified' && (
                       <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded font-bold">

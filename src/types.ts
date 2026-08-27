@@ -67,6 +67,7 @@ export interface QueueItem {
   targetCityCode: string;
   bidAmountCents: number;
   bidAmountTokens?: number;
+  trafficTier?: 'standard' | 'tier1_staring_eyeballs';
   safetyScore: number;
   createdAt?: string;
   industry?: string;
@@ -111,6 +112,7 @@ export interface ActiveBillboardSlot {
   endTime: number;
   remainingSeconds: number;
   currentBid: RealtimeBid;
+  trafficTier?: 'standard' | 'tier1_staring_eyeballs';
   fallbackLevel: 'city' | 'country' | 'global' | 'house_default';
   fallbackChain: {
     cityChecked: string;
@@ -122,6 +124,23 @@ export interface ActiveBillboardSlot {
     houseAdFallbackUsed: boolean;
     latencyMs: number;
   };
+}
+
+export interface ProofOfAttentionTicket {
+  ticketId: string;
+  slotId: string;
+  adId: string;
+  adTitle: string;
+  viewerId: string;
+  targetCityCode: string;
+  trafficTier: 'standard' | 'tier1_staring_eyeballs';
+  interactionType: 'floating_pixel' | 'micro_target' | 'rapid_catch' | 'visual_prompt';
+  latencyMs: number;
+  clickVector: { x: number; y: number; deltaX?: number; deltaY?: number };
+  entropyScore: number; // 0-100 human natural curve confidence
+  pointsEarned: number;
+  cryptographicSignature: string; // HMAC-SHA256
+  verifiedTimestamp: string;
 }
 
 export interface CaptchaChallenge {
@@ -143,6 +162,11 @@ export interface PayoutLedgerEntry {
   ipVelocityScore: number; // requests/sec
   fraudStatus: 'verified' | 'flagged_hidden_tab' | 'flagged_velocity' | 'flagged_replay_attack' | 'flagged_bot_247' | 'failed_captcha_challenge' | 'rejected';
   timestamp: string;
+  poaTicketId?: string;
+  trafficTier?: 'standard' | 'tier1_staring_eyeballs';
+  interactionLatencyMs?: number;
+  interactionType?: string;
+  cryptographicSignature?: string;
 }
 
 export interface TelemetryLog {

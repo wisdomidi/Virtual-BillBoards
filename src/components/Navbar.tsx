@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'live', label: 'Live Billboard', mobileLabel: 'Live', icon: Monitor },
     { id: 'webmcp', label: '🤖 WebMCP', mobileLabel: 'WebMCP', icon: Bot },
     { id: 'streamer', label: 'Streamer Hub', mobileLabel: 'Stream', icon: Tv },
-    { id: 'watcher', label: 'Watch & Earn', mobileLabel: 'Earn', icon: Sparkles }
+    { id: 'watcher', label: '💎 Interact & Earn', mobileLabel: 'Earn', icon: Sparkles }
   ];
 
   if (userRole === 'admin' || currentUser?.role === 'admin') {

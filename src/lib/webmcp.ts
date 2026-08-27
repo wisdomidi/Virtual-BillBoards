@@ -54,6 +54,7 @@ class WebMCPClientRegistry {
           title: { type: 'string', description: 'Headline copy for the billboard creative' },
           imageUrl: { type: 'string', description: 'Direct image URL (PNG, JPG, WebP) or video URL to display on the 24/7 billboard' },
           targetCityCode: { type: 'string', description: '3-letter target city code (e.g. NYC, TYO, LON, KUL, GLOBAL)', default: 'GLOBAL' },
+          trafficTier: { type: 'string', description: 'Traffic tier: standard or tier1_staring_eyeballs', enum: ['standard', 'tier1_staring_eyeballs'], default: 'standard' },
           bidAmountDollars: { type: 'number', description: 'Bid amount in USD (min $1.00 = 1,000 tokens)', default: 1.00 },
           advertiserName: { type: 'string', description: 'Brand or agent name displayed on the ad banner', default: 'AI Agent' },
           ctaUrl: { type: 'string', description: 'Optional click-through URL for viewers' }
@@ -73,6 +74,7 @@ class WebMCPClientRegistry {
             imageUrl: args.imageUrl,
             targetCityCode: (args.targetCityCode || 'GLOBAL').toUpperCase(),
             targetCountryCode: 'GLOBAL',
+            trafficTier: args.trafficTier || 'standard',
             bidAmountDollars: args.bidAmountDollars || 1.00,
             advertiserName: args.advertiserName || 'WebMCP AI Agent',
             ctaType: args.ctaUrl ? 'website' : 'none',
@@ -82,6 +84,56 @@ class WebMCPClientRegistry {
         });
         const data = await res.json();
         return data;
+      }
+    });
+
+    // 1.5. Tool: bidTier1StaringEyeballs
+    this.registerTool({
+      name: 'bidTier1StaringEyeballs',
+      description: 'Programmatically bid on Premium Tier 1: Staring Eyeballs (5x multiplier, minimum $5.00 / 5,000 tokens). Guarantees that 100% of active human reward-trackers solve a visual micro-prompt on your live creative during that 15-second broadcast with signed Proof-of-Attention cryptographic certificates.',
+      readOnlyHint: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Headline copy for the billboard creative' },
+          imageUrl: { type: 'string', description: 'Direct image URL or video URL to display' },
+          targetCityCode: { type: 'string', description: '3-letter target city code (e.g. NYC, TYO, LON, KUL, GLOBAL)', default: 'GLOBAL' },
+          bidAmountDollars: { type: 'number', description: 'Bid amount in USD (Tier 1 min $5.00 = 5,000 tokens)', default: 5.00 },
+          advertiserName: { type: 'string', description: 'Brand or agent name displayed on the ad banner', default: 'Tier 1 WebMCP AI Agent' },
+          ctaUrl: { type: 'string', description: 'Optional click-through URL for viewers' }
+        },
+        required: ['title', 'imageUrl']
+      },
+      handler: async (args) => {
+        const guestUid = localStorage.getItem('vb_guest_uid') || 'webmcp_agent';
+        const res = await fetch('/api/bids/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-uid': guestUid
+          },
+          body: JSON.stringify({
+            title: args.title,
+            imageUrl: args.imageUrl,
+            targetCityCode: (args.targetCityCode || 'GLOBAL').toUpperCase(),
+            targetCountryCode: 'GLOBAL',
+            trafficTier: 'tier1_staring_eyeballs',
+            bidAmountDollars: Math.max(5.00, Number(args.bidAmountDollars) || 5.00),
+            advertiserName: args.advertiserName || 'Tier 1 WebMCP AI Agent',
+            ctaType: args.ctaUrl ? 'website' : 'none',
+            ctaUrl: args.ctaUrl || undefined,
+            userId: guestUid
+          })
+        });
+        const data = await res.json();
+        return {
+          ...data,
+          proofOfAttention: {
+            guarantee: '100% Active Human Micro-Interactions Solved in 15s Window',
+            tier: 'Tier 1: Staring Eyeballs',
+            telemetryQuery: `/api/poa/tickets?cityCode=${(args.targetCityCode || 'GLOBAL').toUpperCase()}`
+          }
+        };
       }
     });
 

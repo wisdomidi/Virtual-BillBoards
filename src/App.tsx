@@ -476,12 +476,15 @@ export default function App() {
     qrCodeUrl?: string,
     mediaType: 'image' | 'video' = 'image',
     ctaType: 'website' | 'whatsapp' | 'none' = 'website',
-    ctaUrl?: string
+    ctaUrl?: string,
+    trafficTier: 'standard' | 'tier1_staring_eyeballs' = 'standard'
   ): Promise<{ success: boolean; message: string }> => {
     const uid = effectiveUid;
     const advertiserName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Fast Bidding Console';
-    const parsedDollars = typeof amountDollars === 'string' ? parseFloat(amountDollars) || 1 : amountDollars;
-    const cents = Math.max(1, Math.round(parsedDollars * 100));
+    const isTier1 = trafficTier === 'tier1_staring_eyeballs';
+    const parsedDollars = typeof amountDollars === 'string' ? parseFloat(amountDollars) || (isTier1 ? 5 : 1) : amountDollars;
+    const finalDollars = isTier1 ? Math.max(5, parsedDollars) : parsedDollars;
+    const cents = Math.max(1, Math.round(finalDollars * 100));
     const tokens = Math.max(1, Math.round(cents * 10)); // 1 token = 0.1¢ = $0.001 USD
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 45000);
@@ -502,9 +505,10 @@ export default function App() {
           mediaType,
           ctaType,
           ctaUrl: ctaUrl || landingPageUrl || whatsappLink,
-          bidAmountDollars: parsedDollars.toFixed(2),
+          bidAmountDollars: finalDollars.toFixed(2),
           bidAmountCents: cents,
           bidAmountTokens: tokens,
+          trafficTier,
           targetCityCode: cityCode,
           targetCountryCode: countryCode,
           advertiserName,
@@ -576,6 +580,9 @@ export default function App() {
     riskScore,
     userStatus,
     lastHeartbeatStatus,
+    poaTickets,
+    isMiningPoA,
+    submitPoAMiningInteraction,
     activeCaptcha,
     captchaCountdown,
     captchaSubmitting,
@@ -583,9 +590,9 @@ export default function App() {
     submitCaptchaResponse,
     sendHeartbeat
   } = useProofOfAttention({
-    viewerId: 'usr_viewer_01',
+    viewerId: effectiveUid,
     heartbeatIntervalSeconds: 60,
-    enabled: userRole === 'paid_watcher' && (activeTab === 'watcher' || activeTab === 'ledger'),
+    enabled: true,
     onPointsEarned: (pts) => setViewerPoints((prev) => prev + pts)
   });
 
@@ -850,6 +857,7 @@ export default function App() {
         )}
 
         {/* VIEW 2: WATCHER DEDICATED EARN DASHBOARD */}
+        {/* VIEW 2: WATCHER DEDICATED EARN DASHBOARD */}
         {activeTab === 'watcher' && (
           <WatcherDashboard
             viewerPoints={viewerPoints}
@@ -861,6 +869,8 @@ export default function App() {
             selectedCountry={selectedCountry}
             onCityChange={handleCityChange}
             slotData={slotData}
+            poaTickets={poaTickets}
+            onMinePoA={submitPoAMiningInteraction}
             onTriggerHeartbeat={sendHeartbeat}
             onPointsEarned={(pts) => setViewerPoints((p) => p + pts)}
             onOpenWalletModal={() => setIsWalletModalOpen(true)}
@@ -926,6 +936,7 @@ export default function App() {
               currentUser={currentUser}
               onOpenAuthModal={() => setIsAuthModalOpen(true)}
               onPlaceBidQuick={handlePlaceBidQuick}
+              onMinePoA={submitPoAMiningInteraction}
             />
           </div>
         )}

@@ -75,8 +75,19 @@ interface LiveBillboardProps {
     qrCodeUrl?: string,
     mediaType?: 'image' | 'video',
     ctaType?: 'website' | 'whatsapp' | 'none',
-    ctaUrl?: string
+    ctaUrl?: string,
+    trafficTier?: 'standard' | 'tier1_staring_eyeballs'
   ) => Promise<{ success: boolean; message: string }>;
+  onMinePoA?: (params: {
+    slotId: string;
+    adId: string;
+    adTitle: string;
+    targetCityCode: string;
+    trafficTier?: 'standard' | 'tier1_staring_eyeballs';
+    interactionType: 'floating_pixel' | 'micro_target' | 'rapid_catch' | 'visual_prompt';
+    clickVector: { x: number; y: number };
+    latencyMs: number;
+  }) => Promise<{ success: boolean; pointsEarned: number; ticket?: any; error?: string }>;
 }
 
 const AD_TEMPLATES = [
@@ -133,7 +144,8 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   onOpenClaimModal,
   currentUser,
   onOpenAuthModal,
-  onPlaceBidQuick
+  onPlaceBidQuick,
+  onMinePoA
 }) => {
   const [fullscreen, setFullscreen] = useState(false);
   const [ambientGlow, setAmbientGlow] = useState(true);
@@ -188,6 +200,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [biddingTab, setBiddingTab] = useState<'instant' | 'future'>('instant');
+  const [selectedTrafficTier, setSelectedTrafficTier] = useState<'standard' | 'tier1_staring_eyeballs'>('standard');
   const [selectedFutureDate, setSelectedFutureDate] = useState<string>(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -195,6 +208,54 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   });
   const [selectedFutureHour, setSelectedFutureHour] = useState<string>('20:00');
   const billboardScreenRef = useRef<HTMLDivElement>(null);
+
+  // Proof-of-Attention (PoA) Mining Interactive Floating State
+  const [poaTargetCoords, setPoaTargetCoords] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+  const [poaSpawnTime, setPoaSpawnTime] = useState<number>(Date.now());
+  const [poaMinedForSlot, setPoaMinedForSlot] = useState<boolean>(false);
+  const [poaMiningNotice, setPoaMiningNotice] = useState<string | null>(null);
+
+  // Reset PoA target coordinates and mine state on every new slot rotation
+  useEffect(() => {
+    setPoaMinedForSlot(false);
+    setPoaSpawnTime(Date.now());
+    const randX = Math.floor(25 + Math.random() * 50);
+    const randY = Math.floor(25 + Math.random() * 45);
+    setPoaTargetCoords({ x: randX, y: randY });
+  }, [slotData?.slotId, slotData?.winningAd?.id]);
+
+  const handlePoATargetClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (poaMinedForSlot || !slotData?.winningAd) return;
+
+    const clickLatencyMs = Math.max(120, Date.now() - poaSpawnTime);
+    const isTier1 = (slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (slotData.winningAd as any)?.trafficTier === 'tier1_staring_eyeballs';
+    
+    soundEffects.playKaChing();
+    triggerConfettiExplosion();
+    setPoaMinedForSlot(true);
+    
+    const earned = isTier1 ? 50 : 25;
+    setPoaMiningNotice(isTier1 ? '🔥 +50 TIER 1 POA POINTS MINED!' : '💎 +25 POA POINTS MINED!');
+    setTimeout(() => setPoaMiningNotice(null), 3000);
+
+    if (onMinePoA) {
+      try {
+        await onMinePoA({
+          slotId: slotData.slotId,
+          adId: slotData.winningAd.id,
+          adTitle: slotData.winningAd.title,
+          targetCityCode: selectedCity,
+          trafficTier: isTier1 ? 'tier1_staring_eyeballs' : 'standard',
+          interactionType: 'floating_pixel',
+          clickVector: { x: poaTargetCoords.x, y: poaTargetCoords.y },
+          latencyMs: clickLatencyMs
+        });
+      } catch (err) {
+        console.warn('PoA mine notice:', err);
+      }
+    }
+  };
 
   // Up Next Preparation & Live Spotlight State
   const [userBroadcast, setUserBroadcast] = useState<{
@@ -478,10 +539,11 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
       const whatsappLink = bidCtaType === 'whatsapp' ? bidCtaUrl : undefined;
 
       // Submit the first slot (authoritative — drives UI feedback)
+      const finalBidDollars = selectedTrafficTier === 'tier1_staring_eyeballs' ? Math.max(5.00, bidAmountDollars) : bidAmountDollars;
       const result = await onPlaceBidQuick(
         bidTitle,
         bidImageUrl,
-        bidAmountDollars,
+        finalBidDollars,
         selectedCity,
         selectedCountry,
         landingPageUrl,
@@ -489,7 +551,8 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         undefined,
         bidMediaType,
         bidCtaType,
-        bidCtaUrl
+        bidCtaUrl,
+        selectedTrafficTier
       );
       setBidFeedback(result);
 
@@ -515,7 +578,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
               onPlaceBidQuick(
                 bidTitle,
                 bidImageUrl,
-                bidAmountDollars,
+                finalBidDollars,
                 selectedCity,
                 selectedCountry,
                 landingPageUrl,
@@ -523,13 +586,14 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 undefined,
                 bidMediaType,
                 bidCtaType,
-                bidCtaUrl
+                bidCtaUrl,
+                selectedTrafficTier
               ).catch(err => console.warn(`Slot ${i + 1} submission warning:`, err));
             }, i * 200); // stagger by 200ms to avoid race conditions
           }
           setBidFeedback({
             success: true,
-            message: `✅ ${bidSlotsCount} rotation slots queued for [${selectedCity}]! Your ad will rotate ${bidSlotsCount}× in the next available windows.`
+            message: `✅ ${bidSlotsCount} rotation slots queued for [${selectedCity}] [${selectedTrafficTier === 'tier1_staring_eyeballs' ? 'TIER 1 STARING EYEBALLS' : 'STANDARD'}]! Your ad will rotate ${bidSlotsCount}× in the next available windows.`
           });
         }
 
@@ -872,18 +936,84 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 </div>
               )}
 
-              {/* Top Floating Badge - Countdown Timer */}
+              {/* Top Floating Badges: Countdown Timer & Live/Tier 1 Status */}
               <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-20 pointer-events-none">
                 <div className="bg-slate-950/90 backdrop-blur-md border border-slate-800/80 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-[10px] font-mono shadow-xl pointer-events-auto">
                   <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
                   <span className="font-black text-white text-xs">{remainingSeconds}s Left</span>
                 </div>
 
-                <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/30 px-2 py-1 rounded-xl flex items-center gap-1 text-[10px] font-mono shadow-xl pointer-events-auto text-cyan-300">
-                  <Eye className="w-3 h-3 text-cyan-400" />
-                  <span className="font-bold text-[9px] tracking-wider uppercase">LIVE SCREEN</span>
-                </div>
+                {((slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs') ? (
+                  <div className="bg-gradient-to-r from-amber-500/95 via-red-600/95 to-amber-600/95 backdrop-blur-md border border-amber-300 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-[10px] font-mono shadow-xl pointer-events-auto text-white font-black animate-pulse">
+                    <Flame className="w-3.5 h-3.5 text-yellow-300 animate-spin" style={{ animationDuration: '3s' }} />
+                    <span className="tracking-wide uppercase">🔥 TIER 1: STARING EYEBALLS [100% VERIFIED]</span>
+                  </div>
+                ) : (
+                  <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/30 px-2 py-1 rounded-xl flex items-center gap-1 text-[10px] font-mono shadow-xl pointer-events-auto text-cyan-300">
+                    <Eye className="w-3 h-3 text-cyan-400" />
+                    <span className="font-bold text-[9px] tracking-wider uppercase">LIVE SCREEN</span>
+                  </div>
+                )}
               </div>
+
+              {/* Interactive Proof-of-Attention (PoA) Mining Target (Gamified Attention Verification) */}
+              {!poaMinedForSlot && (
+                <button
+                  type="button"
+                  onClick={handlePoATargetClick}
+                  className="absolute z-30 cursor-pointer group/poa transition-transform duration-300 hover:scale-125 focus:outline-none"
+                  style={{
+                    left: `${poaTargetCoords.x}%`,
+                    top: `${poaTargetCoords.y}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                  title={
+                    (slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
+                      ? '🔥 Tier 1 Prompt: Click to Mine +50 Attention Points & Generate PoA Certificate!'
+                      : '💎 Click to Mine +25 PoA Attention Points!'
+                  }
+                >
+                  <div className="relative flex items-center justify-center">
+                    {/* Concentric Attention Radar Rings */}
+                    <span className={`absolute w-12 h-12 rounded-full animate-ping opacity-75 ${
+                      (slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
+                        ? 'bg-amber-400/60'
+                        : 'bg-cyan-400/60'
+                    }`} />
+                    <span className={`absolute w-8 h-8 rounded-full animate-pulse opacity-90 ${
+                      (slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
+                        ? 'bg-amber-500/80'
+                        : 'bg-cyan-500/80'
+                    }`} />
+
+                    {/* PoA Target Button */}
+                    <div className={`relative w-8 h-8 rounded-full border-2 flex items-center justify-center shadow-2xl backdrop-blur-md transition-all ${
+                      (slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
+                        ? 'bg-amber-500 text-slate-950 border-white shadow-amber-500/80 animate-bounce'
+                        : 'bg-cyan-400 text-slate-950 border-white shadow-cyan-400/80'
+                    }`}>
+                      <Sparkles className="w-4 h-4 fill-current animate-spin" style={{ animationDuration: '4s' }} />
+                    </div>
+
+                    {/* Floating Tooltip Pill */}
+                    <div className="absolute top-9 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-950/90 backdrop-blur-md border border-amber-400/60 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold text-white shadow-xl pointer-events-none opacity-90 group-hover/poa:opacity-100 flex items-center gap-1">
+                      <span>
+                        {(slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
+                          ? '🔥 MINE +50 PTS'
+                          : '💎 MINE +25 PTS'}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {/* Floating PoA Mining Celebratory Notification on Screen */}
+              {poaMiningNotice && (
+                <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xs px-3.5 py-1.5 rounded-2xl shadow-2xl shadow-amber-500/50 border border-white flex items-center gap-1.5 animate-bounce font-mono">
+                  <Sparkles className="w-4 h-4 fill-current" />
+                  <span>{poaMiningNotice}</span>
+                </div>
+              )}
 
               {/* Bottom Floating Banner - Advertiser Title & CTA */}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 via-slate-950/70 to-transparent p-2.5 sm:p-4 flex items-end justify-between gap-2 z-20">
@@ -1121,6 +1251,55 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 <Clock className="w-3 h-3" />
                 <span>📅 Future Date Lock</span>
               </button>
+            </div>
+
+            {/* Traffic Tier Selector: Standard vs Tier 1 Staring Eyeballs */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-mono">
+                <span className="font-bold text-slate-300 uppercase tracking-wider">🎯 Select Attention Traffic Tier:</span>
+                <span className="text-amber-400 font-bold">PoA Cryptographic Proof</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTrafficTier('standard');
+                    if (bidAmountDollars === 5.00) setBidAmountDollars(1.00);
+                  }}
+                  className={`p-2.5 rounded-xl border flex flex-col items-start gap-1 transition-all text-left cursor-pointer ${
+                    selectedTrafficTier === 'standard'
+                      ? 'bg-slate-900 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-950/50'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="font-extrabold text-white text-xs">Standard Broadcast</span>
+                  </div>
+                  <span className="text-[10px] text-slate-300 font-mono font-bold">1,000 Tokens ($1.00 / 15s)</span>
+                  <span className="text-[9px] text-slate-400 font-mono">Global 24/7 Virtual Screen</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTrafficTier('tier1_staring_eyeballs');
+                    setBidAmountDollars(5.00);
+                  }}
+                  className={`p-2.5 rounded-xl border flex flex-col items-start gap-1 transition-all text-left cursor-pointer relative overflow-hidden ${
+                    selectedTrafficTier === 'tier1_staring_eyeballs'
+                      ? 'bg-gradient-to-br from-amber-950/90 via-red-950/70 to-slate-950 border-amber-400 text-amber-200 shadow-lg shadow-amber-950/60 ring-1 ring-amber-400/60'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-amber-300 hover:border-amber-500/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                    <span className="font-extrabold text-amber-300 text-xs">🔥 Tier 1: Staring Eyeballs</span>
+                  </div>
+                  <span className="text-[10px] text-amber-300 font-mono font-bold">5,000 Tokens ($5.00 / 15s)</span>
+                  <span className="text-[9px] text-amber-400/90 font-mono">100% Active Human Verification</span>
+                </button>
+              </div>
             </div>
 
             {biddingTab === 'future' && (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActiveBillboardSlot } from '../types';
+import { ActiveBillboardSlot, ProofOfAttentionTicket } from '../types';
 import { LiveBillboard } from './LiveBillboard';
 import { PayoutLedger } from './PayoutLedger';
 import { SmartOverlay } from './SmartOverlay';
@@ -23,7 +23,9 @@ import {
   Coins,
   DollarSign,
   Gift,
-  Tv
+  Tv,
+  Cpu,
+  KeyRound
 } from 'lucide-react';
 
 interface WatcherDashboardProps {
@@ -36,6 +38,8 @@ interface WatcherDashboardProps {
   selectedCountry: string;
   onCityChange: (city: string, country: string) => void;
   slotData: ActiveBillboardSlot | null;
+  poaTickets?: ProofOfAttentionTicket[];
+  onMinePoA?: (params: any) => Promise<any>;
   onTriggerHeartbeat: () => void;
   onPointsEarned: (pts: number) => void;
   onOpenWalletModal: () => void;
@@ -52,12 +56,14 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
   selectedCountry,
   onCityChange,
   slotData,
+  poaTickets = [],
+  onMinePoA,
   onTriggerHeartbeat,
   onPointsEarned,
   onOpenWalletModal,
   walletBalanceDollars
 }) => {
-  const [showWorkflowGuide, setShowWorkflowGuide] = useState(true);
+  const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
   const [cashoutMsg, setCashoutMsg] = useState<string | null>(null);
 
   const earningsInDollars = (viewerPoints * 0.01).toFixed(2); // 100 points = $1.00
@@ -71,30 +77,30 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
     }
     const bonusCents = viewerPoints; // 1 point = 1 cent
     onPointsEarned(-viewerPoints); // reset watch points
-    setCashoutMsg(`🎉 Converted ${viewerPoints} Watch Points to +$${(bonusCents / 100).toFixed(2)} Ad Wallet credit!`);
+    setCashoutMsg(`🎉 Converted ${viewerPoints} Attention Points to +$${(bonusCents / 100).toFixed(2)} Ad Wallet credit!`);
     setTimeout(() => setCashoutMsg(null), 4000);
   };
 
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Landing Header & Workflow Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/80 to-slate-900 border border-cyan-500/30 p-6 rounded-3xl shadow-2xl space-y-6">
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/90 to-slate-900 border border-cyan-500/40 p-6 rounded-3xl shadow-2xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-tr from-amber-500 to-amber-600 rounded-2xl text-slate-950 font-black shadow-lg shadow-amber-500/20">
-              <Sparkles className="w-6 h-6 animate-pulse" />
+            <div className="p-3 bg-gradient-to-tr from-amber-500 via-red-500 to-amber-600 rounded-2xl text-slate-950 font-black shadow-lg shadow-amber-500/20">
+              <Sparkles className="w-6 h-6 animate-pulse text-slate-950" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
-                  Watcher Control Panel & Earn Hub
+                  Interact & Earn (PoA Attention Mining Hub)
                 </h1>
-                <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full font-mono font-bold">
-                  Earn While You Watch
+                <span className="text-xs bg-gradient-to-r from-amber-500/20 to-red-500/20 text-amber-300 border border-amber-500/50 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                  🔥 Proof-of-Attention Mining Active
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1">
-                Watch 24/7 global virtual billboard ads, complete human attention checks, and earn cash rewards in real-time.
+                Interact with live 24/7 global virtual billboard screens, capture attention targets, and mine cryptographically verified tokens in real-time.
               </p>
             </div>
           </div>
@@ -102,10 +108,10 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowWorkflowGuide(!showWorkflowGuide)}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
             >
               <HelpCircle className="w-4 h-4 text-cyan-400" />
-              <span>{showWorkflowGuide ? 'Hide Workflow Guide' : 'How Watching Works'}</span>
+              <span>{showWorkflowGuide ? 'Hide Mining Guide' : 'How PoA Mining Works'}</span>
             </button>
           </div>
         </div>
@@ -411,6 +417,78 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
             <span>Claim +1 Gold Ticket (Attention Check)</span>
           </button>
         </div>
+      </div>
+
+      {/* PROOF-OF-ATTENTION CRYPTOGRAPHIC CERTIFICATES STREAM */}
+      <div className="bg-slate-900/95 border border-cyan-500/40 rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-cyan-500/20 text-cyan-400 rounded-xl border border-cyan-500/30">
+              <KeyRound className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-white uppercase tracking-tight flex items-center gap-2">
+                <span>Proof-of-Attention (PoA) Cryptographic Tickets</span>
+                <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">
+                  HMAC-SHA256 Signed
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Audited proof tickets verifying active human micro-interactions, latency vectors, and zero-bot entropy.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 font-mono text-xs">
+            <span className="text-slate-400">Total Mined:</span>
+            <span className="text-cyan-300 font-bold">{poaTickets.length > 0 ? poaTickets.length : Math.floor(viewerPoints / 25)} Tickets</span>
+          </div>
+        </div>
+
+        {poaTickets.length > 0 ? (
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {poaTickets.map((t) => (
+              <div
+                key={t.ticketId}
+                className="bg-slate-950/80 border border-slate-800 hover:border-cyan-500/40 p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 transition-all text-xs font-mono"
+              >
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-xs">{t.ticketId}</span>
+                    <span className={`px-2 py-0.2 rounded text-[9px] font-bold ${
+                      t.trafficTier === 'tier1_staring_eyeballs'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                    }`}>
+                      {t.trafficTier === 'tier1_staring_eyeballs' ? '🔥 TIER 1' : 'STANDARD'}
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-bold">+{t.pointsEarned} Pts</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                    <span>Latency: <strong className="text-slate-300">{t.latencyMs}ms</strong></span>
+                    <span>•</span>
+                    <span>Entropy: <strong className="text-slate-300">{t.entropyScore}% Human</strong></span>
+                    <span>•</span>
+                    <span className="text-slate-400 truncate max-w-[200px]">Ad: {t.adTitle}</span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[9px] text-slate-400 block">SHA-256 Signature</span>
+                  <span className="text-[10px] text-cyan-400 font-mono">{t.cryptographicSignature.substring(0, 16)}...</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-6 text-center space-y-2 font-mono text-xs">
+            <Cpu className="w-8 h-8 text-cyan-400/50 mx-auto animate-pulse" />
+            <p className="text-slate-300 font-bold">Ready to Mine Proof-of-Attention Tickets</p>
+            <p className="text-[11px] text-slate-400 max-w-md mx-auto">
+              Click the floating cyber target on the live billboard feed to solve the attention prompt and generate signed PoA proof certificates.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Verified Human Attention Status */}
