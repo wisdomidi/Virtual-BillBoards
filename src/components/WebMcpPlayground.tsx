@@ -55,6 +55,15 @@ export const WebMcpPlayground: React.FC = () => {
           advertiserName: 'WebMCP Autonomous Agent',
           ctaUrl: 'https://livebillboards.lol'
         };
+      } else if (selectedTool === 'bidTier1StaringEyeballs') {
+        args = {
+          title: titleArg,
+          imageUrl: imgArg,
+          targetCityCode: cityArg,
+          bidAmountDollars: Math.max(5.00, bidArg),
+          advertiserName: 'Tier 1 WebMCP AI Agent',
+          ctaUrl: 'https://livebillboards.lol'
+        };
       } else if (selectedTool === 'claimCreatorHandle') {
         args = { handle: handleArg };
       } else if (selectedTool === 'getCityLeaderboard') {
@@ -200,7 +209,7 @@ export const WebMcpPlayground: React.FC = () => {
                 <span>Input Parameters (JSON Schema)</span>
               </div>
 
-              {(selectedTool === 'fetchActiveBillboard' || selectedTool === 'placeAdBid') && (
+              {(selectedTool === 'fetchActiveBillboard' || selectedTool === 'placeAdBid' || selectedTool === 'bidTier1StaringEyeballs') && (
                 <div>
                   <label className="block text-[11px] font-mono text-slate-400 mb-1">targetCityCode:</label>
                   <select
@@ -218,7 +227,7 @@ export const WebMcpPlayground: React.FC = () => {
                 </div>
               )}
 
-              {selectedTool === 'placeAdBid' && (
+              {(selectedTool === 'placeAdBid' || selectedTool === 'bidTier1StaringEyeballs') && (
                 <>
                   <div>
                     <label className="block text-[11px] font-mono text-slate-400 mb-1">title:</label>

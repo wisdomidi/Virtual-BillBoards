@@ -984,6 +984,7 @@ setInterval(() => {
       redisActiveSlots[`billboard:active:${cityCode}`] = {
         slotId: currentSlotId,
         winningAd,
+        trafficTier: winningAd.trafficTier || 'standard',
         fallbackLevel: cascadeResult.fallbackLevel,
         updatedAt: new Date().toISOString()
       };
@@ -998,6 +999,7 @@ setInterval(() => {
             userId: winningAd.userId,
             adTitle: winningAd.title,
             imageUrl: winningAd.imageUrl,
+            trafficTier: winningAd.trafficTier || 'standard',
             bidAmountDollars: (winningAd.bidAmountCents / 100).toFixed(2),
             remainingSeconds: platformSettings.slotDurationSeconds
           }
@@ -1137,6 +1139,7 @@ app.get('/api/billboard/active', (req, res) => {
     country,
     roomId: `room_${country}_${city}`,
     winningAd: activeRecord.winningAd,
+    trafficTier: activeRecord.winningAd?.trafficTier || activeRecord.trafficTier || 'standard',
     fallbackLevel: activeRecord.fallbackLevel || 'city',
     fallbackChain: activeRecord.fallbackChain || []
   });
