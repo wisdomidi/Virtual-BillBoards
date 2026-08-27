@@ -520,20 +520,25 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   const currentTopDollars = (currentTopCents / 100).toFixed(2);
 
   return (
-    <div className={`space-y-4 ${fullscreen ? 'fixed inset-0 z-50 bg-slate-950 p-4 sm:p-6 overflow-y-auto' : ''}`}>
-      {/* Sleek Compact Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-900/90 border border-slate-800/90 px-3.5 sm:px-5 py-2 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-cyan-400 font-mono text-xs font-black uppercase tracking-wider flex items-center gap-1.5 bg-cyan-950/80 border border-cyan-500/40 px-2.5 py-0.5 rounded-xl">
-            <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse fill-amber-400" />
-            24/7 Global Screen Network
-          </span>
-          <span className="text-[11px] font-mono text-slate-300 hidden md:inline">
-            • 200+ Cities • 15s Guaranteed Airtime
-          </span>
+    <div className={`space-y-3.5 w-full max-w-full overflow-x-hidden ${fullscreen ? 'fixed inset-0 z-50 bg-slate-950 p-4 sm:p-6 overflow-y-auto' : ''}`}>
+      {/* Sleek Compact 2-Line Hero Pitch */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/80 to-slate-900 border border-cyan-500/30 px-3.5 sm:px-5 py-2.5 rounded-2xl flex flex-wrap items-center justify-between gap-2.5 text-white shadow-md">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-400 font-mono text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 rounded-lg">
+              <Zap className="w-3 h-3 text-amber-400 animate-pulse fill-amber-400" />
+              World's First 24/7 Virtual Billboard
+            </span>
+            <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 hidden sm:inline">
+              • 200+ Cities • 15s Guaranteed Airtime
+            </span>
+          </div>
+          <h1 className="text-[11px] sm:text-xs text-slate-300 mt-1 font-medium line-clamp-1">
+            Broadcast 15-second live ad takeovers across global city billboard feeds in real-time.
+          </h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <span className="bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full uppercase shadow-md flex items-center gap-1">
             <span>🎁 $1.00 Free Starter Slot</span>
           </span>
@@ -549,23 +554,38 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         </div>
       </div>
 
-      {/* Broadcast Anticipation & Live Spotlight Banner (Sticky Camera Preparation) */}
+      {/* Sleek 1-Line Live City News & Telemetry Marquee */}
+      <div className="bg-slate-950 border border-slate-800/90 px-3 py-1.5 rounded-xl flex items-center gap-2 overflow-hidden text-[11px] font-mono text-slate-300 shadow-sm">
+        <span className="bg-cyan-950 text-cyan-400 border border-cyan-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 flex items-center gap-1">
+          <span>📰 NEWS [{selectedCity}]</span>
+        </span>
+        <span className="truncate text-slate-300 text-xs">
+          {CITY_LIVE_UPDATES[selectedCity]?.newsHeadlines?.[0] || `Live 24/7 Billboard Feed active in ${currentCityConfig.cityName} • Verified RTB Rotations`}
+        </span>
+        {cityTelemetry && (
+          <span className="ml-auto shrink-0 text-[10px] text-cyan-400 hidden md:inline">
+            {cityTelemetry.condition} {cityTelemetry.tempC}°C • 🕒 {cityLocalTime}
+          </span>
+        )}
+      </div>
+
+      {/* Broadcast Anticipation & Live Spotlight Banner */}
       <div ref={billboardScreenRef}>
         {userBroadcast && (
           <div className="animate-in fade-in zoom-in-95 duration-200">
             {!userBroadcast.isLive ? (
-              <div className="bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-amber-500/25 border-2 border-amber-400 p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_0_35px_rgba(251,191,36,0.35)]">
+              <div className="bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-amber-500/25 border-2 border-amber-400 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_0_35px_rgba(251,191,36,0.35)]">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-mono font-black text-lg shadow-lg animate-pulse shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-mono font-black text-base shadow-lg animate-pulse shrink-0">
                     {userBroadcast.prepSeconds}s
                   </div>
                   <div>
                     <div className="text-amber-300 font-bold text-xs uppercase tracking-wider font-mono flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                      <span>🎬 UP NEXT IN QUEUE • GET CAMERA READY!</span>
+                      <span>🎬 UP NEXT IN ROTATION QUEUE (SLOT #2)</span>
                     </div>
-                    <div className="text-white font-black text-sm line-clamp-1">
-                      "{userBroadcast.title}" airs on {currentCityConfig.cityName} screen in {userBroadcast.prepSeconds}s
+                    <div className="text-white font-black text-xs sm:text-sm line-clamp-1">
+                      "{userBroadcast.title}" broadcasts on {currentCityConfig.cityName} screen in {userBroadcast.prepSeconds}s
                     </div>
                   </div>
                 </div>
@@ -580,17 +600,17 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 border-2 border-emerald-300 p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-white shadow-[0_0_45px_rgba(16,185,129,0.55)]">
+              <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 border-2 border-emerald-300 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-white shadow-[0_0_45px_rgba(16,185,129,0.55)]">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-white text-emerald-950 flex items-center justify-center font-mono font-black text-lg shadow-lg shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-white text-emerald-950 flex items-center justify-center font-mono font-black text-base shadow-lg shrink-0">
                     {userBroadcast.liveSecondsLeft}s
                   </div>
                   <div>
                     <div className="text-xs font-mono uppercase tracking-widest text-emerald-100 font-extrabold flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                      <span>🔴 YOUR AD IS BROADCASTING LIVE NOW</span>
+                      <span>🔴 YOUR AD IS BROADCASTING LIVE NOW (SLOT #1)</span>
                     </div>
-                    <div className="text-sm sm:text-base font-black text-white line-clamp-1">
+                    <div className="text-xs sm:text-sm font-black text-white line-clamp-1">
                       "{userBroadcast.title}" is Live on Billboard!
                     </div>
                   </div>
@@ -611,10 +631,10 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         )}
       </div>
 
-      {/* MASTER COCKPIT SPLIT GRID: Live Screen (Left) + Fast Bidding & Live Mockup (Right) */}
-      <div className="grid lg:grid-cols-12 gap-5 items-start">
-        {/* LEFT COLUMN: Physical Billboard Display + Telemetry + Queue Ticker (lg:col-span-7) */}
-        <div className="lg:col-span-7 space-y-3.5">
+      {/* MASTER COCKPIT SPLIT GRID: Live Screen & Queue (Left) + Fast Bidding & Live Mockup (Right) */}
+      <div className="grid lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+        {/* LEFT COLUMN: Physical Billboard Display + Telemetry + 3-Slot Queue (lg:col-span-7) */}
+        <div className="lg:col-span-7 space-y-3">
           {/* Real-Life Physical Billboard Display Wrapped in Landmark Frame */}
           <LandmarkFrame cityCode={selectedCity} cityName={currentCityConfig.cityName}>
             {/* Physical Billboard Metal Bezel Frame */}
@@ -729,7 +749,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
             </div>
 
             {/* Real Billboard High-Res Canvas */}
-            <div className="relative aspect-video max-h-[300px] sm:max-h-[460px] w-full bg-slate-950 flex items-center justify-center overflow-hidden group">
+            <div className="relative aspect-video max-h-[260px] sm:max-h-[440px] w-full bg-slate-950 flex items-center justify-center overflow-hidden group">
               {glassGlare && (
                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none z-10" />
               )}
@@ -856,6 +876,53 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
               </div>
             </div>
           </LandmarkFrame>
+
+          {/* Visual Real-Time Broadcast Queue (Next 3 Slots) */}
+          <div className="bg-slate-950 border border-cyan-500/30 rounded-2xl p-3 space-y-2 shadow-md">
+            <div className="flex items-center justify-between text-[11px] font-mono">
+              <span className="font-bold text-cyan-400 uppercase flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span>Live Broadcast Queue (15s Turns)</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">Auto-Rotating</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+              {/* Slot 1: Active Now */}
+              <div className="bg-cyan-950/40 border border-cyan-500/50 p-2.5 rounded-xl">
+                <div className="flex items-center justify-between text-[9px] font-mono text-cyan-400 font-bold mb-1">
+                  <span>🔴 SLOT #1 (NOW LIVE)</span>
+                  <span className="font-black">{remainingSeconds}s</span>
+                </div>
+                <p className="text-[11px] font-bold text-white truncate">{winningAd.title}</p>
+                <p className="text-[9px] text-slate-400 font-mono">${(winningAd.bidAmountCents / 100).toFixed(2)} USD</p>
+              </div>
+
+              {/* Slot 2: Up Next */}
+              <div className="bg-amber-950/30 border border-amber-500/40 p-2.5 rounded-xl">
+                <div className="flex items-center justify-between text-[9px] font-mono text-amber-400 font-bold mb-1">
+                  <span>⏳ SLOT #2 (UP NEXT)</span>
+                  <span>in {remainingSeconds}s</span>
+                </div>
+                <p className="text-[11px] font-bold text-white truncate">
+                  {userBroadcast ? userBroadcast.title : 'Open Slot • Place Bid Now'}
+                </p>
+                <p className="text-[9px] text-amber-300/80 font-mono">
+                  {userBroadcast ? '🎬 Scheduled Next' : '⚡ Outbid to Claim'}
+                </p>
+              </div>
+
+              {/* Slot 3: In Queue */}
+              <div className="bg-slate-900/60 border border-slate-800 p-2.5 rounded-xl hidden sm:block">
+                <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 font-bold mb-1">
+                  <span>🕒 SLOT #3 (IN QUEUE)</span>
+                  <span>in {remainingSeconds + 15}s</span>
+                </div>
+                <p className="text-[11px] font-bold text-slate-300 truncate">Global Ad Rotation</p>
+                <p className="text-[9px] text-slate-500 font-mono">Reserve with $1.00</p>
+              </div>
+            </div>
+          </div>
 
           {/* Live Crisis / Emergency Weather Alerts Banner */}
           {cityTelemetry?.activeAlert && (

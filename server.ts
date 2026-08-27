@@ -376,8 +376,8 @@ const userWalletsMemoryMap: Map<string, UserWalletStoreItem> = new Map();
 
 async function getUserWalletFromFirestore(userId: string) {
   const isGuest = !userId || userId.startsWith('guest_') || userId === 'guest_default' || userId === 'default_user' || userId === 'usr_anonymous';
-  const defaultInitialTokens = isGuest ? 0 : 1000;
-  const defaultInitialCents = isGuest ? 0 : 100;
+  const defaultInitialTokens = 0; // Starts at 0 until claimed or first registered
+  const defaultInitialCents = 0;
 
   // 1. Immediate in-memory fast return (0ms execution)
   const cached = userWalletsMemoryMap.get(userId);
@@ -386,6 +386,7 @@ async function getUserWalletFromFirestore(userId: string) {
       uid: userId,
       tokensBalance: cached.tokensBalance,
       walletBalanceCents: cached.walletBalanceCents,
+      starterGrantClaimed: cached.freeSlotClaimed,
       email: isGuest ? 'guest@example.com' : 'user@example.com',
       role: 'advertiser'
     };
@@ -393,27 +394,24 @@ async function getUserWalletFromFirestore(userId: string) {
 
   try {
     const userRef = doc(db, 'users', userId);
-    // Strict 1200ms timeout for Firestore network reads to prevent any Cloud Run request hanging
+    // Strict 1200ms timeout for Firestore network reads
     const timeoutPromise = new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 1200));
     const snap: any = await Promise.race([getDoc(userRef), timeoutPromise]);
 
     if (snap && snap.exists && snap.exists()) {
       const data = snap.data();
+      const hasClaimed = data.starterGrantClaimed === true || data.freeSlotClaimed === true || (data.bidsPlacedCount && data.bidsPlacedCount > 0);
+      
       let tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
-        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : defaultInitialTokens);
-
-      // Auto-grant 1,000 starter tokens ($1.00 USD) if verified user hasn't successfully placed an ad yet
-      if (!isGuest && tokensBalance <= 0 && (!data.bidsPlacedCount || data.bidsPlacedCount === 0)) {
-        tokensBalance = 1000;
-      }
+        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isGuest || hasClaimed ? 0 : 1000));
 
       const walletBalanceCents = Math.round(tokensBalance / 10);
 
       userWalletsMemoryMap.set(userId, {
         tokensBalance,
         walletBalanceCents,
-        freeSlotClaimed: !isGuest,
+        freeSlotClaimed: hasClaimed,
         bidsPlacedCount: data.bidsPlacedCount || 0
       });
 
@@ -421,15 +419,18 @@ async function getUserWalletFromFirestore(userId: string) {
         uid: userId,
         tokensBalance,
         walletBalanceCents,
+        starterGrantClaimed: hasClaimed,
         email: data.email || (isGuest ? 'guest@example.com' : 'user@example.com'),
         role: data.role || 'advertiser'
       };
     } else {
-      // First-time user profile initialization
+      // First-time registered user gets 1,000 starter tokens once; guests start with 0
+      const initialTokens = isGuest ? 0 : 1000;
+      const initialCents = isGuest ? 0 : 100;
       const memoryRecord = {
-        tokensBalance: defaultInitialTokens,
-        walletBalanceCents: defaultInitialCents,
-        freeSlotClaimed: isGuest,
+        tokensBalance: initialTokens,
+        walletBalanceCents: initialCents,
+        freeSlotClaimed: !isGuest,
         bidsPlacedCount: 0
       };
 
@@ -437,9 +438,10 @@ async function getUserWalletFromFirestore(userId: string) {
         uid: userId,
         email: isGuest ? 'guest@example.com' : 'user@example.com',
         role: 'advertiser',
-        tokensBalance: memoryRecord.tokensBalance,
-        walletBalanceCents: memoryRecord.walletBalanceCents,
-        freeSlotClaimed: memoryRecord.freeSlotClaimed,
+        tokensBalance: initialTokens,
+        walletBalanceCents: initialCents,
+        starterGrantClaimed: !isGuest,
+        freeSlotClaimed: !isGuest,
         isGuest,
         createdAt: new Date().toISOString()
       };
@@ -449,18 +451,13 @@ async function getUserWalletFromFirestore(userId: string) {
       }
       return newProfile;
     }
-  } catch (err) {
-    const fallback = {
-      tokensBalance: defaultInitialTokens,
-      walletBalanceCents: defaultInitialCents,
-      freeSlotClaimed: isGuest,
-      bidsPlacedCount: 0
-    };
-    userWalletsMemoryMap.set(userId, fallback);
+  } catch (err: any) {
+    console.warn(`Firestore read fallback for [${userId}]:`, err.message);
     return {
       uid: userId,
-      tokensBalance: fallback.tokensBalance,
-      walletBalanceCents: fallback.walletBalanceCents,
+      tokensBalance: isGuest ? 0 : 1000,
+      walletBalanceCents: isGuest ? 0 : 100,
+      starterGrantClaimed: !isGuest,
       email: isGuest ? 'guest@example.com' : 'user@example.com',
       role: 'advertiser'
     };
@@ -498,7 +495,9 @@ async function deductUserTokensInFirestore(
         await setDoc(userRef, {
           tokensBalance: newTokens,
           walletBalanceCents: newCents,
-          freeSlotClaimed: true
+          starterGrantClaimed: true,
+          freeSlotClaimed: true,
+          bidsPlacedCount: memoryRecord.bidsPlacedCount
         }, { merge: true });
 
         const txnsCol = collection(db, 'users', userId, 'transactions');
@@ -3011,20 +3010,28 @@ app.post('/api/wallet/claim-starter', async (req: Request, res: Response) => {
     const snap = await getDoc(userRef);
     const data = snap.exists() ? snap.data() : {};
 
+    if (data.starterGrantClaimed === true || data.freeSlotClaimed === true || (data.bidsPlacedCount && data.bidsPlacedCount > 0)) {
+      return res.status(400).json({
+        success: false,
+        error: 'You have already claimed your 1 Free 15s Slot ($1.00 starter grant)! Please top up your wallet to place more ads.'
+      });
+    }
+
     const newTokens = 1000;
     const newCents = 100;
 
     userWalletsMemoryMap.set(userId, {
       tokensBalance: newTokens,
       walletBalanceCents: newCents,
-      freeSlotClaimed: false,
+      freeSlotClaimed: true,
       bidsPlacedCount: data.bidsPlacedCount || 0
     });
 
     await setDoc(userRef, {
       tokensBalance: newTokens,
       walletBalanceCents: newCents,
-      freeSlotClaimed: false,
+      starterGrantClaimed: true,
+      freeSlotClaimed: true,
       updatedAt: new Date().toISOString()
     }, { merge: true });
 

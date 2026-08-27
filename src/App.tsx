@@ -488,18 +488,21 @@ export default function App() {
         data = { success: false, error: resText || `HTTP ${res.status} Error` };
       }
 
-      await fetchWallet(uid);
-      await fetchActiveSlot(cityCode, countryCode);
-
       if (data.success) {
         if (typeof data.newWalletBalanceCents === 'number') {
           setWalletBalanceCents(data.newWalletBalanceCents);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('vb_cached_balance_cents', String(data.newWalletBalanceCents));
+          }
         }
-        await fetchWallet(uid);
+        // Non-blocking background sync
+        fetchWallet(uid);
+        fetchActiveSlot(cityCode, countryCode);
+
         addToast('success', 'Bid Placed in Seconds!', `Your bid of $${parsedDollars.toFixed(2)} is active for [${cityCode}]!`);
         return {
           success: true,
-          message: `Your bid of $${parsedDollars.toFixed(2)} is now live in [${cityCode}]!`,
+          message: `Your bid of $${parsedDollars.toFixed(2)} is queued for next slot in [${cityCode}]!`,
           prepTimeSeconds: data.prepTimeSeconds || 10
         };
       } else {
@@ -511,7 +514,7 @@ export default function App() {
             setIsWalletModalOpen(true);
           }
         }
-        await fetchWallet(uid);
+        fetchWallet(uid);
         return { success: false, message: data.error || 'Bid submission failed.' };
       }
     } catch (err: any) {

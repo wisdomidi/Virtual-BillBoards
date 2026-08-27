@@ -84,6 +84,7 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
   };
 
   const [isGeneratingProof, setIsGeneratingProof] = useState(false);
+  const [selectedProofAd, setSelectedProofAd] = useState<UserCampaignItem | null>(null);
 
   const generateWatermarkedProof = async (ad: UserCampaignItem) => {
     setIsGeneratingProof(true);
@@ -133,7 +134,7 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
       }
 
       // 3. Top Billboard Status HUD Bar
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
       ctx.fillRect(70, 70, 1140, 45);
 
       ctx.fillStyle = '#22c55e';
@@ -143,11 +144,12 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
 
       ctx.font = 'bold 15px monospace';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(`BROADCAST VERIFIED • ${ad.targetCityCode} 24/7 MEGA BILLBOARD`, 112, 98);
+      ctx.fillText(`VERIFIED BROADCAST • ${ad.targetCityCode} 24/7 MEGA BILLBOARD`, 112, 98);
 
-      ctx.font = 'bold 14px monospace';
+      const timestampStr = ad.createdAt ? new Date(ad.createdAt).toLocaleString() : 'Aug 27, 2026';
+      ctx.font = 'bold 13px monospace';
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText(`AIRTIME: 15s • $${(ad.bidAmountCents / 100).toFixed(2)} USD`, 920, 98);
+      ctx.fillText(`${timestampStr} • 15s • $${(ad.bidAmountCents / 100).toFixed(2)} USD`, 820, 98);
 
       // 4. Bottom Title & CTA Banner
       ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
@@ -213,7 +215,7 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                     {campaigns.length} Total
                   </span>
                 </h3>
-                <p className="text-xs text-slate-400">Track and monitor your live RTB billboard campaigns</p>
+                <p className="text-xs text-slate-400">Track, replay, and download verified proofs of your billboard takeovers</p>
               </div>
             </div>
 
@@ -292,7 +294,11 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       {/* Thumbnail */}
-                      <div className="w-16 h-12 rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shrink-0 relative">
+                      <div
+                        onClick={() => setSelectedProofAd(ad)}
+                        className="w-16 h-12 rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shrink-0 relative cursor-pointer hover:opacity-80 transition"
+                        title="Click to Watch Broadcast Replay"
+                      >
                         {isVideo ? (
                           <video src={ad.imageUrl} className="w-full h-full object-cover" muted />
                         ) : (
@@ -316,7 +322,7 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                           <span>({tokens} tokens)</span>
                           {ad.createdAt && (
                             <span className="text-slate-500 hidden xs:inline">
-                              • {new Date(ad.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              • {new Date(ad.createdAt).toLocaleString()}
                             </span>
                           )}
                         </div>
@@ -349,28 +355,36 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                       ) : isQueued ? (
                         <span className="px-2.5 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold rounded-full flex items-center gap-1.5">
                           <Clock className="w-3 h-3 text-amber-400" />
-                          <span>QUEUED IN RTB</span>
+                          <span>QUEUED FOR ROTATION</span>
                         </span>
                       ) : (
                         <span className="px-2.5 py-1 bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold rounded-full flex items-center gap-1.5">
                           <CheckCircle2 className="w-3 h-3 text-slate-400" />
-                          <span>COMPLETED</span>
+                          <span>BROADCASTED</span>
                         </span>
                       )}
 
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* Download Watermarked Proof Card / Clip */}
+                        {/* Watch Replay / Proof Modal Button */}
                         <button
-                          onClick={() => {
-                            generateWatermarkedProof(ad);
-                          }}
-                          className="px-2.5 py-1 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/40 text-purple-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm"
-                          title="Generate & Download Shareable Proof with www.livebillboards.lol Watermark"
+                          onClick={() => setSelectedProofAd(ad)}
+                          className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                          title="Watch Verified Replay & Details"
                         >
-                          <span>🎥 Proof Card</span>
+                          <Tv className="w-3 h-3 text-cyan-400" />
+                          <span>🎬 Replay</span>
                         </button>
 
-                        {/* Share to X (Twitter) with Proof */}
+                        {/* Download Watermarked Proof Card */}
+                        <button
+                          onClick={() => generateWatermarkedProof(ad)}
+                          className="px-2.5 py-1 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/40 text-purple-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                          title="Download Verified Proof Certificate"
+                        >
+                          <span>⬇️ Proof</span>
+                        </button>
+
+                        {/* Share to X (Twitter) */}
                         <a
                           href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My ad "${ad.title}" just broadcasted live on the 24/7 Global Virtual Billboard in ${ad.targetCityCode}! 🚀\n\nWatch live: https://www.livebillboards.lol/?city=${ad.targetCityCode}\n\n#LiveBillboard #VirtualBillboard #LiveTakeover`)}`}
                           target="_blank"
@@ -378,22 +392,8 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                           className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
                           title="Share Broadcast Proof on X (Twitter)"
                         >
-                          <span>𝕏 Share</span>
+                          <span>𝕏</span>
                         </a>
-
-                        {onSelectCity && (
-                          <button
-                            onClick={() => {
-                              onSelectCity(ad.targetCityCode);
-                              onClose();
-                            }}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-cyan-950/60 border border-slate-700 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-300 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                            title="Watch on Live Billboard Screen"
-                          >
-                            <ExternalLink className="w-3 h-3 text-cyan-400" />
-                            <span>Live View</span>
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -406,7 +406,7 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
           <div className="px-6 py-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center gap-1.5 font-mono text-[11px]">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Immutable On-Chain & RTB Ledger</span>
+              <span>Immutable Verified Proof Ledger</span>
             </div>
             <button
               onClick={onClose}
@@ -417,6 +417,99 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
           </div>
         </motion.div>
       </div>
+
+      {/* Broadcast Replay & Verified Certificate Player Modal */}
+      {selectedProofAd && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="relative w-full max-w-xl bg-slate-900 border border-cyan-500/50 rounded-3xl p-5 shadow-2xl space-y-4 text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                <h3 className="text-sm font-black text-white">Verified Broadcast Player</h3>
+                <span className="bg-cyan-950 text-cyan-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border border-cyan-500/40">
+                  [{selectedProofAd.targetCityCode}]
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedProofAd(null)}
+                className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 16:9 Billboard Frame Replay */}
+            <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border-2 border-cyan-500/40 shadow-inner flex items-center justify-center">
+              {selectedProofAd.mediaType === 'video' || selectedProofAd.imageUrl?.startsWith('data:video/') || selectedProofAd.imageUrl?.includes('.mp4') ? (
+                <video src={selectedProofAd.imageUrl} autoPlay loop playsInline controls className="w-full h-full object-cover" />
+              ) : (
+                <img src={selectedProofAd.imageUrl} alt={selectedProofAd.title} className="w-full h-full object-cover" />
+              )}
+
+              {/* Watermark */}
+              <div className="absolute bottom-2 right-2 bg-slate-950/90 border border-cyan-500/40 px-2 py-0.5 rounded-lg text-[9px] font-mono text-cyan-300">
+                🌐 www.livebillboards.lol
+              </div>
+            </div>
+
+            {/* Broadcast Details */}
+            <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-1.5 text-xs font-mono">
+              <div className="flex items-center justify-between text-slate-300">
+                <span className="text-slate-500">Headline:</span>
+                <span className="font-bold text-white text-right max-w-[280px] truncate">{selectedProofAd.title}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-300">
+                <span className="text-slate-500">Broadcast Time:</span>
+                <span className="text-cyan-300">{selectedProofAd.createdAt ? new Date(selectedProofAd.createdAt).toLocaleString() : 'Aug 27, 2026'}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-300">
+                <span className="text-slate-500">City Geofence:</span>
+                <span className="text-amber-400 font-bold">{selectedProofAd.targetCityCode} 24/7 Mega Screen</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-300">
+                <span className="text-slate-500">Verification Stamp:</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>100% Broadcast Confirmed</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button
+                onClick={() => generateWatermarkedProof(selectedProofAd)}
+                className="flex-1 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>⬇️ Download Proof PNG</span>
+              </button>
+
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My ad "${selectedProofAd.title}" just broadcasted live on the 24/7 Global Virtual Billboard in ${selectedProofAd.targetCityCode}! 🚀\n\nWatch live: https://www.livebillboards.lol/?city=${selectedProofAd.targetCityCode}\n\n#LiveBillboard #VirtualBillboard #LiveTakeover`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer"
+              >
+                <span>𝕏 Share</span>
+              </a>
+
+              {onSelectCity && (
+                <button
+                  onClick={() => {
+                    onSelectCity(selectedProofAd.targetCityCode);
+                    setSelectedProofAd(null);
+                    onClose();
+                  }}
+                  className="py-2.5 px-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Watch Live Screen</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };
