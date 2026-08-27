@@ -285,7 +285,11 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                 const tokens = (ad.bidAmountCents * 10).toLocaleString();
                 const isVideo = ad.mediaType === 'video' || ad.imageUrl?.startsWith('data:video/') || ad.imageUrl?.includes('.mp4');
                 const isLive = ad.status === 'live';
-                const isQueued = ad.status === 'queued' || ad.status === 'in_queue';
+                // Infer BROADCASTED from createdAt: if queued but older than 30s, it has aired
+                const ageMs = ad.createdAt ? Date.now() - new Date(ad.createdAt).getTime() : Infinity;
+                const hasLikelyAired = ageMs > 30_000;
+                const isQueued = (ad.status === 'queued' || ad.status === 'in_queue') && !hasLikelyAired;
+                const isBroadcasted = ad.status === 'completed' || (ad.status !== 'live' && hasLikelyAired);
 
                 return (
                   <div
@@ -327,20 +331,26 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                           )}
                         </div>
 
-                        {/* Performance Metrics Badges */}
+                        {/* Performance Metrics Badges — real impressions from server, fallback est. */}
                         <div className="flex items-center gap-2.5 mt-2 text-[10px] font-mono">
                           <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-cyan-300 flex items-center gap-1">
                             <span>👁️</span>
-                            <span>{ad.impressions || (Math.floor(Number(dollars) * 1250) + 180).toLocaleString()} Views</span>
+                            <span>
+                              {typeof ad.impressions === 'number' && ad.impressions > 0
+                                ? `${ad.impressions.toLocaleString()} Views`
+                                : isBroadcasted ? '~1,250 Views (est.)' : '— Views'}
+                            </span>
                           </span>
                           <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-emerald-300 flex items-center gap-1">
                             <span>⏱️</span>
                             <span>15s Airtime</span>
                           </span>
-                          <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-amber-300 flex items-center gap-1">
-                            <span>📊</span>
-                            <span>3.8% CTR</span>
-                          </span>
+                          {isBroadcasted && (
+                            <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-amber-300 flex items-center gap-1">
+                              <span>📊</span>
+                              <span>CTR est.</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -355,12 +365,12 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                       ) : isQueued ? (
                         <span className="px-2.5 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold rounded-full flex items-center gap-1.5">
                           <Clock className="w-3 h-3 text-amber-400" />
-                          <span>QUEUED FOR ROTATION</span>
+                          <span>QUEUED — UP NEXT</span>
                         </span>
                       ) : (
-                        <span className="px-2.5 py-1 bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold rounded-full flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3 h-3 text-slate-400" />
-                          <span>BROADCASTED</span>
+                        <span className="px-2.5 py-1 bg-emerald-950/60 border border-emerald-700/40 text-emerald-300 text-[10px] font-bold rounded-full flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>✅ BROADCASTED</span>
                         </span>
                       )}
 
@@ -499,6 +509,11 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                     onSelectCity(selectedProofAd.targetCityCode);
                     setSelectedProofAd(null);
                     onClose();
+                    // Scroll billboard into view after city change
+                    setTimeout(() => {
+                      const billboard = document.getElementById('live-billboard-screen');
+                      if (billboard) billboard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 400);
                   }}
                   className="py-2.5 px-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer"
                 >

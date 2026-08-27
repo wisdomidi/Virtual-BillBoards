@@ -82,17 +82,17 @@ export interface UserProfile {
 // Fetch or create user profile in Firestore (1,000 Tokens = $1.00 USD Starter / 1 Free 15s Slot for verified accounts)
 export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole = 'advertiser'): Promise<UserProfile> {
   const isAnon = user.isAnonymous ?? false;
-  const initialTokens = isAnon ? 0 : 1000; // $1.00 USD (1,000 Tokens) starter bonus for registered accounts
-  const initialCents = isAnon ? 0 : 100;
 
-  const defaultProfile: UserProfile = {
+  // Base profile shell — walletBalanceCents deliberately left as 0 here
+  // so App.tsx always calls server fetchWallet() as the authoritative source.
+  const baseProfile: UserProfile = {
     uid: user.uid,
     email: user.email || '',
     displayName: user.displayName || (isAnon ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
     photoURL: user.photoURL || undefined,
     role: defaultRole,
-    walletBalanceCents: initialCents,
-    tokensBalance: initialTokens,
+    walletBalanceCents: 0,
+    tokensBalance: 0,
     hasClaimedFreeSlot: isAnon,
     isAnonymous: isAnon,
     createdAt: new Date().toISOString()
@@ -100,13 +100,14 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
 
   try {
     if (!db || !db.type) {
-      return defaultProfile;
+      return { ...baseProfile, walletBalanceCents: -1 }; // sentinel: caller must use server API
     }
     const userRef = doc(db, 'users', user.uid);
     const snap = await getDoc(userRef);
 
     if (snap.exists()) {
       const data = snap.data();
+      // Always use the balance stored in Firestore — NEVER override with a client-side default
       const tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
         : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : 0);
@@ -122,22 +123,39 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
         role: (data.role as UserRole) || defaultRole,
         walletBalanceCents,
         tokensBalance,
-        hasClaimedFreeSlot: data.hasClaimedFreeSlot ?? (tokensBalance <= 0),
+        hasClaimedFreeSlot: data.hasClaimedFreeSlot ?? data.starterGrantClaimed ?? data.freeSlotClaimed ?? (tokensBalance <= 0),
         isAnonymous: isAnon,
         createdAt: data.createdAt || new Date().toISOString()
       };
     }
 
-    const initialProfile: UserProfile = {
-      ...defaultProfile
-    };
+    // Brand-new registered user: grant 1,000 starter tokens (one-time only via server)
+    // We write the doc here so server sees starterGrantClaimed = true immediately
+    if (!isAnon) {
+      const newProfile: UserProfile = {
+        ...baseProfile,
+        walletBalanceCents: 100, // $1.00
+        tokensBalance: 1000,
+        hasClaimedFreeSlot: true
+      };
+      await setDoc(userRef, {
+        ...newProfile,
+        starterGrantClaimed: true,
+        freeSlotClaimed: true,
+        bidsPlacedCount: 0
+      }, { merge: true });
+      return newProfile;
+    }
 
-    await setDoc(userRef, initialProfile, { merge: true });
-    return initialProfile;
+    // Anonymous user: no starter grant
+    return baseProfile;
   } catch (err: any) {
-    return defaultProfile;
+    // Return sentinel -1 so App.tsx knows to call server fetchWallet()
+    // Do NOT return 1000 tokens here — that was the bug
+    return { ...baseProfile, walletBalanceCents: -1 };
   }
 }
+
 
 export async function updateUserRoleInDb(uid: string, newRole: UserRole): Promise<void> {
   try {

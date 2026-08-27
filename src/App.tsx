@@ -261,12 +261,17 @@ export default function App() {
         const profile = await syncUserProfile(user, 'advertiser');
         setCurrentUser(profile);
         setUserRole(profile.role);
-        if (typeof profile.walletBalanceCents === 'number') {
+        // profile.walletBalanceCents may be -1 (sentinel = Firestore unreachable)
+        // or the real Firestore value. Either way, always call the server API
+        // to get the authoritative balance — never trust the client-side default.
+        if (profile.walletBalanceCents !== -1 && profile.walletBalanceCents > 0) {
           setWalletBalanceCents(profile.walletBalanceCents);
           if (typeof window !== 'undefined') {
             localStorage.setItem('vb_cached_balance_cents', String(profile.walletBalanceCents));
           }
         }
+        // Server is always authoritative — non-blocking background sync
+        setTimeout(() => fetchWallet(profile.uid), 200);
       } else {
         setCurrentUser(null);
         setUserRole('guest');
@@ -274,6 +279,7 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
 
   // Verify and fulfill completed Stripe checkout sessions on return
   useEffect(() => {

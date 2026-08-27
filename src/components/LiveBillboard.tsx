@@ -200,34 +200,56 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
     prepSeconds: number;
     isLive: boolean;
     liveSecondsLeft: number;
+    advertiserName?: string;
   } | null>(null);
+
+  // Multi-slot bid counter (1–10 slots)
+  const [bidSlotsCount, setBidSlotsCount] = useState(1);
 
   useEffect(() => {
     if (!userBroadcast) return;
+    // Only run the local countdown for prep phase; live phase is driven by slotData
+    if (userBroadcast.isLive) return;
 
     const timer = setInterval(() => {
       setUserBroadcast((prev) => {
-        if (!prev) return null;
-        if (!prev.isLive) {
-          if (prev.prepSeconds <= 1) {
-            // Live broadcast begins!
-            soundEffects.playKaChing();
-            triggerConfettiExplosion();
-            return { ...prev, isLive: true, prepSeconds: 0, liveSecondsLeft: 15 };
-          }
-          return { ...prev, prepSeconds: prev.prepSeconds - 1 };
-        } else {
-          // Live broadcast in progress
-          if (prev.liveSecondsLeft <= 1) {
-            return null; // Concluded
-          }
-          return { ...prev, liveSecondsLeft: prev.liveSecondsLeft - 1 };
+        if (!prev || prev.isLive) return prev;
+        if (prev.prepSeconds <= 1) {
+          return { ...prev, prepSeconds: 0 }; // stop here; slotData sync triggers isLive
         }
+        return { ...prev, prepSeconds: prev.prepSeconds - 1 };
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [userBroadcast]);
+  }, [userBroadcast?.isLive]);
+
+  // Live phase: count down remaining seconds using server remainingSeconds
+  useEffect(() => {
+    if (!userBroadcast?.isLive) return;
+    if (slotData?.remainingSeconds !== undefined) {
+      setUserBroadcast(prev => prev ? { ...prev, liveSecondsLeft: slotData.remainingSeconds } : null);
+    }
+  }, [slotData?.remainingSeconds, userBroadcast?.isLive]);
+
+  // Sync userBroadcast with slotData: detect when user's ad is actually on screen
+  // This is the authoritative check — replaces flaky local timer
+  useEffect(() => {
+    if (!userBroadcast || !slotData?.winningAd) return;
+    const winning = slotData.winningAd as any;
+    const matchByName = userBroadcast.advertiserName && winning.advertiserName === userBroadcast.advertiserName;
+    const matchByTitle = winning.title === userBroadcast.title;
+    if ((matchByName || matchByTitle) && !userBroadcast.isLive) {
+      // Ad is NOW live on the actual server slot — sync immediately
+      soundEffects.playKaChing();
+      triggerConfettiExplosion();
+      setUserBroadcast(prev => prev ? { ...prev, isLive: true, prepSeconds: 0, liveSecondsLeft: slotData.remainingSeconds || 15 } : null);
+    }
+    // When slot rotates away, conclude the live state
+    if (userBroadcast.isLive && !matchByName && !matchByTitle) {
+      setUserBroadcast(null);
+    }
+  }, [slotData?.winningAd?.id, slotData?.slotId]);
 
   // Reset image error state whenever active slot or winning ad rotates
   useEffect(() => {
@@ -453,6 +475,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
       const landingPageUrl = bidCtaType === 'website' ? bidCtaUrl : undefined;
       const whatsappLink = bidCtaType === 'whatsapp' ? bidCtaUrl : undefined;
 
+      // Submit the first slot (authoritative — drives UI feedback)
       const result = await onPlaceBidQuick(
         bidTitle,
         bidImageUrl,
@@ -474,13 +497,41 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         window.dispatchEvent(new CustomEvent('user-bid-placed', { detail: { city: selectedCity } }));
         
         const initialPrep = (result as any).prepTimeSeconds || slotData.remainingSeconds || 15;
+        const advertiserNameForSync = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Fast Bidding Console';
         setUserBroadcast({
           title: bidTitle,
           prepSeconds: initialPrep,
           isLive: false,
-          liveSecondsLeft: 15
+          liveSecondsLeft: 15,
+          advertiserName: advertiserNameForSync
         });
 
+        // Queue additional slots in background (non-blocking fire-and-forget)
+        if (bidSlotsCount > 1) {
+          for (let i = 1; i < bidSlotsCount; i++) {
+            setTimeout(() => {
+              onPlaceBidQuick(
+                bidTitle,
+                bidImageUrl,
+                bidAmountDollars,
+                selectedCity,
+                selectedCountry,
+                landingPageUrl,
+                whatsappLink,
+                undefined,
+                bidMediaType,
+                bidCtaType,
+                bidCtaUrl
+              ).catch(err => console.warn(`Slot ${i + 1} submission warning:`, err));
+            }, i * 200); // stagger by 200ms to avoid race conditions
+          }
+          setBidFeedback({
+            success: true,
+            message: `✅ ${bidSlotsCount} rotation slots queued for [${selectedCity}]! Your ad will rotate ${bidSlotsCount}× in the next available windows.`
+          });
+        }
+
+        setBidSlotsCount(1); // Reset slots counter after successful placement
         billboardScreenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
         if (result.message && (result.message.includes('Insufficient') || result.message.includes('Top up') || result.message.includes('Wallet') || result.message.includes('402'))) {
@@ -554,23 +605,46 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         </div>
       </div>
 
-      {/* Sleek 1-Line Live City News & Telemetry Marquee */}
-      <div className="bg-slate-950 border border-slate-800/90 px-3 py-1.5 rounded-xl flex items-center gap-2 overflow-hidden text-[11px] font-mono text-slate-300 shadow-sm">
-        <span className="bg-cyan-950 text-cyan-400 border border-cyan-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 flex items-center gap-1">
-          <span>📰 NEWS [{selectedCity}]</span>
+      {/* Animated Live City News + Traffic Marquee (no duplicate weather — already in Navbar) */}
+      <div className="bg-slate-950 border border-slate-800/90 rounded-xl flex items-center gap-0 overflow-hidden text-[11px] font-mono shadow-sm h-[28px]">
+        <span className="bg-cyan-950 text-cyan-400 border-r border-cyan-500/30 text-[9px] font-bold px-2 h-full flex items-center gap-1 shrink-0 uppercase">
+          📡 LIVE [{selectedCity}]
         </span>
-        <span className="truncate text-slate-300 text-xs">
-          {CITY_LIVE_UPDATES[selectedCity]?.newsHeadlines?.[0] || `Live 24/7 Billboard Feed active in ${currentCityConfig.cityName} • Verified RTB Rotations`}
-        </span>
-        {cityTelemetry && (
-          <span className="ml-auto shrink-0 text-[10px] text-cyan-400 hidden md:inline">
-            {cityTelemetry.condition} {cityTelemetry.tempC}°C • 🕒 {cityLocalTime}
-          </span>
-        )}
+        <div className="flex-1 overflow-hidden relative">
+          <div
+            className="flex items-center gap-0 whitespace-nowrap text-slate-300 text-[11px]"
+            style={{
+              animation: 'marquee-scroll 32s linear infinite',
+              willChange: 'transform'
+            }}
+          >
+            {(() => {
+              const cityData = CITY_LIVE_UPDATES[selectedCity];
+              const news = cityData?.newsHeadline || `Live 24/7 Billboard Feed active in ${currentCityConfig.cityName} • Verified RTB Rotations`;
+              const traffic = cityData?.traffic;
+              const trafficText = traffic
+                ? `🚗 ${traffic.status} — ${traffic.mainCorridor} (${traffic.avgSpeedKmH}km/h avg)`
+                : null;
+              return (
+                <>
+                  <span className="px-4 text-slate-200">📰 {news}</span>
+                  {trafficText && <span className="px-4 text-amber-300">{trafficText}</span>}
+                  <span className="px-4 text-emerald-400 font-bold">🌐 www.livebillboards.lol — Place Your 15s Ad Now</span>
+                  {/* repeat for seamless loop */}
+                  <span className="px-4 text-slate-200">📰 {news}</span>
+                  {trafficText && <span className="px-4 text-amber-300">{trafficText}</span>}
+                  <span className="px-4 text-emerald-400 font-bold">🌐 www.livebillboards.lol — Place Your 15s Ad Now</span>
+                </>
+              );
+            })()}
+          </div>
+        </div>
       </div>
+      {/* CSS keyframe for marquee — injected once */}
+      <style>{`@keyframes marquee-scroll { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }`}</style>
 
       {/* Broadcast Anticipation & Live Spotlight Banner */}
-      <div ref={billboardScreenRef}>
+      <div ref={billboardScreenRef} id="live-billboard-screen">
         {userBroadcast && (
           <div className="animate-in fade-in zoom-in-95 duration-200">
             {!userBroadcast.isLive ? (
@@ -1319,13 +1393,43 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                   </div>
                 </div>
 
+                {/* Multi-Slot Counter — bid for 1-10 rotation slots */}
+                <div className="flex items-center justify-between bg-slate-900/80 border border-slate-700/60 rounded-xl px-3 py-2">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-slate-400 font-mono uppercase">Rotation Slots</span>
+                    <span className="text-[10px] text-amber-300 font-mono">
+                      Total: <strong className="text-white">${(bidAmountDollars * bidSlotsCount).toFixed(2)}</strong>
+                      {bidSlotsCount > 1 && <span className="text-slate-500"> ({bidSlotsCount}× loops)</span>}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBidSlotsCount(s => Math.max(1, s - 1))}
+                      className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 text-white font-black text-sm flex items-center justify-center hover:bg-slate-700 transition cursor-pointer"
+                    >−</button>
+                    <span className="text-white font-mono font-black text-sm w-6 text-center">{bidSlotsCount}</span>
+                    <button
+                      type="button"
+                      onClick={() => setBidSlotsCount(s => Math.min(10, s + 1))}
+                      className="w-7 h-7 rounded-lg bg-cyan-600 border border-cyan-500 text-slate-950 font-black text-sm flex items-center justify-center hover:bg-cyan-500 transition cursor-pointer"
+                    >+</button>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   disabled={isSubmittingBid}
                   className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Zap className="w-4 h-4 fill-current shrink-0" />
-                  <span>{isSubmittingBid ? 'Submitting Creative...' : 'Place Bid in 2 Secs'}</span>
+                  <span>
+                    {isSubmittingBid
+                      ? 'Submitting Creative...'
+                      : bidSlotsCount > 1
+                        ? `Place ${bidSlotsCount} Slots — $${(bidAmountDollars * bidSlotsCount).toFixed(2)} Total`
+                        : 'Place Bid in 2 Secs'}
+                  </span>
                 </button>
               </div>
             </form>
