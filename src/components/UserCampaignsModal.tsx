@@ -73,11 +73,109 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchCampaigns();
+  const [isGeneratingProof, setIsGeneratingProof] = useState(false);
+
+  const generateWatermarkedProof = async (ad: UserCampaignItem) => {
+    setIsGeneratingProof(true);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1280;
+      canvas.height = 720;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // 1. Dark Futuristic Cyberpunk Billboard Frame Background
+      const bgGradient = ctx.createLinearGradient(0, 0, 1280, 720);
+      bgGradient.addColorStop(0, '#030712');
+      bgGradient.addColorStop(0.5, '#0b1329');
+      bgGradient.addColorStop(1, '#020617');
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0, 0, 1280, 720);
+
+      // Ambient Neon Cyberpunk Glow
+      ctx.shadowColor = '#06b6d4';
+      ctx.shadowBlur = 40;
+      ctx.strokeStyle = '#0891b2';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(60, 60, 1160, 600);
+      ctx.shadowBlur = 0;
+
+      // 2. Load Ad Image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = ad.imageUrl;
+      });
+
+      // Draw Main Ad Creative (Centered within Bezel)
+      try {
+        if (img.width > 0 && img.height > 0) {
+          ctx.drawImage(img, 70, 110, 1140, 480);
+        } else {
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(70, 110, 1140, 480);
+        }
+      } catch {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(70, 110, 1140, 480);
+      }
+
+      // 3. Top Billboard Status HUD Bar
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+      ctx.fillRect(70, 70, 1140, 45);
+
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(95, 92, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = 'bold 15px monospace';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`BROADCAST VERIFIED • ${ad.targetCityCode} 24/7 MEGA BILLBOARD`, 112, 98);
+
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText(`AIRTIME: 15s • $${(ad.bidAmountCents / 100).toFixed(2)} USD`, 920, 98);
+
+      // 4. Bottom Title & CTA Banner
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
+      ctx.fillRect(70, 535, 1140, 55);
+
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      const truncatedTitle = ad.title.length > 55 ? ad.title.substring(0, 53) + '...' : ad.title;
+      ctx.fillText(truncatedTitle, 95, 570);
+
+      // 5. TikTok-Style Watermark Badge (Bottom Right Overlay)
+      ctx.shadowColor = '#000000';
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.roundRect(840, 605, 370, 42, 12);
+      ctx.fill();
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('🌐 Live on www.livebillboards.lol', 860, 631);
+
+      // Convert Canvas to downloadable PNG image
+      const dataUrl = canvas.toDataURL('image/png');
+      const downloadLink = document.createElement('a');
+      downloadLink.href = dataUrl;
+      downloadLink.download = `LiveBillboard-Proof-${ad.targetCityCode}-${ad.id}.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    } catch (e) {
+      console.error('Failed to generate proof image:', e);
+    } finally {
+      setIsGeneratingProof(false);
     }
-  }, [isOpen, userId]);
+  };
 
   if (!isOpen) return null;
 
@@ -250,19 +348,43 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                         </span>
                       )}
 
-                      {onSelectCity && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Download Watermarked Proof Card / Clip */}
                         <button
                           onClick={() => {
-                            onSelectCity(ad.targetCityCode);
-                            onClose();
+                            generateWatermarkedProof(ad);
                           }}
-                          className="px-2.5 py-1 bg-slate-800 hover:bg-cyan-950/60 border border-slate-700 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-300 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                          title="Watch on Live Billboard Screen"
+                          className="px-2.5 py-1 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/40 text-purple-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                          title="Generate & Download Shareable Proof with www.livebillboards.lol Watermark"
                         >
-                          <ExternalLink className="w-3 h-3 text-cyan-400" />
-                          <span>Live View</span>
+                          <span>🎥 Proof Card</span>
                         </button>
-                      )}
+
+                        {/* Share to X (Twitter) with Proof */}
+                        <a
+                          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My ad "${ad.title}" just broadcasted live on the 24/7 Global Virtual Billboard in ${ad.targetCityCode}! 🚀\n\nWatch live: https://www.livebillboards.lol/?city=${ad.targetCityCode}\n\n#LiveBillboard #VirtualBillboard #LiveTakeover`)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                          title="Share Broadcast Proof on X (Twitter)"
+                        >
+                          <span>𝕏 Share</span>
+                        </a>
+
+                        {onSelectCity && (
+                          <button
+                            onClick={() => {
+                              onSelectCity(ad.targetCityCode);
+                              onClose();
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-cyan-950/60 border border-slate-700 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-300 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                            title="Watch on Live Billboard Screen"
+                          >
+                            <ExternalLink className="w-3 h-3 text-cyan-400" />
+                            <span>Live View</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

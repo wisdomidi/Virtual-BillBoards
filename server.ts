@@ -489,46 +489,49 @@ async function deductUserTokensInFirestore(
   // Update memory state immediately
   userWalletsMemoryMap.set(userId, memoryRecord);
 
-  // Sync to Firestore in the background asynchronously (non-blocking)
-  setTimeout(async () => {
-    try {
-      const userRef = doc(db, 'users', userId);
-      await setDoc(userRef, {
-        tokensBalance: newTokens,
-        walletBalanceCents: newCents,
-        freeSlotClaimed: true
-      }, { merge: true });
+  // Sync to Firestore in the background asynchronously (non-blocking) - STRICTLY for registered users only
+  const isGuest = !userId || userId.startsWith('guest_') || userId === 'guest_default' || userId === 'default_user' || userId === 'usr_anonymous';
+  if (!isGuest) {
+    setTimeout(async () => {
+      try {
+        const userRef = doc(db, 'users', userId);
+        await setDoc(userRef, {
+          tokensBalance: newTokens,
+          walletBalanceCents: newCents,
+          freeSlotClaimed: true
+        }, { merge: true });
 
-      const txnsCol = collection(db, 'users', userId, 'transactions');
-      await addDoc(txnsCol, {
-        id: `tx_token_${Date.now()}`,
-        type: 'slot_burn',
-        tokens,
-        amountCents: Math.round(tokens / 10),
-        amountDollars: (tokens * 0.001).toFixed(3),
-        description,
-        cityCode: cityCode || 'GLOBAL',
-        slotId: slotId || '',
-        timestamp: new Date().toISOString()
-      });
-
-      if (slotId) {
-        const burnsCol = collection(db, 'slot_burns');
-        await addDoc(burnsCol, {
-          userId,
-          slotId,
+        const txnsCol = collection(db, 'users', userId, 'transactions');
+        await addDoc(txnsCol, {
+          id: `tx_token_${Date.now()}`,
+          type: 'slot_burn',
           tokens,
           amountCents: Math.round(tokens / 10),
           amountDollars: (tokens * 0.001).toFixed(3),
           description,
           cityCode: cityCode || 'GLOBAL',
+          slotId: slotId || '',
           timestamp: new Date().toISOString()
         });
+
+        if (slotId) {
+          const burnsCol = collection(db, 'slot_burns');
+          await addDoc(burnsCol, {
+            userId,
+            slotId,
+            tokens,
+            amountCents: Math.round(tokens / 10),
+            amountDollars: (tokens * 0.001).toFixed(3),
+            description,
+            cityCode: cityCode || 'GLOBAL',
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (fsErr) {
+        console.warn('Background Firestore token deduction warning:', fsErr);
       }
-    } catch (fsErr) {
-      console.warn('Background Firestore token deduction warning:', fsErr);
-    }
-  }, 0);
+    }, 0);
+  }
 
   return { newTokens, newCents };
 }
@@ -3021,6 +3024,117 @@ app.post('/api/wallet/claim-starter', async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message || 'Failed to claim starter credit' });
   }
+});
+
+// POST /api/admin/clean-guest-users - Purge all placeholder guest_* docs from Firestore
+app.post('/api/admin/clean-guest-users', async (req: Request, res: Response) => {
+  try {
+    const usersCol = collection(db, 'users');
+    const snap = await getDocs(usersCol);
+    let deletedCount = 0;
+    const batchDeletions: Promise<any>[] = [];
+
+    snap.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      const id = docSnap.id;
+      const isGuestDoc = id.startsWith('guest_') || data.email === 'user@example.com' || data.email === 'guest@example.com' || id === 'default_user' || id === 'usr_anonymous';
+      if (isGuestDoc) {
+        deletedCount++;
+        batchDeletions.push(deleteDoc(doc(db, 'users', id)));
+      }
+    });
+
+    await Promise.all(batchDeletions);
+    logTelemetry('ADMIN_CLEANUP', `Cleaned up ${deletedCount} orphaned guest records from Firestore.`);
+
+    return res.json({
+      success: true,
+      deletedCount,
+      message: `Successfully purged ${deletedCount} orphaned guest records from Firestore database.`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Cleanup failed' });
+  }
+});
+
+// City Real-time Telemetry & Live Crisis/Emergency Alerts Database
+const CITY_TELEMETRY_FEEDS: Record<string, {
+  tempC: number;
+  condition: string;
+  humidity: number;
+  aqi: number;
+  activeAlert?: {
+    severity: 'critical' | 'warning' | 'advisory';
+    headline: string;
+    description: string;
+    badge: string;
+  };
+}> = {
+  'TYO': { tempC: 28, condition: 'Clear Sky ☀️', humidity: 55, aqi: 24, activeAlert: { severity: 'advisory', headline: 'Shibuya Heatwave Advisory', description: 'Peak 34°C expected. Public mist cooling stations active across Shibuya Crossing.', badge: '🔥 HEAT ADVISORY' } },
+  'NYC': { tempC: 22, condition: 'Partly Cloudy ⛅', humidity: 62, aqi: 35, activeAlert: { severity: 'warning', headline: 'Times Square High Wind Warning', description: 'Gusts up to 45 mph across Broadway corridor. Billboard structural dampening active.', badge: '💨 WIND WARNING' } },
+  'LON': { tempC: 18, condition: 'Light Drizzle 🌦️', humidity: 78, aqi: 18 },
+  'PAR': { tempC: 24, condition: 'Sunny ☀️', humidity: 50, aqi: 28 },
+  'KUL': { tempC: 31, condition: 'Tropical Rain 🌧️', humidity: 85, aqi: 42, activeAlert: { severity: 'warning', headline: 'Flash Flood Watch: Bukit Bintang', description: 'Monsoon drainage active. SMART Tunnel operating in Mode 3 flood mitigation.', badge: '🌧️ FLOOD WATCH' } },
+  'SIN': { tempC: 30, condition: 'Scattered Clouds ⛅', humidity: 80, aqi: 30 },
+  'DXB': { tempC: 38, condition: 'Hot & Clear 🏜️', humidity: 40, aqi: 65, activeAlert: { severity: 'advisory', headline: 'Extreme Heat Index Alert', description: 'UV Index 11+ (Extreme). Indoor pedestrian concourses recommended.', badge: '☀️ EXTREME HEAT' } },
+  'SEL': { tempC: 23, condition: 'Clear 🌤️', humidity: 58, aqi: 32 },
+  'SYD': { tempC: 19, condition: 'Breezy 🌊', humidity: 65, aqi: 15, activeAlert: { severity: 'advisory', headline: 'Sydney Harbour Gale Alert', description: 'Ferry routes operating with caution. Swells up to 3.5m outside the Heads.', badge: '🌊 GALE ADVISORY' } },
+  'YTO': { tempC: 17, condition: 'Clear Sky 🌤️', humidity: 52, aqi: 20 },
+  'HKG': { tempC: 29, condition: 'Thunderstorm ⛈️', humidity: 88, aqi: 45, activeAlert: { severity: 'warning', headline: 'HKO Amber Rainstorm Signal', description: 'Heavy rain recorded over Hong Kong Island. Victoria Harbour marine warnings active.', badge: '⛈️ RAINSTORM ALERT' } },
+  'LAX': { tempC: 26, condition: 'Sunny ☀️', humidity: 45, aqi: 48, activeAlert: { severity: 'warning', headline: 'Red Flag Fire Weather Warning', description: 'Santa Ana winds and low humidity. Critical wildfire precautions across LA County.', badge: '🔥 FIRE WEATHER' } },
+  'BER': { tempC: 20, condition: 'Partly Cloudy ⛅', humidity: 60, aqi: 22 },
+  'AMS': { tempC: 19, condition: 'Breezy 💨', humidity: 70, aqi: 19 },
+  'BKK': { tempC: 33, condition: 'Humid 🌤️', humidity: 75, aqi: 52 },
+  'SHA': { tempC: 27, condition: 'Overcast ☁️', humidity: 68, aqi: 40 },
+  'SAO': { tempC: 25, condition: 'Sunny ☀️', humidity: 60, aqi: 38 },
+  'MEX': { tempC: 23, condition: 'Mild ⛅', humidity: 50, aqi: 55 },
+  'TPE': { tempC: 30, condition: 'Humid 🌤️', humidity: 82, aqi: 30 },
+  'MUM': { tempC: 32, condition: 'Monsoon Showers 🌧️', humidity: 90, aqi: 60, activeAlert: { severity: 'warning', headline: 'BMC High Tide Coastal Alert', description: 'High tide wave surge expected at Marine Drive Promenade. Seaface barricades deployed.', badge: '🌊 HIGH TIDE' } }
+};
+
+// GET /api/city-live-data?city=TYO - Live Weather, AQI & Crisis/Emergency Alerts
+app.get('/api/city-live-data', (req: Request, res: Response) => {
+  const city = ((req.query.city as string) || 'TYO').toUpperCase();
+  const data = CITY_TELEMETRY_FEEDS[city] || CITY_TELEMETRY_FEEDS['TYO'];
+  
+  // Calculate city local time
+  const timezones: Record<string, string> = {
+    'TYO': 'Asia/Tokyo',
+    'NYC': 'America/New_York',
+    'LON': 'Europe/London',
+    'PAR': 'Europe/Paris',
+    'KUL': 'Asia/Kuala_Lumpur',
+    'SIN': 'Asia/Singapore',
+    'DXB': 'Asia/Dubai',
+    'SEL': 'Asia/Seoul',
+    'SYD': 'Australia/Sydney',
+    'YTO': 'America/Toronto',
+    'HKG': 'Asia/Hong_Kong',
+    'LAX': 'America/Los_Angeles',
+    'BER': 'Europe/Berlin',
+    'AMS': 'Europe/Amsterdam',
+    'BKK': 'Asia/Bangkok',
+    'SHA': 'Asia/Shanghai',
+    'SAO': 'America/Sao_Paulo',
+    'MEX': 'America/Mexico_City',
+    'TPE': 'Asia/Taipei',
+    'MUM': 'Asia/Kolkata'
+  };
+
+  let localTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  try {
+    const tz = timezones[city] || 'UTC';
+    localTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  } catch {}
+
+  return res.json({
+    success: true,
+    cityCode: city,
+    localTime: localTimeStr,
+    ...data,
+    viewerTraffic: Math.floor(8500 + Math.random() * 4200),
+    platformEmergencyOverride: platformSettings.emergencyAlertBanner || undefined
+  });
 });
 
 app.post('/api/wallet/topup', async (req, res) => {

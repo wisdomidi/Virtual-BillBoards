@@ -550,13 +550,32 @@ export default function App() {
     onPointsEarned: (pts) => setViewerPoints((prev) => prev + pts)
   });
 
-  // Fetch active billboard slot data from API
+  const lastAlertedAdIdRef = useRef<string | null>(null);
+
+  // Fetch active billboard slot data from API & sync on-time live alert
   const fetchActiveSlot = async (city: string, country: string) => {
     try {
       const res = await fetch(`/api/billboard/active?city=${city}&country=${country}`);
       if (res.ok) {
         const data = await res.json();
         setSlotData(data);
+
+        // Immediate synchronized live alert when user's ad is broadcasting right now
+        if (data && data.winningAd) {
+          const winning = data.winningAd;
+          const isMyAd =
+            (currentUser && (winning.userId === currentUser.uid || winning.advertiserName === currentUser.displayName)) ||
+            winning.userId === effectiveUid;
+
+          if (isMyAd && lastAlertedAdIdRef.current !== winning.id) {
+            lastAlertedAdIdRef.current = winning.id;
+            addToast(
+              'success',
+              `🔴 YOUR AD IS BROADCASTING LIVE NOW [${city}]!`,
+              `"${winning.title}" is currently live on the 24/7 Global Billboard! Watch the screen live (15s broadcast).`
+            );
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to fetch active slot:', err);
