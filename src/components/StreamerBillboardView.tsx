@@ -505,7 +505,7 @@ export const StreamerBillboardView: React.FC<StreamerBillboardViewProps> = ({
           }`}
         >
           <Tv className="w-4 h-4" />
-          <span>🎛️ OBS / Streamlabs Overlay Studio</span>
+          <span>🎛️ Venue & Stream Display Studio</span>
         </button>
 
         <button

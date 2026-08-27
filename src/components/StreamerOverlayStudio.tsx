@@ -29,18 +29,23 @@ import {
   Mic,
   Award,
   Users,
-  Compass
+  Compass,
+  Bot,
+  Info,
+  ArrowRight
 } from 'lucide-react';
 import { soundEffects } from '../lib/soundEffects';
 
 interface StreamerOverlayStudioProps {
   initialHandle?: string;
   selectedCity?: string;
+  onOpenWebMcp?: () => void;
 }
 
 export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
-  initialHandle = 'event_organizer',
-  selectedCity = 'GLOBAL'
+  initialHandle = 'venue_host',
+  selectedCity = 'GLOBAL',
+  onOpenWebMcp
 }) => {
   const [handle, setHandle] = useState<string>(() => {
     return localStorage.getItem('vb_streamer_handle') || initialHandle;
@@ -59,22 +64,19 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
   const [cityCode, setCityCode] = useState<string>(selectedCity);
 
   const [copiedUrl, setCopiedUrl] = useState<boolean>(false);
-  const [copiedSdk, setCopiedSdk] = useState<boolean>(false);
   const [simulatingEvent, setSimulatingEvent] = useState<boolean>(false);
   const [simulationResult, setSimulationResult] = useState<string | null>(null);
 
   const [streamerStats, setStreamerStats] = useState({
-    totalImpressions: 14820,
-    totalEventsTriggered: 64,
-    totalEarnedDollars: '148.50',
-    unclaimedEarningsDollars: '42.80',
+    totalImpressions: 0,
+    totalEventsTriggered: 0,
+    totalEarnedDollars: '0.00',
     revShareRate: '70%'
   });
 
-  const [recentEvents, setRecentEvents] = useState<StreamerGameStateEvent[]>([]);
-  const [activeTab, setActiveTab] = useState<'url_builder' | 'simulator' | 'sdk_guide' | 'earnings'>('url_builder');
+  const [activeTab, setActiveTab] = useState<'url_builder' | 'ai_agent_guide' | 'simulator'>('url_builder');
 
-  const cleanHandle = (handle || 'venue_organizer').replace(/^@/, '').toLowerCase().trim();
+  const cleanHandle = (handle || 'venue_host').replace(/^@/, '').toLowerCase().trim();
 
   // Construct URL based on Environment Mode
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.livebillboards.lol';
@@ -103,30 +105,23 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
     localStorage.setItem('vb_streamer_handle', clean);
   };
 
-  // Fetch streamer stats
+  // Fetch real streamer stats
   const fetchStats = async () => {
     try {
       const res = await fetch(`/api/streamer/stats/${cleanHandle}`);
       if (res.ok) {
         const data = await res.json();
         if (data.streamer) {
-          setStreamerStats(prev => ({
-            ...prev,
-            totalImpressions: data.streamer.totalImpressions || prev.totalImpressions,
-            totalEarnedDollars: data.streamer.totalEarnedDollars || prev.totalEarnedDollars
-          }));
-        }
-      }
-
-      const eventsRes = await fetch(`/api/overlay/events?streamerId=${cleanHandle}&limit=5`);
-      if (eventsRes.ok) {
-        const data = await eventsRes.json();
-        if (data.events) {
-          setRecentEvents(data.events);
+          setStreamerStats({
+            totalImpressions: data.streamer.totalImpressions || 0,
+            totalEventsTriggered: data.streamer.totalEventsTriggered || 0,
+            totalEarnedDollars: data.streamer.totalEarnedDollars || '0.00',
+            revShareRate: '70%'
+          });
         }
       }
     } catch {
-      // safe fallback
+      // Safe fallback
     }
   };
 
@@ -134,19 +129,18 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
     fetchStats();
   }, [cleanHandle]);
 
-  // Milestone / Event Simulation Trigger
+  // Stage & Event Simulator Trigger
   const handleTriggerSimulation = async (eventType: GameStateEventType) => {
     setSimulatingEvent(true);
     setSimulationResult(null);
 
     const eventPayloads: Record<GameStateEventType, any> = {
-      // In-Venue & Conference Milestones
       keynote_live: {
         eventType: 'keynote_live',
         gameTitle: 'Main Stage Keynote',
         headline: `🎙️ KEYNOTE SPEAKER LIVE ON STAGE!`,
-        subheadline: `Sponsor: Global Venture Capital & AI Labs`,
-        sponsorName: 'Global AI Ventures',
+        subheadline: `Sponsor: Global AI Compute Labs`,
+        sponsorName: 'Global AI Compute',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 50.00,
         customVfx: 'victory_gold',
@@ -155,9 +149,9 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       hackathon_winner: {
         eventType: 'hackathon_winner',
         gameTitle: 'Hackathon Grand Finals',
-        headline: `🏆 HACKATHON GRAND CHAMPION ANNOUNCEMENT!`,
-        subheadline: `Grand Prize Sponsor: Next-Gen Cloud Compute`,
-        sponsorName: 'Next-Gen Cloud Compute',
+        headline: `🏆 HACKATHON WINNER ANNOUNCEMENT!`,
+        subheadline: `Grand Prize Sponsor: Autonomous Cloud AI`,
+        sponsorName: 'Autonomous Cloud AI',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 25.00,
         customVfx: 'victory_gold',
@@ -167,8 +161,8 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
         eventType: 'sponsor_showcase',
         gameTitle: 'Venue Spotlight',
         headline: `⚡ VIP SPONSOR TAKEOVER SHOWCASE!`,
-        subheadline: `Scan the on-screen QR to visit our booth & claim your gift`,
-        sponsorName: 'Lead Innovation Sponsor',
+        subheadline: `Scan the on-screen QR code to visit our booth`,
+        sponsorName: 'Lead Innovation Partner',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 15.00,
         customVfx: 'neon_burst',
@@ -176,9 +170,9 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       networking_hour: {
         eventType: 'networking_hour',
-        gameTitle: 'Evening Networking Reception',
-        headline: `🥂 NETWORKING & HAPPY HOUR SPONSORED TAKEOVER!`,
-        subheadline: `Open bar & networking powered by Developer Community Fund`,
+        gameTitle: 'Networking Reception',
+        headline: `🥂 NETWORKING & HAPPY HOUR TAKEOVER!`,
+        subheadline: `Sponsored by Developer Community Fund`,
         sponsorName: 'Developer Community Fund',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 20.00,
@@ -187,10 +181,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       flash_takeover: {
         eventType: 'flash_takeover',
-        gameTitle: 'Audience Flash Shoutout',
+        gameTitle: 'Audience Pitch',
         headline: `🚀 LIVE AUDIENCE SHOUTOUT TAKEOVER!`,
         subheadline: `Placed by attendee via phone in 15 seconds`,
-        sponsorName: 'Attendee Pitch',
+        sponsorName: 'Attendee Shoutout',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 10.00,
         customVfx: 'flame_rampage',
@@ -198,23 +192,21 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       crowd_hype: {
         eventType: 'crowd_hype',
-        gameTitle: 'Arena Crowd Wave',
+        gameTitle: 'Crowd Celebration',
         headline: `🔥 MASSIVE CROWD HYPE MOMENT!`,
         subheadline: `70% Rev-share credited to venue organizer`,
-        sponsorName: 'Stadium Partner',
+        sponsorName: 'Arena Sponsor',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 12.00,
         customVfx: 'neon_burst',
         particlesEmoji: '🔥'
       },
-
-      // Broadcast & Gaming Milestones
       victory_royale: {
         eventType: 'victory_royale',
         gameTitle: 'Battle Royale Match',
         headline: `👑 VICTORY ROYALE SPONSORED TAKEOVER!`,
-        subheadline: `Use creator code "${cleanHandle.toUpperCase()}" for exclusive perks`,
-        sponsorName: 'High-Performance Cloud GPU',
+        subheadline: `Use creator code "${cleanHandle.toUpperCase()}"`,
+        sponsorName: 'Cloud GPU Sponsor',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 10.00,
         customVfx: 'victory_gold',
@@ -222,9 +214,9 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       kill_streak: {
         eventType: 'kill_streak',
-        gameTitle: 'Tactical FPS Tournament',
+        gameTitle: 'FPS Tournament',
         headline: `🔥 5X RAMPAGE KILL STREAK TAKEOVER!`,
-        subheadline: `Zero-Latency Gaming Gear & Pro Peripherals`,
+        subheadline: `Zero-Latency Gaming Gear`,
         sponsorName: 'Pro Gaming Gear',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 5.00,
@@ -233,9 +225,9 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       ace_clutch: {
         eventType: 'ace_clutch',
-        gameTitle: 'Competitive FPS Match',
+        gameTitle: 'Competitive Match',
         headline: `🎯 1v5 CLUTCH ACE SPONSORED TAKEOVER!`,
-        subheadline: `Powering peak competitive clutch moments`,
+        subheadline: `Apex Energy Labs`,
         sponsorName: 'Apex Energy Labs',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 15.00,
@@ -244,9 +236,9 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       sub_hype_bomb: {
         eventType: 'sub_hype_bomb',
-        gameTitle: 'Live Stream Channel',
+        gameTitle: 'Community Stream',
         headline: `💥 50 GIFTED SUBS HYPE BOMB!`,
-        subheadline: `Massive community celebration takeover`,
+        subheadline: `Community celebration takeover`,
         sponsorName: 'Global Ad Network',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 8.00,
@@ -255,10 +247,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       boss_defeated: {
         eventType: 'boss_defeated',
-        gameTitle: 'Action RPG Realm',
+        gameTitle: 'RPG Realm',
         headline: `🏆 MYTHIC BOSS DEFEATED TAKEOVER!`,
-        subheadline: `Official Guild Quest Sponsor`,
-        sponsorName: 'Mythic Guild Gaming',
+        subheadline: `Mythic Guild Sponsor`,
+        sponsorName: 'Mythic Guild',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 5.00,
         customVfx: 'victory_gold',
@@ -266,10 +258,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       tournament_champion: {
         eventType: 'tournament_champion',
-        gameTitle: 'Championship Grand Finals',
+        gameTitle: 'Grand Finals',
         headline: `🥇 TOURNAMENT GRAND CHAMPION TAKEOVER!`,
-        subheadline: `Grand Finals Champion Victory Celebration`,
-        sponsorName: 'Next-Gen Silicon Sponsor',
+        subheadline: `Silicon Hardware Partner`,
+        sponsorName: 'Silicon Hardware',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 25.00,
         customVfx: 'victory_gold',
@@ -277,10 +269,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       level_up: {
         eventType: 'level_up',
-        gameTitle: 'Online RPG Adventure',
+        gameTitle: 'Online RPG',
         headline: `⭐ LEVEL UP SPONSORED TAKEOVER!`,
-        subheadline: `Powering your next progression tier`,
-        sponsorName: 'Pro Gamer Nutrition',
+        subheadline: `Pro Nutrition`,
+        sponsorName: 'Pro Nutrition',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 3.00,
         customVfx: 'neon_burst',
@@ -288,9 +280,9 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       game_over: {
         eventType: 'game_over',
-        gameTitle: 'Match Wrap-up',
+        gameTitle: 'Match End',
         headline: `🎮 GG WP MATCH SPONSORED TAKEOVER!`,
-        subheadline: `Next round starts soon`,
+        subheadline: `GamerFuel`,
         sponsorName: 'GamerFuel',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 4.00,
@@ -299,10 +291,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       award_announcement: {
         eventType: 'award_announcement',
-        gameTitle: 'Event Awards Stage',
+        gameTitle: 'Award Ceremony',
         headline: `🥇 OFFICIAL AWARD CEREMONY TAKEOVER!`,
-        subheadline: `Sponsor: Apex Tech Accelerator`,
-        sponsorName: 'Apex Tech Accelerator',
+        subheadline: `Tech Accelerator`,
+        sponsorName: 'Tech Accelerator',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 20.00,
         customVfx: 'victory_gold',
@@ -310,10 +302,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       },
       custom_event: {
         eventType: 'custom_event',
-        gameTitle: 'Live Stage Event',
-        headline: `⚡ CUSTOM SPONSORED EVENT TAKEOVER!`,
+        gameTitle: 'Live Stage',
+        headline: `⚡ CUSTOM SPONSORED TAKEOVER!`,
         subheadline: `70% Rev-Share Paid Instantly`,
-        sponsorName: 'WebMCP Agent',
+        sponsorName: 'Autonomous AI Agent',
         sponsorImageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
         bidAmountDollars: 5.00,
         customVfx: 'neon_burst',
@@ -350,8 +342,8 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Studio Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/90 to-slate-900 border border-cyan-500/40 p-6 rounded-3xl shadow-2xl space-y-6">
+      {/* Studio Header Banner: Humans & AI Agents Connection */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/90 to-slate-900 border border-cyan-500/40 p-6 rounded-3xl shadow-2xl space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="p-3.5 bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 rounded-2xl text-slate-950 font-black shadow-lg shadow-cyan-500/20">
@@ -360,31 +352,31 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
-                  Event Organizers & Streamer Display Studio
+                  Venues, Events & Streamer Display Studio
                 </h1>
                 <span className="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2.5 py-0.5 rounded-full font-mono font-bold">
                   ⚡ 70% Direct Revenue Share
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1">
-                Monetize your physical venue screens (Conferences, Festivals, Stadiums, Lounges) or online broadcast streams with 1-click live ad takeovers & QR code attendee bidding.
+                <strong>Where Humans Gather, AI Agents Buy Screen Space.</strong> Turn your physical venue screens, stage projectors, or live stream overlays into autonomous income.
               </p>
             </div>
           </div>
 
-          {/* Quick Metrics Header Pill */}
+          {/* Organizer Earnings Pill */}
           <div className="flex items-center gap-3">
             <div className="bg-slate-950/90 border border-emerald-500/40 px-4 py-2 rounded-2xl font-mono text-xs flex items-center gap-2.5 shadow-xl">
               <DollarSign className="w-4 h-4 text-emerald-400" />
               <div>
-                <span className="text-[10px] text-slate-400 block font-sans">Your Organizer / Streamer Earnings</span>
+                <span className="text-[10px] text-slate-400 block font-sans">Your Total Earnings</span>
                 <span className="text-sm font-black text-emerald-400 font-mono">${streamerStats.totalEarnedDollars} USD</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Environment Preset Switcher: In-Venue Screen vs Online Broadcast */}
+        {/* Environment Switcher: Physical In-Venue vs Online Broadcast */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-1.5 bg-slate-950 rounded-2xl border border-slate-800">
           <button
             onClick={() => {
@@ -407,7 +399,7 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                 <span className="text-[9px] bg-amber-500 text-slate-950 font-bold px-1.5 py-0.2 rounded font-mono">Plug & Play</span>
               </div>
               <p className="text-[11px] text-slate-300 mt-0.5">
-                For Conferences, Festivals, Arena LED Walls, TV Screens, Digital Kiosks, Hackathons & Nightclubs.
+                For Conferences, Festivals, Arena LED Walls, Smart TVs, Digital Kiosks & Lounges.
               </p>
             </div>
           </button>
@@ -430,10 +422,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
             <div>
               <div className="text-xs font-black uppercase text-white flex items-center gap-1.5">
                 <span>🎮 Online Live Broadcast & Stream Overlay</span>
-                <span className="text-[9px] bg-cyan-500 text-slate-950 font-bold px-1.5 py-0.2 rounded font-mono">OBS Studio</span>
+                <span className="text-[9px] bg-cyan-500 text-slate-950 font-bold px-1.5 py-0.2 rounded font-mono">Live Broadcast</span>
               </div>
               <p className="text-[11px] text-slate-300 mt-0.5">
-                For live gaming broadcasters, Twitch/Kick/YouTube creators, and esports casting overlays.
+                For live gaming broadcasters, video creators, and online tournament streams.
               </p>
             </div>
           </button>
@@ -450,7 +442,19 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>1. {environmentMode === 'venue_event' ? 'Venue TV Player & Screen Link' : 'OBS / Streamlabs URL Builder'}</span>
+            <span>1. {environmentMode === 'venue_event' ? 'TV Screen Link & Quick Setup' : 'Broadcast Widget & Setup'}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('ai_agent_guide')}
+            className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === 'ai_agent_guide'
+                ? 'bg-indigo-500 text-white font-black shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Bot className="w-3.5 h-3.5" />
+            <span>2. How AI Agents & Humans Connect</span>
           </button>
 
           <button
@@ -462,19 +466,7 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
             }`}
           >
             <Flame className="w-3.5 h-3.5" />
-            <span>2. {environmentMode === 'venue_event' ? 'Keynote & Milestone Simulator' : 'Game-State Trigger Simulator'}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('sdk_guide')}
-            className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              activeTab === 'sdk_guide'
-                ? 'bg-indigo-500 text-white font-black shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Code className="w-3.5 h-3.5" />
-            <span>3. Webhook & AI Bidding SDK</span>
+            <span>3. Test Stage Takeover Simulator</span>
           </button>
         </div>
       </div>
@@ -490,42 +482,41 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
               <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
                 <Settings className="w-4 h-4 text-cyan-400" />
                 <span>
-                  {environmentMode === 'venue_event' ? 'Venue Screen Setup & Configuration' : 'Broadcast Overlay Settings'}
+                  {environmentMode === 'venue_event' ? 'Venue Screen Setup' : 'Broadcast Widget Settings'}
                 </span>
               </h2>
               <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-500/40">
-                {environmentMode === 'venue_event' ? 'Plug & Play on Any TV / Smart Screen' : 'Drag-and-Drop in OBS (30s Setup)'}
+                {environmentMode === 'venue_event' ? 'Plug & Play (Zero Setup)' : 'Drag-and-Drop Browser Source'}
               </span>
             </div>
 
-            {/* In-Venue Feature Highlights Banner */}
-            {environmentMode === 'venue_event' && (
-              <div className="p-4 bg-gradient-to-br from-amber-950/40 via-slate-950 to-indigo-950/40 border border-amber-500/40 rounded-2xl space-y-2">
-                <div className="text-xs font-black text-amber-300 uppercase flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4" />
-                  <span>How Physical In-Venue Monetization Works:</span>
+            {/* Quick 3-Step Human-AI Flow */}
+            <div className="p-4 bg-gradient-to-br from-indigo-950/40 via-slate-950 to-cyan-950/40 border border-cyan-500/30 rounded-2xl space-y-2">
+              <div className="text-xs font-black text-cyan-300 uppercase flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>How Monetization Works (3 Simple Steps):</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-300">
+                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                  <strong className="text-white block font-bold">1. Plug In Your Screen</strong>
+                  Open player on any Smart TV, LED wall, or streaming app.
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-300">
-                  <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
-                    <strong className="text-white block font-bold">1. Plug & Play on TV</strong>
-                    Open this URL on any venue Smart TV, projector, or LED wall.
-                  </div>
-                  <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
-                    <strong className="text-white block font-bold">2. Attendees Scan QR</strong>
-                    Audience in seats scan the on-screen QR code to bid from their phones.
-                  </div>
-                  <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
-                    <strong className="text-emerald-400 block font-bold">3. Earn 70% Rev-Share</strong>
-                    You receive 70% of every dollar spent by attendees and sponsors.
-                  </div>
+                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                  <strong className="text-cyan-300 block font-bold">2. AI Agents Bid 24/7</strong>
+                  AI agents and attendees buy 15s slots programmatically.
+                </div>
+                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                  <strong className="text-emerald-400 block font-bold">3. Earn 70% Payouts</strong>
+                  Direct rev-share credited instantly to your account.
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Event / Venue / Streamer Handle */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-300 font-mono flex items-center gap-1">
-                <span>{environmentMode === 'venue_event' ? 'Event / Venue ID / Conference Handle:' : 'Creator Username / Channel ID:'}</span>
+              <label className="text-xs font-bold text-slate-300 font-mono flex items-center justify-between">
+                <span>{environmentMode === 'venue_event' ? 'Venue / Event Channel Handle:' : 'Creator / Streamer Handle:'}</span>
+                <span className="text-slate-500 text-[10px] font-sans">Used to credit your 70% revenue</span>
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 font-mono text-xs">@</span>
@@ -543,7 +534,7 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-300 font-mono flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Venue City Geofence Feed:</span>
+                <span>Screen Location (Target City Feed):</span>
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono font-bold">
                 {[
@@ -572,48 +563,16 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
               </div>
             </div>
 
-            {/* Layout Selector (Broadcast mode only) */}
-            {environmentMode === 'online_stream' && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 font-mono">
-                  Select Broadcast Layout Preset:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono font-bold">
-                  {[
-                    { id: 'corner_pip', label: '16:9 Corner PIP', desc: '480 × 270 Box' },
-                    { id: 'bottom_ticker', label: 'Esports Ticker', desc: '1920 × 60 Strip' },
-                    { id: 'side_dock', label: 'Side Dock', desc: '360 × 640 Vertical' },
-                    { id: 'event_alert_only', label: 'Alert Only', desc: 'Invisible until event' },
-                    { id: 'full_takeover', label: 'Full Takeover', desc: '1920 × 1080 Intermission' }
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setLayout(item.id as OverlayLayoutType)}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                        layout === item.id
-                          ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-md ring-1 ring-cyan-400'
-                          : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <div className="text-xs font-bold text-white">{item.label}</div>
-                      <div className="text-[10px] text-slate-400">{item.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Theme Selector */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-300 font-mono">
-                Visual Aesthetic Theme:
+                Visual Style:
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono font-bold">
                 {[
                   { id: 'cyberpunk', label: 'Cyber Neon', border: 'border-cyan-500' },
                   { id: 'neon', label: 'Synthwave', border: 'border-fuchsia-500' },
-                  { id: 'gold', label: 'Championship', border: 'border-amber-400' },
+                  { id: 'gold', label: 'Gold Stage', border: 'border-amber-400' },
                   { id: 'minimal', label: 'Minimalist', border: 'border-slate-400' },
                   { id: 'glass', label: 'Hyper Glass', border: 'border-cyan-300' }
                 ].map((item) => (
@@ -633,7 +592,7 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
               </div>
             </div>
 
-            {/* Toggles Strip */}
+            {/* Toggles */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
               <label className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer hover:border-slate-700">
                 <span className="text-xs font-mono font-bold text-slate-300">Audience QR Code</span>
@@ -674,7 +633,7 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                   <span>
                     {environmentMode === 'venue_event'
                       ? 'In-Venue TV / LED Screen Player URL:'
-                      : 'OBS / Streamlabs Browser Source URL:'}
+                      : 'Live Broadcast Browser Source URL:'}
                   </span>
                 </span>
                 <span className="text-slate-400 text-[10px]">{recommendedDimensions.label}</span>
@@ -699,7 +658,7 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
 
               {/* 1-Click Launch In-Venue TV Screen Player */}
               {environmentMode === 'venue_event' ? (
-                <div className="pt-1">
+                <div className="space-y-2 pt-1">
                   <a
                     href={overlayUrl}
                     target="_blank"
@@ -709,13 +668,17 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                     <Maximize className="w-4 h-4" />
                     <span>🚀 Launch Fullscreen In-Venue TV Player (Anti-Sleep Active)</span>
                   </a>
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                    <Info className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    <span>Screen wake lock is automatically enabled to prevent display dimming or sleeping.</span>
+                  </div>
                 </div>
               ) : (
                 <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
                   <div className="font-bold text-white flex items-center gap-1">
-                    <span>⚡ 30-Second OBS Setup:</span>
+                    <span>⚡ Quick Broadcasting Software Setup:</span>
                   </div>
-                  <p>1. In OBS, click <strong>Sources (+)</strong> → Add <strong>Browser</strong>.</p>
+                  <p>1. In your broadcasting app, add a <strong>Browser Source</strong>.</p>
                   <p>2. Paste URL, set Width: <strong className="text-cyan-300 font-mono">{recommendedDimensions.width}</strong>, Height: <strong className="text-cyan-300 font-mono">{recommendedDimensions.height}</strong>.</p>
                 </div>
               )}
@@ -729,7 +692,7 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                 <div className="flex items-center gap-2">
                   <Eye className="w-4 h-4 text-cyan-400" />
                   <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                    {environmentMode === 'venue_event' ? 'Live Venue TV Preview' : 'Live Broadcast Overlay'}
+                    {environmentMode === 'venue_event' ? 'Live Venue TV Preview' : 'Live Broadcast Preview'}
                   </h3>
                 </div>
                 <a
@@ -758,10 +721,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                   <span className="text-white font-bold">@{cleanHandle}</span>
                 </div>
                 <div className="flex justify-between items-center text-slate-400 text-[11px]">
-                  <span>Audience Bidding:</span>
+                  <span>AI Agent Programmatic Bidding:</span>
                   <span className="text-emerald-400 font-bold flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    QR Scan Active
+                    WebMCP Active (20ms RTB)
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-slate-400 text-[11px]">
@@ -775,7 +738,81 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
       )}
 
       {/* -------------------------------------------------------------------------- */}
-      {/* TAB 2: MILESTONE & EVENT TAKEOVER SIMULATOR */}
+      {/* TAB 2: HOW AI AGENTS & HUMANS CONNECT (SIMPLE, CLEAN EXPLANATION) */}
+      {/* -------------------------------------------------------------------------- */}
+      {activeTab === 'ai_agent_guide' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+          <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <Bot className="w-5 h-5 text-indigo-400" />
+                <span>The Human & AI Agent Connection</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                How autonomous AI agents discover and buy advertising space on your physical screens and live broadcasts.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2.5">
+              <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 w-fit">
+                <Users className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-white text-sm">1. Humans Gather</h3>
+              <p className="text-slate-300 leading-relaxed text-[11px]">
+                Attendees gather at your physical conference, festival, stadium, or watch your online live stream. Your screen is in front of real eyeballs.
+              </p>
+            </div>
+
+            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2.5">
+              <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-400 w-fit">
+                <Bot className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-white text-sm">2. AI Agents Buy 24/7</h3>
+              <p className="text-slate-300 leading-relaxed text-[11px]">
+                Autonomous AI agents (media buyers, brand bots) detect your screen location via WebMCP and place programmatic RTB bids every 15 seconds.
+              </p>
+            </div>
+
+            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2.5">
+              <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 w-fit">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-white text-sm">3. Instant Revenue</h3>
+              <p className="text-slate-300 leading-relaxed text-[11px]">
+                You get 70% of every winning bid directly deposited into your payout wallet. Zero management, zero sales calls, zero manual work.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Technical Reference & Link to WebMCP Hub */}
+          <div className="bg-slate-950 p-5 rounded-2xl border border-indigo-500/30 flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="text-xs font-bold text-white flex items-center gap-2">
+                <Code className="w-4 h-4 text-indigo-400" />
+                <span>Looking for Developer APIs & WebMCP Playground?</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Detailed tool schemas, cURL examples, and automated AI bidding protocols are available in the dedicated WebMCP Hub.
+              </p>
+            </div>
+
+            {onOpenWebMcp && (
+              <button
+                onClick={onOpenWebMcp}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Open WebMCP Hub</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* -------------------------------------------------------------------------- */}
+      {/* TAB 3: STAGE & EVENT TAKEOVER SIMULATOR */}
       {/* -------------------------------------------------------------------------- */}
       {activeTab === 'simulator' && (
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
@@ -785,14 +822,12 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                 <Flame className="w-5 h-5 text-amber-400 animate-pulse" />
                 <span>
                   {environmentMode === 'venue_event'
-                    ? 'In-Venue Milestone & Keynote Sponsor Simulator'
-                    : 'Game-State Event Takeover Simulator'}
+                    ? 'In-Venue Stage Takeover Test Console'
+                    : 'Broadcast Event Takeover Test Console'}
                 </span>
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                {environmentMode === 'venue_event'
-                  ? 'Test live event milestone takeovers (Keynotes, Award Announcements, Happy Hours) on your venue screen.'
-                  : 'Click any button below to test how in-game victory and clutch moments trigger sponsor takeovers.'}
+                Click any button below to test how sponsor takeovers trigger in real-time on your live TV screen or stream overlay.
               </p>
             </div>
           </div>
@@ -812,21 +847,21 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                   type: 'keynote_live' as GameStateEventType,
                   icon: Mic,
                   title: '🎙️ Main Stage Keynote Live',
-                  sponsor: 'Global AI Ventures ($50.00)',
+                  sponsor: 'Global AI Compute ($50.00)',
                   color: 'from-amber-500/20 to-yellow-600/20 border-amber-500/50 text-amber-300'
                 },
                 {
                   type: 'hackathon_winner' as GameStateEventType,
                   icon: Trophy,
                   title: '🏆 Hackathon Winner Reveal',
-                  sponsor: 'Next-Gen Cloud Compute ($25.00)',
+                  sponsor: 'Autonomous Cloud AI ($25.00)',
                   color: 'from-purple-500/20 to-indigo-600/20 border-purple-500/50 text-purple-300'
                 },
                 {
                   type: 'sponsor_showcase' as GameStateEventType,
                   icon: Sparkles,
                   title: '⚡ VIP Sponsor Spotlight',
-                  sponsor: 'Lead Innovation Sponsor ($15.00)',
+                  sponsor: 'Lead Innovation Partner ($15.00)',
                   color: 'from-cyan-500/20 to-blue-600/20 border-cyan-500/50 text-cyan-300'
                 },
                 {
@@ -846,8 +881,8 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                 {
                   type: 'crowd_hype' as GameStateEventType,
                   icon: Users,
-                  title: '🔥 Stadium Crowd Hype Wave',
-                  sponsor: 'Stadium Partner ($12.00)',
+                  title: '🔥 Arena Crowd Hype Wave',
+                  sponsor: 'Arena Sponsor ($12.00)',
                   color: 'from-amber-500/30 to-orange-500/30 border-orange-400 text-orange-300'
                 }
               ].map((card) => {
@@ -872,7 +907,7 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                       className="w-full py-2 bg-slate-950/80 hover:bg-slate-950 border border-white/20 hover:border-white/40 text-white font-black text-xs rounded-xl transition-all shadow flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Fire Stage Takeover</span>
+                      <span>Test Stage Takeover</span>
                     </button>
                   </div>
                 );
@@ -882,8 +917,8 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                 {
                   type: 'victory_royale' as GameStateEventType,
                   icon: Trophy,
-                  title: '🏆 Victory Royale Takeover',
-                  sponsor: 'Cloud Infrastructure Sponsor ($10.00)',
+                  title: '👑 Victory Royale Takeover',
+                  sponsor: 'Cloud GPU Sponsor ($10.00)',
                   color: 'from-amber-500/20 to-yellow-600/20 border-amber-500/50 text-amber-300'
                 },
                 {
@@ -911,14 +946,14 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                   type: 'boss_defeated' as GameStateEventType,
                   icon: Swords,
                   title: '⚔️ Mythic Boss Defeated',
-                  sponsor: 'Mythic Guild Gaming ($5.00)',
+                  sponsor: 'Mythic Guild ($5.00)',
                   color: 'from-emerald-500/20 to-teal-600/20 border-emerald-500/50 text-emerald-300'
                 },
                 {
                   type: 'tournament_champion' as GameStateEventType,
                   icon: Trophy,
                   title: '🥇 Tournament Grand Champion',
-                  sponsor: 'Next-Gen Silicon Sponsor ($25.00)',
+                  sponsor: 'Silicon Hardware ($25.00)',
                   color: 'from-amber-500/30 to-yellow-500/30 border-yellow-400 text-yellow-300'
                 }
               ].map((card) => {
@@ -943,68 +978,12 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                       className="w-full py-2 bg-slate-950/80 hover:bg-slate-950 border border-white/20 hover:border-white/40 text-white font-black text-xs rounded-xl transition-all shadow flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Fire Event Takeover</span>
+                      <span>Test Event Takeover</span>
                     </button>
                   </div>
                 );
               })
             )}
-          </div>
-        </div>
-      )}
-
-      {/* -------------------------------------------------------------------------- */}
-      {/* TAB 3: WEBHOOK & AI BIDDING SDK GUIDE */}
-      {/* -------------------------------------------------------------------------- */}
-      {activeTab === 'sdk_guide' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 font-mono text-xs">
-          <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-black text-white uppercase tracking-wider flex items-center gap-2 font-sans">
-                <Code className="w-5 h-5 text-indigo-400" />
-                <span>Event APIs, Stage Webhooks & WebMCP Autonomous Bidding</span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5 font-sans">
-                Trigger live stage takeovers from conference production desks, hackathon leaderboards, game telemetry, or autonomous AI agents.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* REST API & Webhook Format */}
-            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-cyan-400 font-bold">
-                <span>1. Stage Webhook Endpoint (POST /api/overlay/trigger-event)</span>
-              </div>
-              <pre className="p-3 bg-slate-900 rounded-xl text-slate-300 text-[11px] overflow-x-auto">
-{`curl -X POST https://www.livebillboards.lol/api/overlay/trigger-event \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "streamerId": "${cleanHandle}",
-    "eventType": "keynote_live",
-    "headline": "🎙️ KEYNOTE SPEAKER LIVE ON STAGE!",
-    "sponsorName": "Global AI Ventures",
-    "bidAmountDollars": 50.00
-  }'`}
-              </pre>
-            </div>
-
-            {/* WebMCP Tool for Autonomous AI Agents */}
-            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-indigo-400 font-bold">
-                <span>2. WebMCP Tool for Programmatic AI Sponsoring</span>
-              </div>
-              <pre className="p-3 bg-slate-900 rounded-xl text-slate-300 text-[11px] overflow-x-auto">
-{`// Autonomous AI Agents can call window.webMCP directly:
-await window.webMCP.callTool("sponsorStreamerGameStateEvent", {
-  streamerId: "${cleanHandle}",
-  eventType: "sponsor_showcase",
-  headline: "⚡ VIP STAGE SPONSOR TAKEOVER",
-  sponsorName: "Lead Innovation Partner",
-  bidAmountDollars: 25.00
-});`}
-              </pre>
-            </div>
           </div>
         </div>
       )}

@@ -123,34 +123,61 @@ function detectCreatorHandleFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   const path = window.location.pathname;
   const search = new URLSearchParams(window.location.search);
-  const creatorParam = search.get('creator');
-  if (creatorParam) return creatorParam.replace(/^@/, '');
+  const creatorParam = search.get('creator') || search.get('handle');
+  if (creatorParam) return creatorParam.replace(/^@/, '').toLowerCase();
 
-  const reservedPaths = [
+  const reservedRoutes = new Set([
     '',
     '/',
     '/overlay',
     '/screen',
+    '/venue',
+    '/stage',
+    '/event',
+    '/kiosk',
     '/live-preview',
-    '/blog',
+    '/streamer',
+    '/watcher',
+    '/my_ads',
+    '/my-ads',
+    '/myads',
     '/leaderboard',
     '/webmcp',
     '/api_docs',
+    '/api-docs',
     '/ai_agents',
+    '/ai-agents',
+    '/blog',
+    '/analytics',
+    '/admin',
+    '/payouts',
+    '/payout_ledger',
+    '/payout-ledger',
+    '/wallet',
+    '/history',
+    '/claim',
+    '/claim-1',
+    '/m2m',
+    '/ad_library',
+    '/ad-library',
+    '/privacy',
+    '/terms',
     '/robots.txt',
     '/sitemap.xml',
     '/llms.txt',
     '/llms-full.txt',
     '/favicon.svg',
     '/favicon.ico'
-  ];
+  ]);
 
-  if (path && !reservedPaths.includes(path.toLowerCase())) {
-    const raw = path.replace(/^\/@?/, '').split('/')[0].toLowerCase();
-    if (raw && !reservedPaths.includes(`/${raw}`)) {
+  // Only consider path as vanity creator handle if it explicitly starts with /@
+  if (path.startsWith('/@')) {
+    const raw = path.substring(2).split('/')[0].toLowerCase().trim();
+    if (raw && !reservedRoutes.has(`/${raw}`)) {
       return raw;
     }
   }
+
   return null;
 }
 
