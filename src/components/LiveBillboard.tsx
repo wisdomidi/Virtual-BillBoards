@@ -956,64 +956,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 )}
               </div>
 
-              {/* Interactive Proof-of-Attention (PoA) Mining Target (Gamified Attention Verification) */}
-              {!poaMinedForSlot && (
-                <button
-                  type="button"
-                  onClick={handlePoATargetClick}
-                  className="absolute z-30 cursor-pointer group/poa transition-transform duration-300 hover:scale-125 focus:outline-none"
-                  style={{
-                    left: `${poaTargetCoords.x}%`,
-                    top: `${poaTargetCoords.y}%`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                  title={
-                    (slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
-                      ? '🔥 Tier 1 Prompt: Click to Mine +50 Attention Points & Generate PoA Certificate!'
-                      : '💎 Click to Mine +25 PoA Attention Points!'
-                  }
-                >
-                  <div className="relative flex items-center justify-center">
-                    {/* Concentric Attention Radar Rings */}
-                    <span className={`absolute w-12 h-12 rounded-full animate-ping opacity-75 ${
-                      (slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
-                        ? 'bg-amber-400/60'
-                        : 'bg-cyan-400/60'
-                    }`} />
-                    <span className={`absolute w-8 h-8 rounded-full animate-pulse opacity-90 ${
-                      (slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
-                        ? 'bg-amber-500/80'
-                        : 'bg-cyan-500/80'
-                    }`} />
 
-                    {/* PoA Target Button */}
-                    <div className={`relative w-8 h-8 rounded-full border-2 flex items-center justify-center shadow-2xl backdrop-blur-md transition-all ${
-                      (slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
-                        ? 'bg-amber-500 text-slate-950 border-white shadow-amber-500/80 animate-bounce'
-                        : 'bg-cyan-400 text-slate-950 border-white shadow-cyan-400/80'
-                    }`}>
-                      <Sparkles className="w-4 h-4 fill-current animate-spin" style={{ animationDuration: '4s' }} />
-                    </div>
-
-                    {/* Floating Tooltip Pill */}
-                    <div className="absolute top-9 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-950/90 backdrop-blur-md border border-amber-400/60 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold text-white shadow-xl pointer-events-none opacity-90 group-hover/poa:opacity-100 flex items-center gap-1">
-                      <span>
-                        {(slotData as any)?.trafficTier === 'tier1_staring_eyeballs' || (winningAd as any)?.trafficTier === 'tier1_staring_eyeballs'
-                          ? '🔥 MINE +50 PTS'
-                          : '💎 MINE +25 PTS'}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              )}
-
-              {/* Floating PoA Mining Celebratory Notification on Screen */}
-              {poaMiningNotice && (
-                <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xs px-3.5 py-1.5 rounded-2xl shadow-2xl shadow-amber-500/50 border border-white flex items-center gap-1.5 animate-bounce font-mono">
-                  <Sparkles className="w-4 h-4 fill-current" />
-                  <span>{poaMiningNotice}</span>
-                </div>
-              )}
 
               {/* Bottom Floating Banner - Advertiser Title & CTA */}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 via-slate-950/70 to-transparent p-2.5 sm:p-4 flex items-end justify-between gap-2 z-20">

@@ -359,122 +359,72 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
         </div>
       </div>
 
-      {/* 3-TIER REVENUE & TOKEN CONVERSION HUB */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* TIER 1: DYNAMIC 15% REVENUE-SHARE POOL */}
-        <div className="bg-gradient-to-br from-cyan-950/90 via-slate-900 to-slate-950 border-2 border-cyan-500/50 p-6 rounded-3xl shadow-2xl space-y-4 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-cyan-500/20 transition-all" />
-
-          <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-cyan-500/20 rounded-xl border border-cyan-500/40 text-cyan-300">
-                <TrendingUp className="w-4 h-4 text-cyan-400" />
+      {/* 3 CLEAR ACTION CARDS FOR WATCHERS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* CARD 1: DIRECT CASH CONVERSION */}
+        <div className="bg-slate-900/90 border-2 border-cyan-500/40 p-5 rounded-3xl shadow-xl space-y-4 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-cyan-500/20 rounded-xl text-cyan-400">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight">1. Cash Out</h3>
+                  <span className="text-[10px] text-cyan-400 font-mono">100 Points = $1.00 USD</span>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase">TIER 1: PRO-RATA CASH YIELD</span>
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                  15% Slot Revenue Pool
-                </h3>
+              <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded-full font-mono font-bold">
+                REAL CASH
+              </span>
+            </div>
+
+            <div className="bg-slate-950/90 border border-slate-800 p-4 rounded-2xl">
+              <div className="text-2xl font-black text-cyan-300 font-mono">
+                ${(viewerPoints * 0.01).toFixed(2)} <span className="text-xs text-slate-400 font-normal font-sans">USD</span>
               </div>
-            </div>
-            <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2.5 py-0.5 rounded-full font-mono font-bold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-              LIVE YIELD
-            </span>
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-3xl font-black text-cyan-300 font-mono tracking-tight flex items-baseline gap-2">
-              <span>${(viewerPoints * 0.01).toFixed(2)}</span>
-              <span className="text-xs text-slate-400 font-sans font-normal">Accumulated Cash</span>
-            </div>
-            <p className="text-[11px] text-slate-300">
-              Your direct 15% revenue share from active advertiser bids in [{selectedCity}].
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1">
-            <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-0.5">
-              <span className="text-[10px] text-slate-400 font-bold">Active Slot Pool</span>
-              <div className="font-extrabold text-emerald-400">
-                ${((slotData?.winningAd?.bidAmountCents || 100) * 0.15 / 100).toFixed(2)} USD
-              </div>
-            </div>
-            <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-0.5">
-              <span className="text-[10px] text-slate-400 font-bold">PoA Verified</span>
-              <div className="font-extrabold text-cyan-300">100% Guaranteed</div>
-            </div>
-          </div>
-
-          <div className="space-y-1.5 pt-1">
-            <div className="flex justify-between text-[10px] font-mono text-slate-400 font-bold">
-              <span>Auto-Cashout Milestone</span>
-              <span className="text-cyan-400">${(viewerPoints * 0.01).toFixed(2)} / $10.00</span>
-            </div>
-            <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-              <div
-                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
-                style={{ width: `${Math.min(100, (viewerPoints / 1000) * 100)}%` }}
-              />
+              <p className="text-xs text-slate-400 mt-1">
+                Your accumulated earnings from watching ads & solving attention prompts.
+              </p>
             </div>
           </div>
 
           <button
             onClick={handleCashoutToWallet}
-            className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Wallet className="w-4 h-4 fill-slate-950" />
-            <span>Withdraw to Ad Wallet</span>
+            <span>Withdraw Cash to Wallet</span>
           </button>
         </div>
 
-        {/* TIER 2: 2X AD TOKEN POWER-UP CONVERTER */}
-        <div className="bg-gradient-to-br from-indigo-950/90 via-slate-900 to-slate-950 border-2 border-indigo-500/50 p-6 rounded-3xl shadow-2xl space-y-4 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/20 transition-all" />
-
-          <div className="flex items-center justify-between border-b border-indigo-500/20 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-indigo-500/20 rounded-xl border border-indigo-500/40 text-indigo-300">
-                <Coins className="w-4 h-4 text-indigo-400" />
+        {/* CARD 2: 2X AD TOKEN POWER-UP */}
+        <div className="bg-slate-900/90 border-2 border-indigo-500/40 p-5 rounded-3xl shadow-xl space-y-4 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-400">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight">2. 2x Ad Tokens</h3>
+                  <span className="text-[10px] text-indigo-400 font-mono">+100% Value Bonus</span>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] font-mono font-bold text-indigo-400 uppercase">TIER 2: CLOSED-LOOP UTILITY</span>
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                  2x Ad Token Multiplier
-                </h3>
+              <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded-full font-mono font-bold">
+                2X VALUE
+              </span>
+            </div>
+
+            <div className="bg-slate-950/90 border border-slate-800 p-4 rounded-2xl">
+              <div className="text-2xl font-black text-indigo-300 font-mono">
+                ${(viewerPoints * 0.02).toFixed(2)} <span className="text-xs text-emerald-400 font-bold font-sans">Ad Credit</span>
               </div>
-            </div>
-            <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-0.5 rounded-full font-mono font-bold">
-              +100% VALUE BONUS
-            </span>
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-3xl font-black text-indigo-300 font-mono tracking-tight flex items-baseline gap-2">
-              <span>{(viewerPoints * 20).toLocaleString()}</span>
-              <span className="text-xs text-slate-400 font-sans font-normal">Ad Tokens</span>
-            </div>
-            <p className="text-[11px] text-slate-300">
-              Convert your {viewerPoints} Attention Points with an instant 2x Power-Up to launch billboard slots.
-            </p>
-          </div>
-
-          <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 space-y-2 text-xs">
-            <div className="flex justify-between items-center text-[11px] font-mono">
-              <span className="text-slate-400">Cash Value:</span>
-              <span className="text-slate-200">${(viewerPoints * 0.01).toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-mono border-t border-slate-800 pt-1.5">
-              <span className="text-indigo-300 font-bold">2x Ad Credit Value:</span>
-              <span className="text-emerald-400 font-black">${(viewerPoints * 0.02).toFixed(2)} USD</span>
+              <p className="text-xs text-slate-400 mt-1">
+                Double your points to launch and broadcast your own billboard ads on screen.
+              </p>
             </div>
           </div>
-
-          {cashoutMsg && (
-            <div className="bg-emerald-950/80 border border-emerald-500/50 p-2.5 rounded-xl text-xs font-bold text-emerald-300 animate-fade-in">
-              {cashoutMsg}
-            </div>
-          )}
 
           <button
             onClick={() => {
@@ -484,61 +434,41 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
               }
               const bonusTokens = viewerPoints * 20;
               onPointsEarned(-viewerPoints);
-              setCashoutMsg(`🚀 Converted ${viewerPoints} Attention Points with 2x Power-Up to +${bonusTokens.toLocaleString()} Ad Tokens!`);
+              setCashoutMsg(`🚀 Converted ${viewerPoints} Points to +${bonusTokens.toLocaleString()} Ad Tokens (2x value)!`);
               setTimeout(() => setCashoutMsg(null), 4000);
             }}
-            className="w-full py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <Zap className="w-4 h-4 fill-white" />
-            <span>Convert with 2x Power-Up Bonus</span>
+            <Coins className="w-4 h-4" />
+            <span>Convert with 2x Power-Up</span>
           </button>
         </div>
 
-        {/* TIER 3: DUAL-ENGINE PROGRESSIVE GOLD RAFFLE JACKPOT */}
-        <div className="bg-gradient-to-br from-amber-950/90 via-slate-900 to-slate-950 border-2 border-amber-500/50 p-6 rounded-3xl shadow-2xl space-y-4 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all" />
-
-          <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-500/40 text-amber-300">
-                <Gift className="w-4 h-4 text-amber-400" />
+        {/* CARD 3: DAILY PROGRESSIVE JACKPOT */}
+        <div className="bg-slate-900/90 border-2 border-amber-500/40 p-5 rounded-3xl shadow-xl space-y-4 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-amber-500/20 rounded-xl text-amber-400">
+                  <Gift className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight">3. Daily Jackpot</h3>
+                  <span className="text-[10px] text-amber-400 font-mono">Draw: Midnight UTC</span>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] font-mono font-bold text-amber-400 uppercase">TIER 3: DUAL-ENGINE JACKPOT</span>
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                  $100+ Progressive Pot
-                </h3>
+              <span className="text-[10px] bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded-full font-mono font-bold">
+                $100+ POT
+              </span>
+            </div>
+
+            <div className="bg-slate-950/90 border border-slate-800 p-4 rounded-2xl">
+              <div className="text-2xl font-black text-amber-400 font-mono">
+                ${(100.00 + (viewerPoints * 0.05)).toFixed(2)} <span className="text-xs text-slate-400 font-normal font-sans">Live Pot</span>
               </div>
-            </div>
-            <span className="text-[10px] bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full font-mono font-bold flex items-center gap-1">
-              <Flame className="w-3 h-3 text-amber-400 animate-pulse" />
-              +5% PER BID
-            </span>
-          </div>
-
-          {/* Progressive Jackpot Value */}
-          <div className="space-y-1">
-            <div className="text-3xl font-black text-amber-400 font-mono tracking-tight flex items-baseline gap-2">
-              <span>${(100.00 + (viewerPoints * 0.05)).toFixed(2)}</span>
-              <span className="text-xs text-slate-400 font-sans font-normal">USD Live Pot</span>
-            </div>
-            <p className="text-[11px] text-slate-300">
-              $100 Base Sponsor Pot + 5% dynamically added from all live global bids.
-            </p>
-          </div>
-
-          <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 space-y-1.5 text-xs">
-            <div className="flex justify-between items-center text-[11px] font-mono">
-              <span className="text-slate-400">Current Top Bid:</span>
-              <span className="text-emerald-400 font-bold">${((slotData?.winningAd?.bidAmountCents || 100) / 100).toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-mono">
-              <span className="text-slate-400">Your Gold Tickets:</span>
-              <span className="text-amber-400 font-bold">🎟️ {userGoldTickets} Tickets</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-mono border-t border-slate-800 pt-1.5">
-              <span className="text-slate-400">Daily Draw Time:</span>
-              <span className="text-white font-bold">Midnight UTC</span>
+              <p className="text-xs text-slate-400 mt-1">
+                Your Tickets: <strong className="text-amber-300 font-mono">🎟️ {userGoldTickets} Tickets</strong> (5% of all live bids added to pot).
+              </p>
             </div>
           </div>
 
@@ -547,13 +477,13 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
               setUserGoldTickets((prev) => prev + 1);
               onPointsEarned(25);
               soundEffects.playKaChing();
-              setCashoutMsg('🎟️ Claimed +1 Gold Ticket (+25 Attention Points)!');
+              setCashoutMsg('🎟️ Claimed +1 Free Jackpot Ticket (+25 Points)!');
               setTimeout(() => setCashoutMsg(null), 3000);
             }}
-            className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Ticket className="w-4 h-4 fill-slate-950" />
-            <span>Claim +1 Gold Ticket (Attention Check)</span>
+            <span>Claim +1 Daily Ticket (+25 Pts)</span>
           </button>
         </div>
       </div>
