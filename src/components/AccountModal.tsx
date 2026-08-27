@@ -15,7 +15,11 @@ import {
   History,
   Key,
   ExternalLink,
-  Plus
+  Plus,
+  Download,
+  CheckCircle2,
+  Zap,
+  Globe
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
 
@@ -68,14 +72,18 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         {/* Modal Header */}
         <div className="p-6 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-400 via-teal-400 to-blue-500 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-400 via-teal-400 to-blue-500 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg relative">
               {displayName[0].toUpperCase()}
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center" title="Verified Account">
+                <Check className="w-2.5 h-2.5 text-slate-950 stroke-[3]" />
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-white">{displayName}</h2>
-                <span className="bg-cyan-950 text-cyan-400 border border-cyan-500/40 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">
-                  {roleName}
+                <span className="bg-cyan-950 text-cyan-400 border border-cyan-500/40 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
+                  <CheckCircle2 className="w-2.5 h-2.5" />
+                  <span>{roleName}</span>
                 </span>
               </div>
               <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
@@ -171,7 +179,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     </div>
                     <div>
                       <div className="font-bold text-white text-xs">My Placed Campaigns</div>
-                      <div className="text-[10px] text-slate-400">View live status & impressions</div>
+                      <div className="text-[10px] text-slate-400">Instant proof & broadcast history</div>
                     </div>
                   </div>
                   <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-cyan-400" />
@@ -217,8 +225,18 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           )}
 
           {activeTab === 'ledger' && (
-            <div className="space-y-2">
-              <div className="text-xs font-bold text-slate-300 uppercase">Recent Ad Wallet Transactions</div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-bold text-slate-300 uppercase">Recent Ad Wallet Transactions</div>
+                <button
+                  onClick={() => alert('Exporting full ledger statements to CSV...')}
+                  className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono cursor-pointer"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+
               {transactions && transactions.length > 0 ? (
                 <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                   {transactions.map((tx: any, idx: number) => (

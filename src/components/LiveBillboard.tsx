@@ -520,110 +520,69 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   const currentTopDollars = (currentTopCents / 100).toFixed(2);
 
   return (
-    <div className={`space-y-6 ${fullscreen ? 'fixed inset-0 z-50 bg-slate-950 p-4 sm:p-8 overflow-y-auto' : ''}`}>
-      {/* High-Impact Hero Value Pitch */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/80 to-slate-900 border border-cyan-500/40 p-6 sm:p-7 rounded-3xl shadow-2xl space-y-3.5 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-cyan-400 font-mono text-xs font-black uppercase tracking-wider flex items-center gap-1.5 bg-cyan-950/70 border border-cyan-500/40 px-3 py-1 rounded-full">
-              <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse fill-amber-400" />
-              World's First 24/7 Virtual Billboard
-            </span>
-            <span className="text-[11px] font-mono text-slate-400 hidden md:inline">
-              • Infinite Screen Network • 200+ Countries & Space
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 text-xs font-black px-3 py-1 rounded-full uppercase shadow-md flex items-center gap-1">
-              <span>🎁 1 Free 15s Slot Credit</span>
-            </span>
-            <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase font-mono">
-              No Card Needed
-            </span>
-          </div>
+    <div className={`space-y-4 ${fullscreen ? 'fixed inset-0 z-50 bg-slate-950 p-4 sm:p-6 overflow-y-auto' : ''}`}>
+      {/* Sleek Compact Header Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-900/90 border border-slate-800/90 px-3.5 sm:px-5 py-2 rounded-2xl shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-cyan-400 font-mono text-xs font-black uppercase tracking-wider flex items-center gap-1.5 bg-cyan-950/80 border border-cyan-500/40 px-2.5 py-0.5 rounded-xl">
+            <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse fill-amber-400" />
+            24/7 Global Screen Network
+          </span>
+          <span className="text-[11px] font-mono text-slate-300 hidden md:inline">
+            • 200+ Cities • 15s Guaranteed Airtime
+          </span>
         </div>
 
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
-          Take Over the 24/7 Virtual Billboard in {currentCityConfig.flagEmoji} {currentCityConfig.cityName}. <br className="hidden sm:inline" />
-          <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-amber-300 bg-clip-text text-transparent">
-            Broadcast 15-Second Live Ad Takeovers Across 200+ Global City Feeds.
+        <div className="flex items-center gap-2">
+          <span className="bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full uppercase shadow-md flex items-center gap-1">
+            <span>🎁 $1.00 Free Starter Slot</span>
           </span>
-        </h1>
-
-        <p className="text-xs sm:text-sm text-slate-300 font-sans leading-relaxed max-w-3xl">
-          Broadcast your brand, project, or custom message to live global stream viewers in real-time. Outbid competitors in sub-second RTB auctions or watch 24/7 streams to earn cash rewards.
-        </p>
-
-        {/* Viral Celebrity & Streamer Live Billboard Banner */}
-        {onOpenClaimModal && (
-          <div className="pt-2">
-            <div className="bg-slate-950/90 border border-purple-500/50 p-3.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-tr from-purple-500 to-indigo-600 rounded-xl text-white shadow-md shrink-0">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-white text-xs">Are you a Creator, Streamer or Celebrity?</span>
-                    <span className="text-[9px] bg-purple-950 text-purple-300 border border-purple-800 px-2 py-0.5 rounded-full font-mono font-bold">
-                      80% PAYOUT
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Claim your handle (e.g. <code>livebillboards.lol/@yourname</code>) to monetize your live stream broadcasts with zero setup.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={onOpenClaimModal}
-                className="px-3.5 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-black text-xs rounded-xl transition-all shadow-md shrink-0 flex items-center gap-1.5 cursor-pointer self-end sm:self-auto"
-              >
-                <span>Claim Your @Handle</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        )}
+          {onOpenClaimModal && (
+            <button
+              onClick={onOpenClaimModal}
+              className="text-[10px] sm:text-xs font-bold text-purple-300 hover:text-white bg-purple-950/70 border border-purple-500/40 px-2.5 py-0.5 rounded-xl transition cursor-pointer flex items-center gap-1"
+            >
+              <Sparkles className="w-3 h-3 text-purple-400" />
+              <span>Claim Handle (80% Payout)</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Smart City Overlay (Weather, Traffic Flow, News Headlines) */}
-      <SmartOverlay cityCode={selectedCity} cityName={currentCityConfig.cityName} />
-
-      {/* Broadcast Anticipation & Live Spotlight Banner */}
+      {/* Broadcast Anticipation & Live Spotlight Banner (Sticky Camera Preparation) */}
       <div ref={billboardScreenRef}>
         {userBroadcast && (
-          <div className="mb-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="animate-in fade-in zoom-in-95 duration-200">
             {!userBroadcast.isLive ? (
-              <div className="bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-amber-500/25 border-2 border-amber-400/90 p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_35px_rgba(251,191,36,0.35)]">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-mono font-black text-xl shadow-lg animate-pulse shrink-0">
+              <div className="bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-amber-500/25 border-2 border-amber-400 p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_0_35px_rgba(251,191,36,0.35)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-mono font-black text-lg shadow-lg animate-pulse shrink-0">
                     {userBroadcast.prepSeconds}s
                   </div>
                   <div>
                     <div className="text-amber-300 font-bold text-xs uppercase tracking-wider font-mono flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                      <span>🚀 GET READY! Your Ad is Up Next</span>
+                      <span>🎬 UP NEXT IN QUEUE • GET CAMERA READY!</span>
                     </div>
-                    <div className="text-white font-black text-sm sm:text-base line-clamp-1">
-                      "{userBroadcast.title}" broadcasts across {currentCityConfig.cityName} in {userBroadcast.prepSeconds}s
+                    <div className="text-white font-black text-sm line-clamp-1">
+                      "{userBroadcast.title}" airs on {currentCityConfig.cityName} screen in {userBroadcast.prepSeconds}s
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
-                  <span className="text-xs font-mono bg-amber-950/90 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm">
-                    <span>📸 Camera Ready</span>
-                  </span>
+                  <button
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="text-xs font-mono bg-amber-950 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm hover:bg-amber-900 transition cursor-pointer"
+                  >
+                    <span>📸 Open Proof & Share</span>
+                  </button>
                 </div>
               </div>
             ) : (
-              <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 border-2 border-emerald-300 p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 text-white shadow-[0_0_45px_rgba(16,185,129,0.55)]">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-white text-emerald-950 flex items-center justify-center font-mono font-black text-xl shadow-lg shrink-0">
+              <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 border-2 border-emerald-300 p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-white shadow-[0_0_45px_rgba(16,185,129,0.55)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-white text-emerald-950 flex items-center justify-center font-mono font-black text-lg shadow-lg shrink-0">
                     {userBroadcast.liveSecondsLeft}s
                   </div>
                   <div>
@@ -631,306 +590,294 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                       <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                       <span>🔴 YOUR AD IS BROADCASTING LIVE NOW</span>
                     </div>
-                    <div className="text-base sm:text-lg font-black text-white line-clamp-1">
+                    <div className="text-sm sm:text-base font-black text-white line-clamp-1">
                       "{userBroadcast.title}" is Live on Billboard!
                     </div>
                   </div>
                 </div>
 
-                <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`I just took over the 24/7 Global Virtual Billboard in ${selectedCity}! Check it out live: https://www.livebillboards.lol/?city=${selectedCity} 🔥 #VirtualBillboard #LiveTakeover`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2.5 bg-white text-slate-950 hover:bg-slate-100 font-black text-xs rounded-xl shadow-xl flex items-center gap-2 transition-all transform hover:scale-105 shrink-0"
-                >
-                  <Camera className="w-4 h-4 text-purple-600" />
-                  <span>Share Live Flex to 𝕏</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
-                </a>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="px-3 py-1.5 bg-white text-slate-950 hover:bg-slate-100 font-black text-xs rounded-xl shadow-xl flex items-center gap-1.5 transition-all transform hover:scale-105 shrink-0 cursor-pointer"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-purple-600" />
+                    <span>📸 Share Live Proof</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Real-Life Physical Billboard Display Wrapped in Landmark Frame */}
-      <LandmarkFrame cityCode={selectedCity} cityName={currentCityConfig.cityName}>
-        {/* Physical Billboard Metal Bezel Frame */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border-b border-slate-800/80 px-3 sm:px-5 py-2 flex items-center justify-between text-xs font-sans gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            {/* Interactive Dynamic City Switcher & Search Bar (200+ Countries) */}
-            <div className="relative">
-              <button
-                onClick={() => setShowCityPickerDropdown(!showCityPickerDropdown)}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-950 hover:bg-slate-850 border border-cyan-500/50 hover:border-cyan-400 rounded-xl text-xs font-mono font-bold text-white transition-all cursor-pointer shadow-sm group"
-                title="Click to Switch City Feed or Search Any City in 200+ Countries"
-              >
-                <span className="text-base">{currentCityConfig.flagEmoji}</span>
-                <span className="text-cyan-300 font-extrabold">{currentCityConfig.cityName}</span>
-                <span className="text-[10px] text-slate-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 hidden xs:inline">
-                  [{selectedCity}]
-                </span>
-                <ChevronDown className={`w-3.5 h-3.5 text-cyan-400 transition-transform ${showCityPickerDropdown ? 'rotate-180' : ''}`} />
-              </button>
+      {/* MASTER COCKPIT SPLIT GRID: Live Screen (Left) + Fast Bidding & Live Mockup (Right) */}
+      <div className="grid lg:grid-cols-12 gap-5 items-start">
+        {/* LEFT COLUMN: Physical Billboard Display + Telemetry + Queue Ticker (lg:col-span-7) */}
+        <div className="lg:col-span-7 space-y-3.5">
+          {/* Real-Life Physical Billboard Display Wrapped in Landmark Frame */}
+          <LandmarkFrame cityCode={selectedCity} cityName={currentCityConfig.cityName}>
+            {/* Physical Billboard Metal Bezel Frame */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border-b border-slate-800/80 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-sans gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                {/* Interactive Dynamic City Switcher & Search Bar */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowCityPickerDropdown(!showCityPickerDropdown)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-950 hover:bg-slate-850 border border-cyan-500/50 hover:border-cyan-400 rounded-xl text-xs font-mono font-bold text-white transition-all cursor-pointer shadow-sm group"
+                    title="Click to Switch City Feed or Search Any City in 200+ Countries"
+                  >
+                    <span className="text-base">{currentCityConfig.flagEmoji}</span>
+                    <span className="text-cyan-300 font-extrabold">{currentCityConfig.cityName}</span>
+                    <span className="text-[10px] text-slate-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 hidden xs:inline">
+                      [{selectedCity}]
+                    </span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-cyan-400 transition-transform ${showCityPickerDropdown ? 'rotate-180' : ''}`} />
+                  </button>
 
-              {showCityPickerDropdown && (
-                <div className="absolute left-0 mt-2 w-72 bg-slate-900 border border-cyan-500/40 rounded-2xl shadow-2xl p-3 z-50 space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
-                  {/* Instant Search Any City (200+ Countries) */}
-                  <form onSubmit={handleCustomCitySearch} className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-cyan-400" />
-                    <input
-                      type="text"
-                      value={citySearchTerm}
-                      onChange={(e) => setCitySearchTerm(e.target.value)}
-                      placeholder="Search any city or country..."
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono focus:outline-none focus:border-cyan-400"
-                      autoFocus
-                    />
-                  </form>
+                  {showCityPickerDropdown && (
+                    <div className="absolute left-0 mt-2 w-72 bg-slate-900 border border-cyan-500/40 rounded-2xl shadow-2xl p-3 z-50 space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
+                      <form onSubmit={handleCustomCitySearch} className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-cyan-400" />
+                        <input
+                          type="text"
+                          value={citySearchTerm}
+                          onChange={(e) => setCitySearchTerm(e.target.value)}
+                          placeholder="Search any city or country..."
+                          className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono focus:outline-none focus:border-cyan-400"
+                          autoFocus
+                        />
+                      </form>
 
-                  {/* Quick Pick Popular Global Hubs */}
-                  <div className="space-y-1 max-h-56 overflow-y-auto scrollbar-thin">
-                    <div className="text-[9px] uppercase font-mono font-bold text-slate-400 px-2 py-0.5">
-                      Featured Global Hubs
+                      <div className="space-y-1 max-h-56 overflow-y-auto scrollbar-thin">
+                        <div className="text-[9px] uppercase font-mono font-bold text-slate-400 px-2 py-0.5">
+                          Featured Global Hubs
+                        </div>
+                        {cities.slice(0, 12).map((city) => (
+                          <button
+                            key={city.cityCode}
+                            onClick={() => {
+                              onCityChange(city.cityCode, city.countryCode);
+                              setShowCityPickerDropdown(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
+                              selectedCity.toUpperCase() === city.cityCode.toUpperCase()
+                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <span>{city.flagEmoji}</span>
+                              <span>{city.cityName}</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">[{city.cityCode}]</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    {cities.slice(0, 12).map((city) => (
-                      <button
-                        key={city.cityCode}
-                        onClick={() => {
-                          onCityChange(city.cityCode, city.countryCode);
-                          setShowCityPickerDropdown(false);
-                        }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
-                          selectedCity.toUpperCase() === city.cityCode.toUpperCase()
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span>{city.flagEmoji}</span>
-                          <span>{city.cityName}</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-500">[{city.cityCode}]</span>
-                      </button>
-                    ))}
+                  )}
+                </div>
+
+                {/* Live City Telemetry HUD */}
+                <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
+                  {cityTelemetry && (
+                    <span className="bg-slate-950/90 text-cyan-300 border border-slate-800 px-2 py-0.5 rounded-lg hidden sm:inline">
+                      {cityTelemetry.condition} {cityTelemetry.tempC}°C
+                    </span>
+                  )}
+                  <span className="text-amber-300 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800 hidden md:inline">
+                    🕒 {cityLocalTime}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="px-2 sm:px-2.5 py-1 bg-gradient-to-r from-purple-500/30 to-indigo-500/30 hover:from-purple-500/40 hover:to-indigo-500/40 border border-purple-500/40 text-purple-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                  title="Share Live Ad Takeover Proof"
+                >
+                  <Camera className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="hidden sm:inline">📸 Proof</span>
+                </button>
+
+                <button
+                  onClick={handleCopyLiveLink}
+                  className="px-2 sm:px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                  title="Copy shareable live billboard link"
+                >
+                  {copiedLink ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5 text-cyan-400" />}
+                  <span className="hidden sm:inline">{copiedLink ? 'Copied!' : 'Link'}</span>
+                </button>
+
+                <button
+                  onClick={() => setFullscreen(!fullscreen)}
+                  className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-all cursor-pointer"
+                  title="Full Screen View"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* 15-Second Progress Bar */}
+            <div className="w-full bg-slate-900 h-1.5">
+              <div
+                className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 h-1.5 transition-all duration-1000 ease-linear"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+
+            {/* Real Billboard High-Res Canvas */}
+            <div className="relative aspect-video max-h-[300px] sm:max-h-[460px] w-full bg-slate-950 flex items-center justify-center overflow-hidden group">
+              {glassGlare && (
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none z-10" />
+              )}
+
+              {winningAd.imageUrl && !imageError ? (
+                (winningAd as any).mediaType === 'video' || winningAd.imageUrl.startsWith('data:video/') || winningAd.imageUrl.toLowerCase().includes('.mp4') ? (
+                  <video
+                    src={winningAd.imageUrl}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                  />
+                ) : (
+                  <img
+                    src={winningAd.imageUrl}
+                    alt={winningAd.title}
+                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                    onError={() => setImageError(true)}
+                  />
+                )
+              ) : (
+                <div className="relative w-full h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-500/15 via-transparent to-transparent pointer-events-none" />
+                  <div className="relative z-10 space-y-2 max-w-lg">
+                    <span className="inline-flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono px-3 py-0.5 rounded-full uppercase tracking-wider font-bold shadow-lg">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      {winningAd.advertiserName || 'Virtual Billboard Broadcast'}
+                    </span>
+                    <h3 className="text-base sm:text-lg font-black text-white leading-tight drop-shadow-md">
+                      {winningAd.title}
+                    </h3>
+                    <p className="text-[11px] text-slate-300 font-mono tracking-wide">
+                      🔴 Live 24/7 Global Screen Takeover
+                    </p>
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Live City Telemetry HUD (Weather, Temp & Time) */}
-            <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
-              {cityTelemetry && (
-                <span className="bg-slate-950/90 text-cyan-300 border border-slate-800 px-2 py-0.5 rounded-lg hidden sm:inline">
-                  {cityTelemetry.condition} {cityTelemetry.tempC}°C
-                </span>
-              )}
-              <span className="text-amber-300 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800 hidden md:inline">
-                🕒 {cityLocalTime}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              onClick={() => setIsShareModalOpen(true)}
-              className="px-2 sm:px-2.5 py-1 bg-gradient-to-r from-purple-500/30 to-indigo-500/30 hover:from-purple-500/40 hover:to-indigo-500/40 border border-purple-500/40 text-purple-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
-              title="Share Live Ad Takeover Proof"
-            >
-              <Camera className="w-3.5 h-3.5 text-purple-400" />
-              <span className="hidden sm:inline">📸 Proof</span>
-            </button>
-
-            <button
-              onClick={handleCopyLiveLink}
-              className="px-2 sm:px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
-              title="Copy shareable live billboard link"
-            >
-              {copiedLink ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5 text-cyan-400" />}
-              <span className="hidden sm:inline">{copiedLink ? 'Copied!' : 'Link'}</span>
-            </button>
-
-            <button
-              onClick={() => setFullscreen(!fullscreen)}
-              className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-all"
-              title="Full Screen View"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* 15-Second Progress Bar */}
-        <div className="w-full bg-slate-900 h-1.5">
-          <div
-            className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 h-1.5 transition-all duration-1000 ease-linear"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-
-        {/* Real Billboard High-Res Canvas */}
-        <div className="relative aspect-video max-h-[320px] sm:max-h-[500px] w-full bg-slate-950 flex items-center justify-center overflow-hidden group">
-          {/* Glass Glare Overlay Shader */}
-          {glassGlare && (
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none z-10" />
-          )}
-
-          {winningAd.imageUrl && !imageError ? (
-            (winningAd as any).mediaType === 'video' || winningAd.imageUrl.startsWith('data:video/') || winningAd.imageUrl.toLowerCase().includes('.mp4') ? (
-              <video
-                src={winningAd.imageUrl}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-              />
-            ) : (
-              <img
-                src={winningAd.imageUrl}
-                alt={winningAd.title}
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                onError={() => setImageError(true)}
-              />
-            )
-          ) : (
-            <div className="relative w-full h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-500/15 via-transparent to-transparent pointer-events-none" />
-              <div className="relative z-10 space-y-2 max-w-lg">
-                <span className="inline-flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono px-3 py-0.5 rounded-full uppercase tracking-wider font-bold shadow-lg">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
-                  {winningAd.advertiserName || 'Virtual Billboard Broadcast'}
-                </span>
-                <h3 className="text-lg sm:text-xl font-black text-white leading-tight drop-shadow-md">
-                  {winningAd.title}
-                </h3>
-                <p className="text-[11px] text-slate-300 font-mono tracking-wide">
-                  🔴 Live 24/7 Global Screen Takeover
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Top Floating Badge - Countdown Timer & Watcher Points */}
-          <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-20 pointer-events-none">
-            <div className="bg-slate-950/90 backdrop-blur-md border border-slate-800/80 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-[10px] font-mono shadow-xl pointer-events-auto">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-              <span className="font-black text-white text-xs">{remainingSeconds}s Left</span>
-            </div>
-
-            {(userRole === 'paid_watcher' || userRole === 'admin') ? (
-              <div className="bg-slate-950/90 backdrop-blur-md border border-amber-500/40 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-[10px] font-mono shadow-xl pointer-events-auto">
-                <Award className="w-3 h-3 text-amber-400" />
-                <span className="text-slate-300 hidden xs:inline">Watcher:</span>
-                <span className="text-amber-400 font-black">{viewerPoints} pts</span>
-              </div>
-            ) : (
-              <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/30 px-2 py-1 rounded-xl flex items-center gap-1 text-[10px] font-mono shadow-xl pointer-events-auto text-cyan-300">
-                <Eye className="w-3 h-3 text-cyan-400" />
-                <span className="font-bold text-[9px] tracking-wider uppercase">LIVE SCREEN</span>
-              </div>
-            )}
-          </div>
-
-          {/* Bottom Floating Banner - Advertiser Title & CTA */}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 via-slate-950/70 to-transparent p-2.5 sm:p-4 flex items-end justify-between gap-2 z-20">
-            <div className="max-w-xl space-y-1">
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className="bg-slate-900/95 text-cyan-300 border border-cyan-500/40 px-1.5 py-0.5 rounded text-[8px] sm:text-[10px] font-mono font-bold shadow-md">
-                  {winningAd.advertiserName}
-                </span>
-              </div>
-
-              <h2 className="text-xs sm:text-base font-black text-white tracking-tight drop-shadow-md leading-snug line-clamp-1">
-                {winningAd.title}
-              </h2>
-
-              {/* Single CTA Button Overlay */}
-              {((winningAd as any).ctaType !== 'none') && (
-                <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
-                  {((winningAd as any).ctaType === 'whatsapp' || (!(winningAd as any).ctaType && !(winningAd as any).landingPageUrl && (winningAd as any).whatsappLink)) ? (
-                    <a
-                      href={(winningAd as any).ctaUrl || ((winningAd as any).whatsappLink?.startsWith('http') ? (winningAd as any).whatsappLink : `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}`)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md"
-                    >
-                      <MessageSquare className="w-3 h-3 fill-current" />
-                      <span>WhatsApp</span>
-                      <span className="text-[8px]">↗</span>
-                    </a>
-                  ) : ((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl) ? (
-                    <a
-                      href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md font-mono"
-                    >
-                      <Globe className="w-3 h-3" />
-                      <span>{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
-                      <span className="text-[8px]">↗</span>
-                    </a>
-                  ) : null}
+              {/* Top Floating Badge - Countdown Timer */}
+              <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-20 pointer-events-none">
+                <div className="bg-slate-950/90 backdrop-blur-md border border-slate-800/80 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-[10px] font-mono shadow-xl pointer-events-auto">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                  <span className="font-black text-white text-xs">{remainingSeconds}s Left</span>
                 </div>
-              )}
-            </div>
 
-            <div className="flex items-center gap-2">
-              {/* Active Winning Bid Block */}
-              <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/40 px-3 py-1.5 rounded-xl text-right shadow-xl shrink-0">
-                <div className="text-[8px] text-slate-400 uppercase tracking-wider font-extrabold">Active Bid</div>
-                <div className="text-sm sm:text-base font-black text-cyan-400 font-mono">
-                  ${(winningAd.bidAmountCents / 100).toFixed(2)}
-                  <span className="text-[9px] font-normal text-slate-400">/15s</span>
+                <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/30 px-2 py-1 rounded-xl flex items-center gap-1 text-[10px] font-mono shadow-xl pointer-events-auto text-cyan-300">
+                  <Eye className="w-3 h-3 text-cyan-400" />
+                  <span className="font-bold text-[9px] tracking-wider uppercase">LIVE SCREEN</span>
+                </div>
+              </div>
+
+              {/* Bottom Floating Banner - Advertiser Title & CTA */}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 via-slate-950/70 to-transparent p-2.5 sm:p-4 flex items-end justify-between gap-2 z-20">
+                <div className="max-w-xl space-y-1">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="bg-slate-900/95 text-cyan-300 border border-cyan-500/40 px-1.5 py-0.5 rounded text-[8px] sm:text-[10px] font-mono font-bold shadow-md">
+                      {winningAd.advertiserName}
+                    </span>
+                  </div>
+
+                  <h2 className="text-xs sm:text-sm font-black text-white tracking-tight drop-shadow-md leading-snug line-clamp-1">
+                    {winningAd.title}
+                  </h2>
+
+                  {/* Single CTA Button Overlay */}
+                  {((winningAd as any).ctaType !== 'none') && (
+                    <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                      {((winningAd as any).ctaType === 'whatsapp' || (!(winningAd as any).ctaType && !(winningAd as any).landingPageUrl && (winningAd as any).whatsappLink)) ? (
+                        <a
+                          href={(winningAd as any).ctaUrl || ((winningAd as any).whatsappLink?.startsWith('http') ? (winningAd as any).whatsappLink : `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md"
+                        >
+                          <MessageSquare className="w-3 h-3 fill-current" />
+                          <span>WhatsApp</span>
+                          <span className="text-[8px]">↗</span>
+                        </a>
+                      ) : ((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl) ? (
+                        <a
+                          href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md font-mono"
+                        >
+                          <Globe className="w-3 h-3" />
+                          <span>{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
+                          <span className="text-[8px]">↗</span>
+                        </a>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/40 px-3 py-1.5 rounded-xl text-right shadow-xl shrink-0">
+                    <div className="text-[8px] text-slate-400 uppercase tracking-wider font-extrabold">Active Bid</div>
+                    <div className="text-sm sm:text-base font-black text-cyan-400 font-mono">
+                      ${(winningAd.bidAmountCents / 100).toFixed(2)}
+                      <span className="text-[9px] font-normal text-slate-400">/15s</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Real-Life Physical Frame Base */}
-        <div className="bg-slate-900 border-t border-slate-800/80 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] font-sans text-slate-400">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 text-slate-300 font-semibold">
-              <MapPin className="w-3 h-3 text-cyan-400" />
-              Feed: <strong className="text-white">{currentCityConfig.cityName}</strong>
-            </span>
-            <span className="text-emerald-400 font-mono text-[10px] font-bold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>RTB Active</span>
-            </span>
-          </div>
+            {/* Real-Life Physical Frame Base */}
+            <div className="bg-slate-900 border-t border-slate-800/80 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] font-sans text-slate-400">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 text-slate-300 font-semibold">
+                  <MapPin className="w-3 h-3 text-cyan-400" />
+                  Feed: <strong className="text-white">{currentCityConfig.cityName}</strong>
+                </span>
+                <span className="text-emerald-400 font-mono text-[10px] font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>RTB Active</span>
+                </span>
+              </div>
 
-          <div className="text-slate-500 text-[10px] font-mono">
-            Slot: <strong className="text-slate-300">{slotData.slotId}</strong>
-          </div>
-        </div>
-      </LandmarkFrame>
-
-      {/* Live Crisis / Emergency Weather Alerts Banner (if active in this city zone) */}
-      {cityTelemetry?.activeAlert && (
-        <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 shadow-lg animate-in fade-in duration-200 ${
-          cityTelemetry.activeAlert.severity === 'critical'
-            ? 'bg-red-950/85 border-red-500/60 text-red-200'
-            : 'bg-amber-950/85 border-amber-500/60 text-amber-200'
-        }`}>
-          <div className="flex items-center gap-2.5">
-            <div className="px-2 py-0.5 bg-red-600 text-white font-mono font-black text-[9px] rounded-md shrink-0 animate-pulse">
-              {cityTelemetry.activeAlert.badge}
+              <div className="text-slate-500 text-[10px] font-mono">
+                Slot: <strong className="text-slate-300">{slotData.slotId}</strong>
+              </div>
             </div>
-            <div>
-              <div className="font-bold text-xs text-white">{cityTelemetry.activeAlert.headline}</div>
-              <p className="text-[11px] text-slate-300 line-clamp-1">{cityTelemetry.activeAlert.description}</p>
-            </div>
-          </div>
-          <span className="text-[10px] font-mono text-slate-400 shrink-0 hidden sm:inline">Official Municipal Feed</span>
-        </div>
-      )}
+          </LandmarkFrame>
 
-      {/* Cockpit Grid: Split View for Desktop (Live Screen on Left, Fast Bidding & Mockup on Right) */}
-      <div className="xl:grid xl:grid-cols-12 xl:gap-5 xl:items-start space-y-4 xl:space-y-0">
-        {/* Left Column (Stats & Token Burn Ticker) */}
-        <div className="xl:col-span-6 space-y-3">
+          {/* Live Crisis / Emergency Weather Alerts Banner */}
+          {cityTelemetry?.activeAlert && (
+            <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 shadow-lg animate-in fade-in duration-200 ${
+              cityTelemetry.activeAlert.severity === 'critical'
+                ? 'bg-red-950/85 border-red-500/60 text-red-200'
+                : 'bg-amber-950/85 border-amber-500/60 text-amber-200'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <div className="px-2 py-0.5 bg-red-600 text-white font-mono font-black text-[9px] rounded-md shrink-0 animate-pulse">
+                  {cityTelemetry.activeAlert.badge}
+                </div>
+                <div>
+                  <div className="font-bold text-xs text-white">{cityTelemetry.activeAlert.headline}</div>
+                  <p className="text-[11px] text-slate-300 line-clamp-1">{cityTelemetry.activeAlert.description}</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono text-slate-400 shrink-0 hidden sm:inline">Municipal Feed</span>
+            </div>
+          )}
+
+          {/* Live Slot Token Burn Ticker */}
           <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-md">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-400 animate-pulse shrink-0">
@@ -958,8 +905,8 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Fast Bidding Console with Templates & Live Creative Preview */}
-        <div className="xl:col-span-6">
+        {/* RIGHT COLUMN: Fast Bidding Console with Live 16:9 Mockup Card (lg:col-span-5) */}
+        <div className="lg:col-span-5">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/30 border border-slate-800 p-4 sm:p-5 rounded-3xl space-y-3.5 shadow-xl">
             {/* Header & Wallet */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
@@ -1028,7 +975,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
             </div>
 
             {biddingTab === 'future' && (
-              <div className="p-3 bg-purple-950/40 border border-purple-500/40 rounded-2xl space-y-2">
+              <div className="p-3 bg-purple-950/40 border border-purple-500/40 rounded-2xl space-y-2 animate-in fade-in duration-150">
                 <div className="text-[11px] font-bold text-purple-300 flex items-center gap-1">
                   <span>📅 Select Guaranteed Broadcast Date & Time:</span>
                 </div>
@@ -1118,7 +1065,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                   <button
                     type="button"
                     onClick={() => setBidCtaType('website')}
-                    className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition-all ${
+                    className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
                       bidCtaType === 'website'
                         ? 'bg-cyan-950 border-cyan-500 text-cyan-300'
                         : 'bg-slate-900 border-slate-800 text-slate-400'
@@ -1130,7 +1077,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                   <button
                     type="button"
                     onClick={() => setBidCtaType('whatsapp')}
-                    className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition-all ${
+                    className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
                       bidCtaType === 'whatsapp'
                         ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
                         : 'bg-slate-900 border-slate-800 text-slate-400'
@@ -1145,7 +1092,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                       setBidCtaType('none');
                       setBidCtaUrl('');
                     }}
-                    className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition-all ${
+                    className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
                       bidCtaType === 'none'
                         ? 'bg-slate-800 border-slate-600 text-white'
                         : 'bg-slate-900 border-slate-800 text-slate-400'
@@ -1167,9 +1114,67 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 )}
               </div>
 
-              {/* Compact Creative File Upload & Live Preview Card */}
+              {/* LIVE INTERACTIVE BILLBOARD MOCKUP PREVIEW CARD */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-cyan-400" />
+                    <span>Live Screen Mockup Preview</span>
+                  </span>
+                  <span className="text-[9px] font-mono text-cyan-400 bg-cyan-950 px-2 py-0.2 rounded border border-cyan-800">
+                    16:9 Billboard
+                  </span>
+                </div>
+
+                {/* Mockup Billboard Bezel */}
+                <div className="relative aspect-video rounded-xl bg-slate-950 border border-cyan-500/40 overflow-hidden shadow-inner flex items-center justify-center group">
+                  {bidImageUrl ? (
+                    bidMediaType === 'video' || bidImageUrl.startsWith('data:video/') || bidImageUrl.toLowerCase().includes('.mp4') ? (
+                      <video
+                        src={bidImageUrl}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={bidImageUrl}
+                        alt="Creative Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    )
+                  ) : (
+                    <div className="text-center p-4 space-y-1">
+                      <FileImage className="w-8 h-8 text-cyan-500/50 mx-auto" />
+                      <p className="text-[11px] font-bold text-slate-300">No Creative Selected</p>
+                      <p className="text-[9px] text-slate-500">Pick a 1-click template above or upload your image/video</p>
+                    </div>
+                  )}
+
+                  {/* Overlaid Headline & CTA (matching real billboard display) */}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 via-slate-950/70 to-transparent p-2.5 flex items-end justify-between gap-2 pointer-events-none">
+                    <div className="min-w-0">
+                      <div className="text-[8px] font-mono font-bold text-cyan-300 uppercase truncate">
+                        {currentUser?.displayName || 'Your Brand'} • [{selectedCity}]
+                      </div>
+                      <div className="text-xs font-black text-white truncate max-w-[200px]">
+                        {bidTitle || 'Your Ad Headline Appears Here'}
+                      </div>
+                    </div>
+                    {bidCtaType !== 'none' && (
+                      <span className="px-2 py-0.5 bg-cyan-500 text-slate-950 font-bold text-[9px] rounded font-mono shrink-0">
+                        {bidCtaType === 'whatsapp' ? 'WhatsApp' : 'Website'} ↗
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Dropzone / Change File */}
               {!bidImageUrl ? (
-                <label className="flex items-center justify-center gap-3 p-3.5 border-2 border-dashed border-cyan-500/40 hover:border-cyan-400 bg-slate-950/80 rounded-2xl cursor-pointer hover:bg-slate-900/60 transition group">
+                <label className="flex items-center justify-center gap-3 p-3 border-2 border-dashed border-cyan-500/40 hover:border-cyan-400 bg-slate-950/80 rounded-2xl cursor-pointer hover:bg-slate-900/60 transition group">
                   <input
                     type="file"
                     accept="image/png, image/jpeg, image/webp, video/mp4, video/webm"
@@ -1182,59 +1187,26 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                   </div>
                   <div>
                     <p className="text-xs font-bold text-white flex items-center gap-1">
-                      <span>Upload Creative (Image / MP4)</span>
+                      <span>Upload Custom File (Image / MP4)</span>
                       <span className="text-cyan-400 text-[10px]">*Required</span>
                     </p>
                     <p className="text-[10px] text-slate-400">16:9 Billboard Format (15s rotation)</p>
                   </div>
                 </label>
               ) : (
-                <div className="bg-slate-950 p-2.5 rounded-2xl border border-cyan-500/40 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {bidMediaType === 'video' || bidImageUrl.startsWith('data:video/') || bidImageUrl.toLowerCase().includes('.mp4') ? (
-                        <video
-                          src={bidImageUrl}
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
-                          className="w-16 h-10 object-cover rounded-lg border border-slate-700 shrink-0"
-                        />
-                      ) : (
-                        <img
-                          src={bidImageUrl}
-                          alt="Creative Preview"
-                          className="w-16 h-10 object-cover rounded-lg border border-slate-700 shrink-0"
-                        />
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-emerald-400 font-bold text-xs flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>{bidMediaType === 'video' ? '🎬 MP4 Video Ready' : '🖼️ Creative Ready'}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 truncate">{uploadedFileName || bidTitle || '1080p Billboard Asset'}</p>
-                      </div>
-                    </div>
-
-                    <label className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer underline px-2 py-1 bg-cyan-950 rounded-lg border border-cyan-500/30 shrink-0">
-                      Change
-                      <input
-                        type="file"
-                        accept="image/png, image/jpeg, image/webp, video/mp4, video/webm"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </label>
+                <div className="flex items-center justify-between gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800">
+                  <div className="text-[11px] text-slate-300 truncate">
+                    Asset: <strong className="text-cyan-400">{uploadedFileName || 'Billboard Asset'}</strong>
                   </div>
-
-                  {/* 15s Slot Warning for Videos */}
-                  {(bidMediaType === 'video' || bidImageUrl.startsWith('data:video/') || bidImageUrl.toLowerCase().includes('.mp4')) && (
-                    <div className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 p-1.5 rounded-lg border border-cyan-800 flex items-center gap-1.5">
-                      <span>⏱️</span>
-                      <span>15s Slot Duration: Videos longer than 15s will loop first 15 seconds.</span>
-                    </div>
-                  )}
+                  <label className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer underline px-2 py-0.5 bg-cyan-950 rounded-lg border border-cyan-500/30 shrink-0">
+                    Change File
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp, video/mp4, video/webm"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
               )}
 
@@ -1283,7 +1255,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmittingBid}
-                  className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Zap className="w-4 h-4 fill-current shrink-0" />
                   <span>{isSubmittingBid ? 'Submitting Creative...' : 'Place Bid in 2 Secs'}</span>

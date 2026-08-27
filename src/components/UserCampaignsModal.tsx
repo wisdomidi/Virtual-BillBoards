@@ -50,12 +50,19 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
   onOpenAuthModal,
   onSelectCity
 }) => {
-  const [campaigns, setCampaigns] = useState<UserCampaignItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [campaigns, setCampaigns] = useState<UserCampaignItem[]>(() => {
+    if (typeof window !== 'undefined' && userId) {
+      try {
+        const cached = localStorage.getItem(`vb_cached_campaigns_${userId}`);
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(false);
 
   const fetchCampaigns = async () => {
     if (!userId) return;
-    setLoading(true);
     try {
       const res = await fetch(`/api/user/campaigns?userId=${userId}`, {
         headers: { 'x-user-uid': userId }
@@ -64,6 +71,9 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
         const data = await res.json();
         if (data.campaigns) {
           setCampaigns(data.campaigns);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`vb_cached_campaigns_${userId}`, JSON.stringify(data.campaigns));
+          }
         }
       }
     } catch (err) {

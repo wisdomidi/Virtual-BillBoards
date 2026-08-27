@@ -496,9 +496,12 @@ export default function App() {
           setWalletBalanceCents(data.newWalletBalanceCents);
         }
         await fetchWallet(uid);
-        await fetchActiveSlot(cityCode, countryCode);
         addToast('success', 'Bid Placed in Seconds!', `Your bid of $${parsedDollars.toFixed(2)} is active for [${cityCode}]!`);
-        return { success: true, message: `Your bid of $${parsedDollars.toFixed(2)} is now live in [${cityCode}]!` };
+        return {
+          success: true,
+          message: `Your bid of $${parsedDollars.toFixed(2)} is now live in [${cityCode}]!`,
+          prepTimeSeconds: data.prepTimeSeconds || 10
+        };
       } else {
         if (res.status === 402 || (data.error && data.error.includes('Insufficient'))) {
           if (!currentUser) {
