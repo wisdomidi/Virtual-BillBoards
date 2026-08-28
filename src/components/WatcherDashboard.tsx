@@ -67,6 +67,13 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
   const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
   const [cashoutMsg, setCashoutMsg] = useState<string | null>(null);
 
+  // Watcher On-Chain USDC Claim State
+  const [watcherSolanaWallet, setWatcherSolanaWallet] = useState<string>(() => {
+    return localStorage.getItem('vb_watcher_solana_wallet') || '';
+  });
+  const [isClaimingUsdc, setIsClaimingUsdc] = useState<boolean>(false);
+  const [claimReceipt, setClaimReceipt] = useState<{ amount: number; txUrl: string; sig: string } | null>(null);
+
   // PoA Floating Attention Target States
   const [poaTargetCoords, setPoaTargetCoords] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
   const [poaSpawnTime, setPoaSpawnTime] = useState<number>(Date.now());
@@ -133,6 +140,54 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
     onPointsEarned(-viewerPoints); // reset watch points
     setCashoutMsg(`🎉 Converted ${viewerPoints} Attention Points to +$${(bonusCents / 100).toFixed(2)} Ad Wallet balance!`);
     setTimeout(() => setCashoutMsg(null), 4000);
+  };
+
+  const handleClaimUsdcOnChain = async () => {
+    if (viewerPoints < 25) {
+      setCashoutMsg('⚠️ Minimum 25 Attention Points ($0.25 USDC) required to claim on-chain.');
+      return;
+    }
+    if (!watcherSolanaWallet.trim()) {
+      setCashoutMsg('⚠️ Please enter your Phantom/Solflare Solana public wallet address.');
+      return;
+    }
+
+    setIsClaimingUsdc(true);
+    setCashoutMsg(null);
+    setClaimReceipt(null);
+
+    try {
+      const guestUid = localStorage.getItem('vb_guest_uid') || 'usr_viewer_live';
+      const pointsToClaim = viewerPoints;
+      const res = await fetch('/api/watcher/claim-usdc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          viewerId: guestUid,
+          viewerSolanaWallet: watcherSolanaWallet.trim(),
+          points: pointsToClaim
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && data.claim) {
+        localStorage.setItem('vb_watcher_solana_wallet', watcherSolanaWallet.trim());
+        onPointsEarned(-pointsToClaim);
+        soundEffects.playKaChing();
+        setClaimReceipt({
+          amount: data.claim.usdcAmount,
+          txUrl: data.claim.solscanUrl,
+          sig: data.claim.signature
+        });
+        setCashoutMsg(`🎉 Transferred $${data.claim.usdcAmount.toFixed(2)} USDC to your Phantom wallet!`);
+      } else {
+        setCashoutMsg(`⚠️ ${data.error || 'Failed to claim USDC.'}`);
+      }
+    } catch (e: any) {
+      setCashoutMsg(`⚠️ Error: ${e.message}`);
+    } finally {
+      setIsClaimingUsdc(false);
+    }
   };
 
   return (
@@ -361,41 +416,80 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
 
       {/* 3 CLEAR ACTION CARDS FOR WATCHERS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* CARD 1: DIRECT CASH CONVERSION */}
+        {/* CARD 1: SOLANA ON-CHAIN USDC CASHOUT & WALLET */}
         <div className="bg-slate-900/90 border-2 border-cyan-500/40 p-5 rounded-3xl shadow-xl space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-cyan-500/20 rounded-xl text-cyan-400">
-                  <DollarSign className="w-5 h-5" />
+                <div className="p-2 bg-gradient-to-br from-cyan-500/20 to-purple-500/20 rounded-xl text-cyan-400 border border-cyan-500/30">
+                  <Zap className="w-5 h-5 text-yellow-300" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-tight">1. Cash Out</h3>
-                  <span className="text-[10px] text-cyan-400 font-mono">100 Points = $1.00 USD</span>
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight">1. Claim Real USDC</h3>
+                  <span className="text-[10px] text-cyan-400 font-mono">100 Points = $1.00 USDC</span>
                 </div>
               </div>
-              <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded-full font-mono font-bold">
-                REAL CASH
+              <span className="text-[10px] bg-gradient-to-r from-purple-950 to-cyan-950 text-cyan-300 border border-cyan-700 px-2 py-0.5 rounded-full font-mono font-bold">
+                SOLANA MAINNET
               </span>
             </div>
 
-            <div className="bg-slate-950/90 border border-slate-800 p-4 rounded-2xl">
-              <div className="text-2xl font-black text-cyan-300 font-mono">
-                ${(viewerPoints * 0.01).toFixed(2)} <span className="text-xs text-slate-400 font-normal font-sans">USD</span>
+            <div className="bg-slate-950/90 border border-slate-800 p-3.5 rounded-2xl space-y-2">
+              <div className="flex items-baseline justify-between">
+                <div className="text-2xl font-black text-cyan-300 font-mono">
+                  ${(viewerPoints * 0.01).toFixed(2)} <span className="text-xs text-slate-400 font-normal font-sans">USDC</span>
+                </div>
+                <span className="text-[11px] font-mono text-amber-400 font-bold">{viewerPoints} Pts</span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Your accumulated earnings from watching ads & solving attention prompts.
-              </p>
+
+              {/* Solana Wallet Address Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono font-bold text-slate-400 flex items-center justify-between">
+                  <span>Phantom / Solana Address:</span>
+                </label>
+                <input
+                  type="text"
+                  value={watcherSolanaWallet}
+                  onChange={(e) => setWatcherSolanaWallet(e.target.value)}
+                  placeholder="Paste Phantom address (e.g. 3sYWf...)"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              {claimReceipt && (
+                <div className="p-2 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-[11px] font-mono text-emerald-300 flex items-center justify-between gap-1 animate-fade-in">
+                  <span>✅ Claimed ${claimReceipt.amount.toFixed(2)} USDC!</span>
+                  <a
+                    href={claimReceipt.txUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline text-cyan-300 hover:text-white font-bold"
+                  >
+                    View on Solscan ↗
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 
-          <button
-            onClick={handleCashoutToWallet}
-            className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <Wallet className="w-4 h-4 fill-slate-950" />
-            <span>Withdraw Cash to Wallet</span>
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={handleClaimUsdcOnChain}
+              disabled={isClaimingUsdc || viewerPoints < 25}
+              className="w-full py-2.5 bg-gradient-to-r from-purple-500 via-indigo-600 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Zap className="w-3.5 h-3.5 text-yellow-300 fill-current" />
+              <span>{isClaimingUsdc ? 'Transferring USDC on Solana...' : '⚡ Claim USDC to Phantom'}</span>
+            </button>
+
+            <button
+              onClick={handleCashoutToWallet}
+              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span>Convert to Ad Tokens</span>
+            </button>
+          </div>
         </div>
 
         {/* CARD 2: 2X AD TOKEN POWER-UP */}

@@ -74,6 +74,13 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
     revShareRate: '70%'
   });
 
+  // Solana Payout Wallet State
+  const [solanaWallet, setSolanaWallet] = useState<string>(() => {
+    return localStorage.getItem('vb_streamer_solana_wallet') || '';
+  });
+  const [isSavingWallet, setIsSavingWallet] = useState<boolean>(false);
+  const [walletSaveMsg, setWalletSaveMsg] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<'url_builder' | 'ai_agent_guide' | 'simulator'>('url_builder');
 
   const cleanHandle = (handle || 'venue_host').replace(/^@/, '').toLowerCase().trim();
@@ -105,7 +112,36 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
     localStorage.setItem('vb_streamer_handle', clean);
   };
 
-  // Fetch real streamer stats
+  const handleSaveSolanaWallet = async () => {
+    if (!solanaWallet.trim()) {
+      setWalletSaveMsg('⚠️ Please enter a valid Solana wallet address.');
+      return;
+    }
+    setIsSavingWallet(true);
+    setWalletSaveMsg(null);
+    try {
+      const res = await fetch('/api/streamer/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ streamerId: cleanHandle, solanaWallet: solanaWallet.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('vb_streamer_solana_wallet', solanaWallet.trim());
+        setWalletSaveMsg(data.message || '✅ Solana wallet saved successfully!');
+        soundEffects.playKaChing();
+      } else {
+        setWalletSaveMsg(`⚠️ ${data.error || 'Failed to save wallet.'}`);
+      }
+    } catch (e: any) {
+      setWalletSaveMsg(`⚠️ Error: ${e.message}`);
+    } finally {
+      setIsSavingWallet(false);
+      setTimeout(() => setWalletSaveMsg(null), 5000);
+    }
+  };
+
+  // Fetch real streamer stats and registered wallet
   const fetchStats = async () => {
     try {
       const res = await fetch(`/api/streamer/stats/${cleanHandle}`);
@@ -118,6 +154,9 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
             totalEarnedDollars: data.streamer.totalEarnedDollars || '0.00',
             revShareRate: '70%'
           });
+          if (data.streamer.solanaWallet && !solanaWallet) {
+            setSolanaWallet(data.streamer.solanaWallet);
+          }
         }
       }
     } catch {
@@ -528,6 +567,47 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                   className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white font-mono font-bold focus:outline-none focus:border-cyan-400"
                 />
               </div>
+            </div>
+
+            {/* Solana Payout Wallet for Instant 70% Micro-Splits */}
+            <div className="p-4 bg-gradient-to-br from-purple-950/40 via-slate-950 to-indigo-950/40 border border-purple-500/40 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-yellow-300" />
+                  <span className="text-xs font-black text-white uppercase">Solana Payout Wallet (Instant 70% SPL Splits)</span>
+                </div>
+                <span className="text-[10px] bg-purple-950 text-purple-300 border border-purple-700 px-2 py-0.5 rounded-full font-mono font-bold">
+                  ⚡ &lt;400ms Auto-Route
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Connect your Phantom / Solflare wallet. <strong>70% of every sponsor micro-bid</strong> will automatically land directly in your wallet on Solana Mainnet with zero bank fees.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  type="text"
+                  value={solanaWallet}
+                  onChange={(e) => setSolanaWallet(e.target.value)}
+                  placeholder="Paste Phantom / Solflare public address (e.g. 3sYWf...)"
+                  className="flex-1 bg-slate-950 border border-purple-500/40 rounded-xl px-3.5 py-2.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-purple-400 select-all"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveSolanaWallet}
+                  disabled={isSavingWallet}
+                  className="px-4 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shrink-0 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {isSavingWallet ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>{isSavingWallet ? 'Saving...' : 'Save Payout Wallet'}</span>
+                </button>
+              </div>
+
+              {walletSaveMsg && (
+                <div className="text-[11px] font-mono font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 p-2 rounded-xl animate-fade-in">
+                  {walletSaveMsg}
+                </div>
+              )}
             </div>
 
             {/* Target City Geofence */}

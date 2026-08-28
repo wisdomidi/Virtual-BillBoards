@@ -563,6 +563,7 @@ export interface StreamerGameStateEvent {
 export interface StreamerRevenueRecord {
   streamerId: string;
   handle: string;
+  solanaWallet?: string;
   totalImpressions: number;
   totalEventsTriggered: number;
   totalEarningsDollars: string;
@@ -590,6 +591,32 @@ export interface SolanaUsdcSettlement {
   viewerPoolUsdc: number;
   protocolTreasuryUsdc: number;
   memoHash: string;
+  solscanUrl?: string;
+  verifiedOnChain?: boolean;
+}
+
+export interface WatcherUsdcClaimRecord {
+  claimId: string;
+  viewerId: string;
+  viewerSolanaWallet: string;
+  pointsClaimed: number;
+  usdcAmount: number;
+  signature: string;
+  solscanUrl: string;
+  timestamp: string;
+  status: 'confirmed' | 'pending' | 'failed';
+}
+
+export interface AtomicSplitResult {
+  success: boolean;
+  signature?: string;
+  solscanUrl?: string;
+  streamerWallet: string;
+  streamerAmountUsdc: number;
+  watcherPoolAmountUsdc: number;
+  treasuryAmountUsdc: number;
+  network: string;
+  error?: string;
 }
 
 export interface HistoricalROIReport {

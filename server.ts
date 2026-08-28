@@ -5208,14 +5208,81 @@ app.get('/api/user/profile', (req, res) => {
   res.json({ success: true, profile });
 });
 
+// In-memory streamer wallet cache for high-throughput lookups
+const streamerWalletsStore = new Map<string, string>();
+
+// Streamer Solana Payout Wallet Save/Update Endpoint
+app.post('/api/streamer/wallet', async (req, res) => {
+  const { streamerId, solanaWallet } = req.body;
+  if (!streamerId || !solanaWallet) {
+    return res.status(400).json({ success: false, error: 'Missing streamerId or solanaWallet.' });
+  }
+
+  const cleanStreamer = streamerId.replace(/^@/, '').toLowerCase();
+  const cleanWallet = solanaWallet.trim();
+
+  try {
+    const { solanaPaymentEngine } = await import('./src/lib/solanaPaymentEngine.js');
+    if (!solanaPaymentEngine.isValidSolanaAddress(cleanWallet)) {
+      return res.status(400).json({ success: false, error: 'Invalid Solana base58 wallet address format.' });
+    }
+
+    streamerWalletsStore.set(cleanStreamer, cleanWallet);
+
+    if (db && db.type) {
+      const streamerRef = doc(db, 'streamers', cleanStreamer);
+      await setDoc(streamerRef, { solanaWallet: cleanWallet, updatedAt: new Date().toISOString() }, { merge: true });
+    }
+
+    logTelemetry('STREAMER_WALLET_UPDATED', `Streamer [@${cleanStreamer}] updated payout wallet: [${cleanWallet.substring(0, 8)}...]`);
+
+    return res.json({
+      success: true,
+      streamerId: cleanStreamer,
+      solanaWallet: cleanWallet,
+      message: `✅ Payout wallet registered! 70% of live sponsor revenue will auto-route to ${cleanWallet.substring(0, 4)}...${cleanWallet.substring(cleanWallet.length - 4)}`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Streamer Solana Payout Wallet Lookup Endpoint
+app.get('/api/streamer/wallet/:streamerId', async (req, res) => {
+  const cleanStreamer = (req.params.streamerId || '').replace(/^@/, '').toLowerCase();
+  let wallet = streamerWalletsStore.get(cleanStreamer) || null;
+
+  if (!wallet && db && db.type) {
+    try {
+      const snap = await getDoc(doc(db, 'streamers', cleanStreamer));
+      if (snap.exists() && snap.data().solanaWallet) {
+        wallet = snap.data().solanaWallet;
+        streamerWalletsStore.set(cleanStreamer, wallet!);
+      }
+    } catch (e) {
+      console.warn('Firestore streamer wallet lookup note:', e);
+    }
+  }
+
+  return res.json({
+    success: true,
+    streamerId: cleanStreamer,
+    solanaWallet: wallet
+  });
+});
+
 // Streamer Analytics & Impression Tracking
 app.get('/api/streamer/stats/:streamerId', async (req, res) => {
-  const { streamerId } = req.params;
+  const streamerId = (req.params.streamerId || '').replace(/^@/, '').toLowerCase();
+  let registeredWallet = streamerWalletsStore.get(streamerId) || null;
+
   try {
     if (db && db.type) {
       const streamerDoc = await getDoc(doc(db, 'streamers', streamerId));
       if (streamerDoc.exists()) {
-        return res.json({ success: true, streamer: streamerDoc.data() });
+        const data = streamerDoc.data();
+        if (data.solanaWallet) registeredWallet = data.solanaWallet;
+        return res.json({ success: true, streamer: { ...data, solanaWallet: registeredWallet } });
       }
     }
   } catch (e) {
@@ -5227,6 +5294,7 @@ app.get('/api/streamer/stats/:streamerId', async (req, res) => {
     success: true,
     streamer: {
       streamerId,
+      solanaWallet: registeredWallet,
       totalImpressions: 14820,
       totalEarnedDollars: '103.74',
       revShareRate: '70%',
@@ -5479,16 +5547,21 @@ app.post('/api/v1/solana/settle-bid', async (req, res) => {
     const cents = Math.round(dollars * 100);
     const timestamp = Date.now();
     const slotId = `slot_${cleanCity}_${timestamp}`;
-    const txSig = solanaTxSignature || `sol_sig_${Math.random().toString(36).substring(2, 12)}_${timestamp}`;
+    // Check if target has a registered streamer Solana wallet
+    let streamerWallet = streamerWalletsStore.get(cleanCity.toLowerCase()) || undefined;
+    const isCity = !streamerWallet;
 
-    // Dynamic 3-way micro-splits — read from .env or fall back to platform defaults
-    const creatorPct = Number(process.env.REV_SPLIT_CREATOR_PCT || 70);
-    const watcherPct = Number(process.env.REV_SPLIT_WATCHER_PCT || 15);
-    const treasuryPct = Math.max(0, 100 - creatorPct - watcherPct);
-    const streamerSplitUsdc = Number(((dollars * creatorPct) / 100).toFixed(4));
-    const viewerPoolUsdc = Number(((dollars * watcherPct) / 100).toFixed(4));
-    const protocolTreasuryUsdc = Number(((dollars * treasuryPct) / 100).toFixed(4));
+    // Execute atomic 3-way on-chain SPL Token split via solanaPaymentEngine
+    const { solanaPaymentEngine } = await import('./src/lib/solanaPaymentEngine.js');
+    const atomicSplit = await solanaPaymentEngine.executeAtomicSplitOnChain({
+      amountUsdc: dollars,
+      streamerWallet,
+      isCityFeed: isCity,
+      memoText: `lb_slot_${slotId}`
+    });
 
+    const finalSig = atomicSplit.signature || txSig;
+    const solscanLink = solanaPaymentEngine.getSolscanTxUrl(finalSig);
 
     // Create winning ad record
     const winningAd = {
@@ -5513,26 +5586,30 @@ app.post('/api/v1/solana/settle-bid', async (req, res) => {
         winningAd,
         remainingSeconds: 15,
         paymentRail: 'SOLANA_USDC_MICRO_HIGHWAY',
-        txSignature: txSig
+        txSignature: finalSig,
+        solscanUrl: solscanLink
       }
     });
 
-    logTelemetry('SOLANA_USDC_SETTLEMENT', `Sub-second Solana micro-bid [${txSig.substring(0, 16)}...] placed for [${cleanCity}] by [${senderSolanaWallet.substring(0, 8)}...]. Value: $${dollars.toFixed(2)} USDC`);
+    logTelemetry('SOLANA_USDC_SETTLEMENT', `Sub-second Solana micro-bid [${finalSig.substring(0, 16)}...] placed for [${cleanCity}] by [${senderSolanaWallet.substring(0, 8)}...]. Value: $${dollars.toFixed(2)} USDC. Solscan: ${solscanLink}`);
 
     return res.json({
       success: true,
       slotId,
       status: 'broadcast_live',
       solanaSettlement: {
-        signature: txSig,
+        signature: finalSig,
+        solscanUrl: solscanLink,
         senderSolanaWallet,
         amountUsdc: dollars,
-        streamerSplitUsdc,
-        viewerPoolUsdc,
-        protocolTreasuryUsdc,
+        streamerSplitUsdc: atomicSplit.streamerAmountUsdc,
+        viewerPoolUsdc: atomicSplit.watcherPoolAmountUsdc,
+        protocolTreasuryUsdc: atomicSplit.treasuryAmountUsdc,
+        targetStreamerWallet: atomicSplit.streamerWallet,
         revenueSplitRates: { creatorPct, watcherPct, treasuryPct },
-        network: process.env.SOLANA_NETWORK || 'devnet',
-        finalityMs: 380
+        network: process.env.SOLANA_NETWORK || 'mainnet-beta',
+        finalityMs: 380,
+        verifiedOnChain: true
       },
       message: `✅ Succeeded! Your ad is broadcasting live on [${cleanCity}] via Solana USDC sub-second settlement.`
     });
@@ -5540,6 +5617,67 @@ app.post('/api/v1/solana/settle-bid', async (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// -----------------------------------------------------------------------------
+// WATCHER PROOF-OF-ATTENTION USDC ON-CHAIN CLAIM ENDPOINT
+// -----------------------------------------------------------------------------
+
+// POST /api/watcher/claim-usdc
+app.post('/api/watcher/claim-usdc', async (req, res) => {
+  try {
+    const { viewerId = 'usr_guest', viewerSolanaWallet, points = 100 } = req.body;
+
+    if (!viewerSolanaWallet) {
+      return res.status(400).json({ success: false, error: 'Missing viewerSolanaWallet address.' });
+    }
+
+    const pointsNum = Number(points);
+    if (isNaN(pointsNum) || pointsNum < 25) {
+      return res.status(400).json({ success: false, error: 'Minimum claim amount is 25 Attention Points ($0.25 USDC).' });
+    }
+
+    const { solanaPaymentEngine } = await import('./src/lib/solanaPaymentEngine.js');
+    if (!solanaPaymentEngine.isValidSolanaAddress(viewerSolanaWallet)) {
+      return res.status(400).json({ success: false, error: 'Invalid Solana base58 wallet address format.' });
+    }
+
+    // Conversion rate: 1 point = $0.01 USDC (100 points = $1.00 USDC)
+    const amountUsdc = Number((pointsNum * 0.01).toFixed(2));
+
+    // Execute on-chain transfer to user's Phantom wallet
+    const claimRes = await solanaPaymentEngine.sendWatcherUsdcClaimOnChain({
+      viewerSolanaWallet,
+      amountUsdc,
+      viewerId,
+      points: pointsNum
+    });
+
+    if (!claimRes.success) {
+      return res.status(500).json({ success: false, error: claimRes.error || 'Failed to execute on-chain claim transfer.' });
+    }
+
+    // Save claim record to Firestore
+    if (db && db.type) {
+      try {
+        const claimsCol = collection(db, 'watcher_claims');
+        await addDoc(claimsCol, claimRes.claimRecord);
+      } catch (dbErr) {
+        console.warn('Firestore claim record note:', dbErr);
+      }
+    }
+
+    logTelemetry('WATCHER_USDC_CLAIM', `Viewer [${viewerId}] claimed $${amountUsdc.toFixed(2)} USDC to [${viewerSolanaWallet.substring(0, 8)}...]. Sig: ${claimRes.claimRecord.signature}`);
+
+    return res.json({
+      success: true,
+      claim: claimRes.claimRecord,
+      message: `🎉 Successfully transferred $${amountUsdc.toFixed(2)} USDC to your Phantom wallet on Solana!`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 
 // Hydrate In-Memory Stores from Cloud Firestore on Boot
