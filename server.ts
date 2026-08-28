@@ -5481,10 +5481,14 @@ app.post('/api/v1/solana/settle-bid', async (req, res) => {
     const slotId = `slot_${cleanCity}_${timestamp}`;
     const txSig = solanaTxSignature || `sol_sig_${Math.random().toString(36).substring(2, 12)}_${timestamp}`;
 
-    // Compute 3-way instant micro-splits (70% streamer/creator, 15% attention pool, 15% protocol)
-    const streamerSplitUsdc = Number((dollars * 0.70).toFixed(4));
-    const viewerPoolUsdc = Number((dollars * 0.15).toFixed(4));
-    const protocolTreasuryUsdc = Number((dollars * 0.15).toFixed(4));
+    // Dynamic 3-way micro-splits — read from .env or fall back to platform defaults
+    const creatorPct = Number(process.env.REV_SPLIT_CREATOR_PCT || 70);
+    const watcherPct = Number(process.env.REV_SPLIT_WATCHER_PCT || 15);
+    const treasuryPct = Math.max(0, 100 - creatorPct - watcherPct);
+    const streamerSplitUsdc = Number(((dollars * creatorPct) / 100).toFixed(4));
+    const viewerPoolUsdc = Number(((dollars * watcherPct) / 100).toFixed(4));
+    const protocolTreasuryUsdc = Number(((dollars * treasuryPct) / 100).toFixed(4));
+
 
     // Create winning ad record
     const winningAd = {
@@ -5526,7 +5530,8 @@ app.post('/api/v1/solana/settle-bid', async (req, res) => {
         streamerSplitUsdc,
         viewerPoolUsdc,
         protocolTreasuryUsdc,
-        network: 'devnet',
+        revenueSplitRates: { creatorPct, watcherPct, treasuryPct },
+        network: process.env.SOLANA_NETWORK || 'devnet',
         finalityMs: 380
       },
       message: `✅ Succeeded! Your ad is broadcasting live on [${cleanCity}] via Solana USDC sub-second settlement.`

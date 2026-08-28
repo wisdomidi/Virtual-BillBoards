@@ -65,19 +65,46 @@ export class SolanaPaymentEngine {
 
   /**
    * Compute the frame-by-frame 3-way micro-payment split for an ad slot
-   * - 70% Creator / Streamer / Venue
-   * - 15% Human Watcher Proof-of-Attention Reward Pool
-   * - 15% Protocol Network Operations Treasury
+   * Fully DYNAMIC: Supports custom creator tiers, metropolitan feeds, and environment overrides.
    */
-  public calculateMicroSplit(amountUsdc: number) {
-    const streamerSplitUsdc = Number((amountUsdc * 0.70).toFixed(4));
-    const viewerPoolUsdc = Number((amountUsdc * 0.15).toFixed(4));
-    const protocolTreasuryUsdc = Number((amountUsdc * 0.15).toFixed(4));
+  public calculateMicroSplit(
+    amountUsdc: number,
+    options?: {
+      creatorPercent?: number;
+      watcherPercent?: number;
+      protocolPercent?: number;
+      isCityFeed?: boolean;
+    }
+  ) {
+    const isCity = options?.isCityFeed ?? false;
+
+    // Configurable default percentages (can be tuned via environment or runtime)
+    let defaultCreatorPct = isCity ? 0 : 70;
+    let defaultWatcherPct = isCity ? 30 : 15;
+    let defaultTreasuryPct = isCity ? 70 : 15;
+
+    // Check environment overrides if available
+    const envCreator = typeof process !== 'undefined' && process.env?.REV_SPLIT_CREATOR_PCT ? Number(process.env.REV_SPLIT_CREATOR_PCT) : null;
+    const envWatcher = typeof process !== 'undefined' && process.env?.REV_SPLIT_WATCHER_PCT ? Number(process.env.REV_SPLIT_WATCHER_PCT) : null;
+
+    if (!isCity && envCreator !== null) defaultCreatorPct = envCreator;
+    if (envWatcher !== null) defaultWatcherPct = envWatcher;
+
+    const creatorPct = options?.creatorPercent ?? defaultCreatorPct;
+    const watcherPct = options?.watcherPercent ?? defaultWatcherPct;
+    const treasuryPct = options?.protocolPercent ?? (100 - creatorPct - watcherPct);
+
+    const streamerSplitUsdc = Number(((amountUsdc * creatorPct) / 100).toFixed(4));
+    const viewerPoolUsdc = Number(((amountUsdc * watcherPct) / 100).toFixed(4));
+    const protocolTreasuryUsdc = Number(((amountUsdc * treasuryPct) / 100).toFixed(4));
 
     return {
       streamerSplitUsdc,
       viewerPoolUsdc,
       protocolTreasuryUsdc,
+      creatorPct,
+      watcherPct,
+      treasuryPct,
       totalUsdc: amountUsdc
     };
   }
