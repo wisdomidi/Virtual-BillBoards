@@ -5942,16 +5942,20 @@ async function startServer() {
 
   // Explicit SEO Routes for Google Search Console
   app.get('/robots.txt', (req, res) => {
-    const robotsPath = path.join(process.cwd(), 'public', 'robots.txt');
+    const robotsPath = fs.existsSync(path.join(process.cwd(), 'public', 'robots.txt'))
+      ? path.join(process.cwd(), 'public', 'robots.txt')
+      : path.join(distPath, 'robots.txt');
     if (fs.existsSync(robotsPath)) {
       res.type('text/plain').sendFile(robotsPath);
     } else {
-      res.type('text/plain').send('User-agent: *\nAllow: /\nSitemap: https://livebillboards.lol/sitemap.xml\n');
+      res.type('text/plain').send('User-agent: *\nAllow: /\nSitemap: https://www.livebillboards.lol/sitemap.xml\n');
     }
   });
 
   app.get(['/favicon.svg', '/favicon.ico'], (req, res) => {
-    const faviconPath = path.join(process.cwd(), 'public', 'favicon.svg');
+    const faviconPath = fs.existsSync(path.join(process.cwd(), 'public', 'favicon.svg'))
+      ? path.join(process.cwd(), 'public', 'favicon.svg')
+      : path.join(distPath, 'favicon.svg');
     if (fs.existsSync(faviconPath)) {
       res.setHeader('Cache-Control', 'public, max-age=86400');
       res.type('image/svg+xml').sendFile(faviconPath);
@@ -5961,7 +5965,9 @@ async function startServer() {
   });
 
   app.get('/sitemap.xml', (req, res) => {
-    const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
+    const sitemapPath = fs.existsSync(path.join(process.cwd(), 'public', 'sitemap.xml'))
+      ? path.join(process.cwd(), 'public', 'sitemap.xml')
+      : path.join(distPath, 'sitemap.xml');
     if (fs.existsSync(sitemapPath)) {
       res.type('application/xml').sendFile(sitemapPath);
     } else {
