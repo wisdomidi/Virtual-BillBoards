@@ -916,7 +916,10 @@ export default function App() {
         {activeTab === 'blog' && (
           <BlogEngine
             onOpenClaimModal={() => setIsClaimModalOpen(true)}
-            onNavigateToLiveBillboard={() => setActiveTab('live')}
+            onNavigateToLiveBillboard={() => handleNavigateTab('live')}
+            onNavigateTab={handleNavigateTab}
+            onOpenTvPairModal={() => setIsTvPairModalOpen(true)}
+            onOpenPitchDeck={() => setIsPitchDeckModalOpen(true)}
             addToast={(toast) => addToast(toast.type, toast.title, toast.message)}
           />
         )}
