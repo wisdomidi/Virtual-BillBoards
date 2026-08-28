@@ -2,7 +2,25 @@
 > World's First 24/7 Infinite Virtual Billboard, WebMCP Autonomous AI Agent Screen Network & Solana USDC Micro-Payment Highway
 
 ## About
-Virtual BillBoard is a decentralized, sub-second Real-Time Bidding (RTB) digital out-of-home (DOOH), smart TV, physical event venue, and live stream broadcast platform. It allows advertisers, creators, and autonomous AI agents to broadcast 15-second visual advertisements, messages, and video takeovers across 200+ countries, every city on Earth, live creator streams, and orbital space feeds (such as ISS Orbit and Mars Colony).
+Virtual BillBoard is a decentralized, sub-second Real-Time Bidding (RTB) digital out-of-home (DOOH), smart TV, physical event venue, and live stream broadcast platform. It allows advertisers, creators, and autonomous AI agents to broadcast 15-second visual advertisements, messages, and video takeovers across 200+ real-world metropolitan cities, physical smart TV screens in venues (cafes, gyms, co-working spaces), creator live streams, and global network feeds.
+
+## Real-World City Feeds & Screen Geofences
+LiveBillboards routes active advertising inventory across real-world metropolitan cities and physical venue geofences:
+- `GLOBAL`: Universal Distributed Feed (All Screens Everywhere) — Reserve Floor: $1.00
+- `TYO`: Tokyo (Shibuya Crossing & Shinjuku) — Reserve Floor: $2.50
+- `NYC`: New York City (Times Square & Broadway) — Reserve Floor: $2.50
+- `LON`: London (Piccadilly Circus & Leicester Sq) — Reserve Floor: $2.00
+- `PAR`: Paris (Champs-Élysées & Eiffel) — Reserve Floor: $2.00
+- `KUL`: Kuala Lumpur (Petronas Towers & Bukit Bintang) — Reserve Floor: $1.00
+- `SIN`: Singapore (Marina Bay & Orchard Rd) — Reserve Floor: $2.00
+- `DXB`: Dubai (Downtown & Burj Khalifa) — Reserve Floor: $2.50
+- `SEL`: Seoul (Gangnam & Myeongdong) — Reserve Floor: $2.00
+- `SYD`: Sydney (Harbour & CBD) — Reserve Floor: $1.50
+- `BER`: Berlin (Alexanderplatz & Mitte) — Reserve Floor: $1.50
+- `AMS`: Amsterdam (Dam Square & Centraal) — Reserve Floor: $1.50
+- `SAO`: São Paulo (Avenida Paulista) — Reserve Floor: $1.00
+- `LAX`: Los Angeles (Sunset & Hollywood) — Reserve Floor: $2.00
+- `YTO`: Toronto (Yonge-Dundas Square) — Reserve Floor: $1.50
 
 ## Core Capabilities & Architecture
 1. **WebMCP Standard Compliance (Model Context Protocol)**:
@@ -13,8 +31,8 @@ Virtual BillBoard is a decentralized, sub-second Real-Time Bidding (RTB) digital
    - Sub-400ms on-chain settlement with <$0.0003 network transaction fees.
    - Atomic 3-way SPL Token splits: 70% Streamer/Venue, 15% Watcher Pool, 15% Platform Treasury.
    - Solana Pay URI integration for Phantom and Solflare.
-3. **In-Venue Physical Screens & Live Overlays**:
-   - Plug-and-play TV screen URL for conferences, hackathons, arena LED walls, and lounge displays.
+3. **In-Venue Physical Smart TV Screens & Live Overlays**:
+   - 6-digit TV PIN pairing (`livebillboards.lol/tv` & `livebillboards.lol/pair`) for cafes, gyms, hotel lobbies, and hackathon stages.
    - Instant in-game & stage event sponsorships (Keynote, Victory Royale, 5x Killstreak).
 4. **Proof-of-Attention Human Attention Economy**:
    - Isolated to `/watcher`: Human spectators solve cryptographic attention prompts on screen every 15s.
@@ -23,6 +41,7 @@ Virtual BillBoard is a decentralized, sub-second Real-Time Bidding (RTB) digital
    - Sub-20ms priority queue auctions for 15-second rotation slots across 200+ metropolitan city feeds.
 
 ## Registered WebMCP Tool Definitions for AI Agents
+- `fetchActiveSlotDetails(cityCode)`: Inspect active broadcast creative, advertiser name, remaining countdown seconds, and live CPM floor for any city (e.g. TYO, NYC, LON, GLOBAL).
 - `fetchActiveBillboard(city, country)`: Inspect what ad is currently broadcasting live on screen and the reserve floor price.
 - `placeAdBid(title, imageUrl, targetCityCode, bidAmountDollars, advertiserName, ctaUrl)`: Programmatically submit a 15-second ad creative.
 - `placeSolanaUsdcBid(title, imageUrl, targetCityCode, amountUsdc, senderSolanaWallet)`: Programmatically bid and settle via Solana USDC with sub-400ms finality.
@@ -34,18 +53,20 @@ Virtual BillBoard is a decentralized, sub-second Real-Time Bidding (RTB) digital
 - `claimCreatorHandle(handle)`: Register a vanity creator channel (`livebillboards.lol/@handle`).
 - `getWalletBalance()`: Fetch active ad tokens and remaining 15-second plays.
 
-## Key Endpoints
-- `GET /.well-known/mcp.json`: Official WebMCP manifest.
-- `POST /api/mcp/call`: JSON-RPC tool invocation handler.
-- `GET /api/billboard/active?city=TYO`: Fetch active winning ad and countdown.
-- `POST /api/v1/solana/settle-bid`: Sub-second Solana USDC ad settlement.
-- `POST /api/watcher/claim-usdc`: Watcher attention point to USDC claim.
-- `POST /api/streamer/wallet`: Register creator/venue Solana payout address.
-- `GET /api/v1/analytics/roi/:target`: Real-time ROI telemetry.
+## Key Programmatic REST Endpoints (No API Key Required for Read Operations)
+- `GET https://www.livebillboards.lol/api/slot?cityCode=TYO`: Live slot details for Tokyo.
+- `GET https://www.livebillboards.lol/api/slot?cityCode=NYC`: Live slot details for New York City.
+- `GET https://www.livebillboards.lol/api/pricing/slots`: Dynamic pricing and reserve floors across all cities.
+- `GET https://www.livebillboards.lol/.well-known/mcp.json`: Official WebMCP manifest.
+- `POST https://www.livebillboards.lol/api/mcp/call`: JSON-RPC tool invocation handler.
+- `POST https://www.livebillboards.lol/api/v1/solana/settle-bid`: Sub-second Solana USDC ad settlement.
+- `POST https://www.livebillboards.lol/api/watcher/claim-usdc`: Watcher attention point to USDC claim.
 
 ## Links & Reference
 - Live App: https://www.livebillboards.lol
 - WebMCP Playground: https://www.livebillboards.lol/webmcp
 - Interact & Earn Hub: https://www.livebillboards.lol/watcher
 - Venue & Streamer Studio: https://www.livebillboards.lol/streamer
+- Smart TV Screen Mode: https://www.livebillboards.lol/tv
+- TV Screen Pairing: https://www.livebillboards.lol/pair
 - GitHub: https://github.com/wisdomidi/Virtual-BillBoards

@@ -78,33 +78,43 @@
             "@id": "https://www.livebillboards.lol/#webapp",
             "name": "Virtual BillBoard",
             "url": "https://www.livebillboards.lol/",
-            "description": "Infinite 24/7 Virtual Billboard and live stream advertising network with sub-second real-time bidding, Solana USDC micro-settlements, and WebMCP standard compliance.",
+            "description": "Infinite 24/7 Digital Billboard and physical Smart TV screen advertising network across 200+ global cities (Tokyo, NYC, London, Paris) with sub-second real-time bidding, Solana USDC micro-settlements, and WebMCP standard compliance.",
             "applicationCategory": "BusinessApplication",
             "operatingSystem": "All",
             "offers": {
-              "@type": "Offer",
-              "price": "1.00",
-              "priceCurrency": "USD"
+              "@type": "AggregateOffer",
+              "lowPrice": "1.00",
+              "highPrice": "100.00",
+              "priceCurrency": "USD",
+              "offerCount": "200"
             }
           },
           {
             "@type": "FAQPage",
-            "@id": "https://livebillboards.lol/#faq",
+            "@id": "https://www.livebillboards.lol/#faq",
             "mainEntity": [
               {
                 "@type": "Question",
                 "name": "What is Virtual BillBoard?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Virtual BillBoard is the world's first infinite 24/7 virtual billboard and live stream advertising network. Advertisers, creators, and AI agents can bid in real-time to broadcast 15-second visual takeovers across 200+ countries, top creator streams, and orbital feeds."
+                  "text": "Virtual BillBoard is the world's first 24/7 infinite digital billboard network for physical venue Smart TVs, creator live streams, and 200+ real-world metropolitan city feeds (including Tokyo Shibuya, New York Times Square, London Piccadilly, and Paris). Advertisers, creators, and autonomous AI agents bid in real-time to broadcast 15-second visual takeovers."
                 }
               },
               {
                 "@type": "Question",
-                "name": "How can streamers and creators monetize with Virtual BillBoard?",
+                "name": "Can I target specific real-world cities like Tokyo or New York?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Creators can claim their vanity handle (e.g. livebillboards.lol/@yourname), add the universal stream overlay URL into their streaming software, and earn an 80% revenue split from every bid placed by fans and sponsors."
+                  "text": "Yes. LiveBillboards provides dedicated, geofenced real-world advertising channels for major global cities including Tokyo (TYO), New York City (NYC), London (LON), Paris (PAR), Kuala Lumpur (KUL), Singapore (SIN), and Dubai (DXB), as well as a universal Global Network Feed."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How can venue and Smart TV owners monetize with Virtual BillBoard?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Physical venue owners (cafes, gyms, hotels, co-working spaces) can pair any Smart TV in under 60 seconds by visiting livebillboards.lol/tv and entering the 6-digit PIN on their phone to receive 70% direct Solana USDC payouts."
                 }
               },
               {
@@ -112,7 +122,7 @@
                 "name": "Can autonomous AI agents place bids programmatically?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Virtual BillBoard provides a dedicated M2M REST API (POST /api/bid) and WebSocket protocol allowing autonomous agents and AI bots to monitor slots and outbid competitors in under 20 milliseconds."
+                  "text": "Yes. Virtual BillBoard provides native OpenAI WebMCP tools (/.well-known/mcp.json) and a dedicated M2M REST API allowing autonomous AI agents to inspect live slot inventory (GET /api/slot?cityCode=TYO) and execute sub-second media takeovers."
                 }
               }
             ]
