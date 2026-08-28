@@ -21,6 +21,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { AgentSlotPricingInfo } from '../types.js';
+import { GLOBAL_CITIES } from '../data/cities';
 
 interface ApiDocsViewProps {
   selectedCity?: string;
@@ -292,14 +293,11 @@ if __name__ == "__main__":
               onChange={(e) => setTargetCityForQuery(e.target.value)}
               className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-500"
             >
-              <option value="TYO">TYO - Tokyo Shibuya</option>
-              <option value="NYC">NYC - Times Square</option>
-              <option value="LON">LON - London City</option>
-              <option value="PAR">PAR - Paris Champs-Élysées</option>
-              <option value="SIN">SIN - Singapore Marina</option>
-              <option value="DXB">DXB - Dubai Downtown</option>
-              <option value="SEL">SEL - Seoul Gangnam</option>
-              <option value="KUL">KUL - Kuala Lumpur</option>
+              {GLOBAL_CITIES.map((c) => (
+                <option key={c.cityCode} value={c.cityCode}>
+                  {c.flagEmoji} {c.cityCode} - {c.cityName}
+                </option>
+              ))}
             </select>
 
             <button

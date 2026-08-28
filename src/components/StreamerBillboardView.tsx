@@ -534,7 +534,11 @@ export const StreamerBillboardView: React.FC<StreamerBillboardViewProps> = ({
       </div>
 
       {streamerSubTab === 'studio' && (
-        <StreamerOverlayStudio initialHandle={customStreamerHandle} selectedCity={selectedCity} />
+        <StreamerOverlayStudio
+          initialHandle={customStreamerHandle}
+          selectedCity={selectedCity}
+          slotData={slotData}
+        />
       )}
 
       {streamerSubTab === 'leaderboard' && (

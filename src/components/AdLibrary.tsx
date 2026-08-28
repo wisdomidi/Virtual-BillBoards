@@ -22,6 +22,7 @@ import {
   Zap,
   Maximize2
 } from 'lucide-react';
+import { GLOBAL_CITIES } from '../data/cities';
 
 interface AdLibraryProps {
   selectedCity: string;
@@ -325,11 +326,12 @@ export const AdLibrary: React.FC<AdLibraryProps> = ({
               onChange={(e) => setSelectedCityFilter(e.target.value)}
               className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-bold focus:outline-none"
             >
-              <option value="all">All Cities</option>
-              <option value="KUL">Kuala Lumpur (KUL)</option>
-              <option value="TYO">Tokyo (TYO)</option>
-              <option value="NYC">New York (NYC)</option>
-              <option value="LON">London (LON)</option>
+              <option value="all">All Cities & Global</option>
+              {GLOBAL_CITIES.map((c) => (
+                <option key={c.cityCode} value={c.cityCode}>
+                  {c.flagEmoji} {c.cityName} ({c.cityCode})
+                </option>
+              ))}
             </select>
           </div>
 
@@ -573,18 +575,18 @@ export const AdLibrary: React.FC<AdLibraryProps> = ({
                     <select
                       value={newCity}
                       onChange={(e) => {
-                        setNewCity(e.target.value);
-                        if (e.target.value === 'KUL') setNewCountry('MY');
-                        if (e.target.value === 'TYO') setNewCountry('JP');
-                        if (e.target.value === 'NYC') setNewCountry('US');
-                        if (e.target.value === 'LON') setNewCountry('UK');
+                        const targetCity = e.target.value;
+                        setNewCity(targetCity);
+                        const matched = GLOBAL_CITIES.find(c => c.cityCode === targetCity);
+                        if (matched) setNewCountry(matched.countryCode);
                       }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-bold"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-bold text-xs"
                     >
-                      <option value="KUL">Kuala Lumpur (KUL)</option>
-                      <option value="TYO">Tokyo (TYO)</option>
-                      <option value="NYC">New York (NYC)</option>
-                      <option value="LON">London (LON)</option>
+                      {GLOBAL_CITIES.map((c) => (
+                        <option key={c.cityCode} value={c.cityCode}>
+                          {c.flagEmoji} {c.cityName} ({c.cityCode})
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

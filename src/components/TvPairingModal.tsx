@@ -11,6 +11,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { soundEffects } from '../lib/soundEffects';
+import { GLOBAL_CITIES } from '../data/cities';
 
 interface TvPairingModalProps {
   isOpen: boolean;
@@ -173,21 +174,18 @@ export const TvPairingModal: React.FC<TvPairingModalProps> = ({
             <div className="space-y-1.5">
               <label className="text-xs font-mono font-bold text-slate-300 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                <span>3. Location / City Feed:</span>
+                <span>3. Location / Screen Geofence:</span>
               </label>
               <select
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
               >
-                <option value="GLOBAL">🌐 Global Distributed Stream</option>
-                <option value="NYC">🇺🇸 New York City (Times Square)</option>
-                <option value="TYO">🇯🇵 Tokyo (Shibuya Crossing)</option>
-                <option value="LON">🇬🇧 London (Piccadilly)</option>
-                <option value="PAR">🇫🇷 Paris (Champs-Élysées)</option>
-                <option value="KUL">🇲🇾 Kuala Lumpur (Petronas)</option>
-                <option value="DXB">🇦🇪 Dubai (Downtown)</option>
-                <option value="SIN">🇸🇬 Singapore (Marina Bay)</option>
+                {GLOBAL_CITIES.map((c) => (
+                  <option key={c.cityCode} value={c.cityCode}>
+                    {c.flagEmoji} {c.cityName} {c.cityCode !== 'GLOBAL' ? `(${c.cityCode})` : ''}
+                  </option>
+                ))}
               </select>
             </div>
 

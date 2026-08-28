@@ -23,6 +23,7 @@ import {
   Clock,
   Check
 } from 'lucide-react';
+import { GLOBAL_CITIES } from '../data/cities';
 import { webMCPRegistry } from '../lib/webmcp';
 import { soundEffects } from '../lib/soundEffects';
 import confetti from 'canvas-confetti';
@@ -426,12 +427,11 @@ print('Takeover Status:', bid['status'])`
                     onChange={(e) => setCityArg(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                   >
-                    <option value="TYO">TYO (Tokyo Shibuya)</option>
-                    <option value="NYC">NYC (Times Square Manhattan)</option>
-                    <option value="LON">LON (London City)</option>
-                    <option value="KUL">KUL (Kuala Lumpur KLCC)</option>
-                    <option value="PAR">PAR (Paris Champs-Élysées)</option>
-                    <option value="GLOBAL">GLOBAL (Worldwide Network Feed)</option>
+                    {GLOBAL_CITIES.map((c) => (
+                      <option key={c.cityCode} value={c.cityCode}>
+                        {c.flagEmoji} {c.cityCode} - {c.cityName}
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
