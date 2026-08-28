@@ -81,6 +81,34 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
   const [isSavingWallet, setIsSavingWallet] = useState<boolean>(false);
   const [walletSaveMsg, setWalletSaveMsg] = useState<string | null>(null);
 
+  // Live Visual Preview Ad State
+  const [previewAd, setPreviewAd] = useState<{ title: string; imageUrl: string; advertiser: string; bidDollars: string }>({
+    title: 'Cyberpunk Esports Championship Series',
+    imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    advertiser: 'Omni Media Global',
+    bidDollars: '4.50'
+  });
+
+  useEffect(() => {
+    const fetchSlotForPreview = async () => {
+      try {
+        const res = await fetch(`/api/slot?cityCode=${cityCode}&countryCode=GLOBAL`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.winningAd) {
+            setPreviewAd({
+              title: data.winningAd.title,
+              imageUrl: data.winningAd.imageUrl,
+              advertiser: data.winningAd.advertiserName || 'Sponsor Ad',
+              bidDollars: ((data.winningAd.bidAmountCents || 100) / 100).toFixed(2)
+            });
+          }
+        }
+      } catch {}
+    };
+    fetchSlotForPreview();
+  }, [cityCode]);
+
   const [activeTab, setActiveTab] = useState<'url_builder' | 'ai_agent_guide' | 'simulator'>('url_builder');
 
   const cleanHandle = (handle || 'venue_host').replace(/^@/, '').toLowerCase().trim();
@@ -786,15 +814,60 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
                 </a>
               </div>
 
-              {/* Preview Canvas Window */}
-              <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner flex items-center justify-center">
-                <iframe
-                  key={overlayUrl}
-                  src={overlayUrl}
-                  title="Display Preview"
-                  allow="autoplay; fullscreen; encrypted-media"
-                  className="w-full h-full border-0 pointer-events-auto"
+              {/* Live Interactive Preview Canvas (Never Blank / Instant 0ms Render) */}
+              <div className={`relative aspect-video w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl flex items-center justify-center select-none ${
+                theme === 'cyberpunk' ? 'border-cyan-500/50 shadow-cyan-500/10' :
+                theme === 'neon' ? 'border-purple-500/50 shadow-purple-500/10' :
+                theme === 'gold' ? 'border-amber-500/50 shadow-amber-500/10' : ''
+              }`}>
+                {/* Background Image / Creative Display */}
+                <img
+                  src={previewAd.imageUrl}
+                  alt={previewAd.title}
+                  className="w-full h-full object-cover"
                 />
+
+                {/* Ambient Top HUD Badge */}
+                <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between pointer-events-none">
+                  <div className="px-2.5 py-1 bg-slate-950/90 border border-cyan-500/50 backdrop-blur-md rounded-xl flex items-center gap-1.5 shadow-lg">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    <span className="text-[10px] font-black uppercase text-white tracking-wider">
+                      {environmentMode === 'venue_event' ? 'VENUE DISPLAY' : `@${cleanHandle}`}
+                    </span>
+                  </div>
+
+                  <div className="px-2 py-0.5 bg-rose-950/90 border border-rose-500/60 backdrop-blur-md text-rose-300 font-mono font-bold text-[10px] rounded-lg shadow-lg flex items-center gap-1">
+                    <Clock className="w-3 h-3 animate-spin" style={{ animationDuration: '8s' }} />
+                    <span>15s Slot</span>
+                  </div>
+                </div>
+
+                {/* Dynamic On-Screen Customer QR Code (If Enabled) */}
+                {showQr && (
+                  <div className="absolute bottom-10 right-2.5 bg-slate-950/95 border border-amber-400/80 p-1.5 rounded-xl shadow-2xl flex items-center gap-1.5 backdrop-blur-md pointer-events-none">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent('https://www.livebillboards.lol/watcher')}`}
+                      alt="QR Preview"
+                      className="w-8 h-8 rounded bg-white p-0.5 object-contain"
+                    />
+                    <div className="text-[8px] font-bold text-amber-300 uppercase leading-tight font-mono">
+                      Scan To<br />Claim
+                    </div>
+                  </div>
+                )}
+
+                {/* Bottom Ticker Bar (If Enabled) */}
+                {showTicker && (
+                  <div className="absolute bottom-0 inset-x-0 bg-slate-950/90 border-t border-slate-800 px-3 py-1.5 flex items-center justify-between text-[10px] backdrop-blur-md font-mono pointer-events-none">
+                    <div className="text-white font-bold truncate max-w-[200px]">
+                      {previewAd.title}
+                    </div>
+                    <div className="text-cyan-300 shrink-0 flex items-center gap-1 font-bold">
+                      <span>Sponsor: {previewAd.advertiser}</span>
+                      <span className="text-amber-400 font-mono">(${previewAd.bidDollars})</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 space-y-1.5 text-xs font-mono">
