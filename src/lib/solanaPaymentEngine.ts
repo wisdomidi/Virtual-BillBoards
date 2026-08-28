@@ -8,22 +8,42 @@ export const SOLANA_USDC_MINT = {
 };
 
 // Platform Master Treasury Wallet (Vault)
-export const PLATFORM_SOLANA_VAULT = 'LiveB7m9uBkWJk7tPX6b2Z8FhK5Hw1n2p9dG8sYvQ9v4';
+// Can be overridden by setting VITE_SOLANA_TREASURY_WALLET in .env
+export const PLATFORM_SOLANA_VAULT =
+  (typeof process !== 'undefined' && process.env?.SOLANA_TREASURY_WALLET) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SOLANA_TREASURY_WALLET) ||
+  'LiveB7m9uBkWJk7tPX6b2Z8FhK5Hw1n2p9dG8sYvQ9v4';
 
 export class SolanaPaymentEngine {
   private network: 'mainnet-beta' | 'devnet';
   private connection: Connection;
+  private vaultAddress: string;
 
-  constructor(network: 'mainnet-beta' | 'devnet' = 'devnet') {
-    this.network = network;
-    const rpcUrl = network === 'mainnet-beta' 
-      ? 'https://api.mainnet-beta.solana.com'
-      : clusterApiUrl('devnet');
+  constructor() {
+    const envNet =
+      (typeof process !== 'undefined' && process.env?.SOLANA_NETWORK) ||
+      (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SOLANA_NETWORK) ||
+      'devnet';
+
+    this.network = envNet === 'mainnet-beta' || envNet === 'mainnet' ? 'mainnet-beta' : 'devnet';
+    this.vaultAddress = PLATFORM_SOLANA_VAULT;
+
+    const rpcUrl =
+      (typeof process !== 'undefined' && process.env?.SOLANA_RPC_URL) ||
+      (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SOLANA_RPC_URL) ||
+      (this.network === 'mainnet-beta'
+        ? 'https://api.mainnet-beta.solana.com'
+        : clusterApiUrl('devnet'));
+
     this.connection = new Connection(rpcUrl, 'confirmed');
   }
 
   public getNetwork(): string {
     return this.network;
+  }
+
+  public getVaultAddress(): string {
+    return this.vaultAddress;
   }
 
   public getUsdcMint(): string {
@@ -34,6 +54,7 @@ export class SolanaPaymentEngine {
    * Validate a standard base58 Solana public key address
    */
   public isValidSolanaAddress(address: string): boolean {
+    if (!address || typeof address !== 'string') return false;
     try {
       new PublicKey(address);
       return true;
@@ -62,19 +83,35 @@ export class SolanaPaymentEngine {
   }
 
   /**
-   * Verify an incoming on-chain Solana USDC settlement from an AI agent
+   * Verify an incoming on-chain Solana USDC settlement from an AI agent or user wallet
    */
   public async verifyAndRecordSettlement(params: {
-    signature: string;
+    signature?: string;
     fromWallet: string;
     targetCityOrHandle: string;
     amountUsdc: number;
     slotId: string;
-  }): Promise<{ success: boolean; settlement: SolanaUsdcSettlement; error?: string }> {
+  }): Promise<{ success: boolean; settlement: SolanaUsdcSettlement; verifiedOnChain?: boolean; error?: string }> {
     const { signature, fromWallet, targetCityOrHandle, amountUsdc, slotId } = params;
 
     if (!this.isValidSolanaAddress(fromWallet)) {
-      return { success: false, settlement: {} as any, error: 'Invalid fromWallet Solana address' };
+      return { success: false, settlement: {} as any, error: 'Invalid fromWallet Solana address format.' };
+    }
+
+    let verifiedOnChain = false;
+
+    // If a real signature is provided, attempt on-chain verification via Solana RPC
+    if (signature && signature.length >= 64 && !signature.startsWith('sol_sig_')) {
+      try {
+        const txInfo = await this.connection.getParsedTransaction(signature, {
+          maxSupportedTransactionVersion: 0
+        });
+        if (txInfo && !txInfo.meta?.err) {
+          verifiedOnChain = true;
+        }
+      } catch (rpcErr) {
+        console.warn('[Solana RPC] On-chain lookup warning:', rpcErr);
+      }
     }
 
     const splits = this.calculateMicroSplit(amountUsdc);
@@ -84,7 +121,7 @@ export class SolanaPaymentEngine {
     const settlement: SolanaUsdcSettlement = {
       signature: signature || `sol_sig_${Math.random().toString(36).substring(2, 12)}_${timestamp}`,
       fromWallet,
-      toWallet: PLATFORM_SOLANA_VAULT,
+      toWallet: this.vaultAddress,
       amountUsdc,
       slotId,
       targetCityOrHandle,
@@ -98,6 +135,7 @@ export class SolanaPaymentEngine {
 
     return {
       success: true,
+      verifiedOnChain,
       settlement
     };
   }
@@ -112,7 +150,7 @@ export class SolanaPaymentEngine {
     message?: string;
     memo?: string;
   }): string {
-    const recipient = params.recipientAddress || PLATFORM_SOLANA_VAULT;
+    const recipient = params.recipientAddress || this.vaultAddress;
     const usdcMint = this.getUsdcMint();
     const label = encodeURIComponent(params.label || 'LiveBillboards 15s Ad Slot');
     const message = encodeURIComponent(params.message || 'Sub-second RTB Billboard Micro-Bid');
@@ -122,4 +160,4 @@ export class SolanaPaymentEngine {
   }
 }
 
-export const solanaPaymentEngine = new SolanaPaymentEngine('devnet');
+export const solanaPaymentEngine = new SolanaPaymentEngine();
