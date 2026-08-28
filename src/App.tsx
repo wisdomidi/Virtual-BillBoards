@@ -33,6 +33,8 @@ import { WebMcpPlayground } from './components/WebMcpPlayground';
 import { SmartTvScreen } from './components/SmartTvScreen';
 import { TvPairingModal } from './components/TvPairingModal';
 import { VenuePitchDeckModal } from './components/VenuePitchDeckModal';
+import { PrivacyPolicyView } from './components/PrivacyPolicyView';
+import { TermsOfServiceView } from './components/TermsOfServiceView';
 import { Sparkles, Globe, Radio, Tv, FileText } from 'lucide-react';
 import {
   auth,
@@ -197,6 +199,8 @@ function detectInitialTabFromUrl(): TabType {
   if (path === 'blog') return 'blog';
   if (path === 'analytics') return 'analytics';
   if (path === 'admin') return 'admin';
+  if (path === 'privacy') return 'privacy';
+  if (path === 'terms') return 'terms';
   return 'live';
 }
 
@@ -1047,6 +1051,10 @@ export default function App() {
           />
         )}
 
+        {/* LEGAL & COMPLIANCE PAGES */}
+        {activeTab === 'privacy' && <PrivacyPolicyView onBackToHome={() => handleNavigateTab('live')} />}
+        {activeTab === 'terms' && <TermsOfServiceView onBackToHome={() => handleNavigateTab('live')} />}
+
         {/* Global Interactive Captcha Drop Modal (Random Attention Check - ONLY for Watchers) */}
         {activeCaptcha && userRole === 'paid_watcher' && (activeTab === 'watcher' || activeTab === 'ledger') && (
           <CaptchaDropModal
@@ -1321,17 +1329,23 @@ export default function App() {
 
           {/* Col 4: Support & Security */}
           <div className="space-y-2.5">
-            <h4 className="font-bold text-white uppercase text-[11px] font-mono tracking-wider">Support & Help</h4>
-            <p className="text-slate-400 text-xs">
-              Need custom billboard campaigns or enterprise multi-screen takeover?
-            </p>
-            <p>
-              <a
-                href="mailto:support@livebillboards.lol"
-                className="text-cyan-400 hover:text-cyan-300 underline font-mono text-xs"
+            <h4 className="font-bold text-white uppercase text-[11px] font-mono tracking-wider">Legal & Compliance</h4>
+            <div className="flex flex-col gap-1.5 text-xs font-mono">
+              <button
+                onClick={() => handleNavigateTab('privacy')}
+                className="text-slate-400 hover:text-cyan-400 text-left cursor-pointer transition-colors"
               >
-                support@livebillboards.lol
-              </a>
+                🔒 Privacy Policy
+              </button>
+              <button
+                onClick={() => handleNavigateTab('terms')}
+                className="text-slate-400 hover:text-cyan-400 text-left cursor-pointer transition-colors"
+              >
+                📄 Terms of Service
+              </button>
+            </div>
+            <p className="text-slate-400 text-xs pt-1">
+              Inquiries: <a href="mailto:support@livebillboards.lol" className="text-cyan-400 hover:underline">support@livebillboards.lol</a>
             </p>
             <div className="pt-2 text-[11px] text-slate-500">
               © {new Date().getFullYear()} Virtual BillBoard. All rights reserved.
