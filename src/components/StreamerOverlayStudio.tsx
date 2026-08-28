@@ -32,7 +32,8 @@ import {
   Compass,
   Bot,
   Info,
-  ArrowRight
+  ArrowRight,
+  Clock
 } from 'lucide-react';
 import { soundEffects } from '../lib/soundEffects';
 
