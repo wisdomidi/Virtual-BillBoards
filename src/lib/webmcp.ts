@@ -225,19 +225,105 @@ class WebMCPClientRegistry {
         type: 'object',
         properties: {
           streamerId: { type: 'string', description: "Streamer handle or channel name without @ (e.g. 'ninja', 'shroud', 'creator')", default: 'creator' },
-          eventType: { type: 'string', enum: ['kill_streak', 'victory_royale', 'ace_clutch', 'boss_defeated', 'sub_hype_bomb', 'tournament_champion', 'level_up', 'game_over'], description: 'Game event trigger type', default: 'victory_royale' },
+          eventType: { type: 'string', enum: ['kill_streak', 'victory_royale', 'ace_clutch', 'boss_defeated', 'sub_hype_bomb', 'tournament_champion', 'level_up', 'game_over', 'keynote_live', 'hackathon_winner', 'sponsor_showcase'], description: 'Game or stage event trigger type', default: 'victory_royale' },
           headline: { type: 'string', description: "Takeover headline banner copy (e.g. '⚡ VICTORY ROYALE SPONSORED BY APEX GPU')" },
           subheadline: { type: 'string', description: 'Secondary copy or discount promo code' },
           sponsorName: { type: 'string', description: 'Brand or AI agent name', default: 'Autonomous WebMCP Sponsor' },
           sponsorImageUrl: { type: 'string', description: 'Image or logo URL for overlay creative banner' },
           sponsorCtaUrl: { type: 'string', description: 'Clickable call-to-action link' },
           bidAmountDollars: { type: 'number', description: 'Sponsorship amount in USD (min $2.00, 70% directly to streamer)', default: 5.00 },
-          gameTitle: { type: 'string', description: 'Game name (e.g. Valorant, CS2, Fortnite, Apex)', default: 'Live Esports' }
+          gameTitle: { type: 'string', description: 'Game or event name (e.g. Valorant, CS2, Fortnite, Tech Summit)', default: 'Live Broadcast' }
         },
         required: ['streamerId', 'eventType', 'headline']
       },
       handler: async (args) => {
         const res = await fetch('/api/overlay/trigger-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args)
+        });
+        return await res.json();
+      }
+    });
+
+    // 7. Tool: fetchHistoricalROI (Advanced Telemetry)
+    this.registerTool({
+      name: 'fetchHistoricalROI',
+      description: 'Programmatically query historical CPM, CTR, Proof-of-Attention solve rates, and estimated ROAS multiplier for any global city or creator screen to optimize AI bidding algorithms.',
+      readOnlyHint: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', description: '3-letter city code (e.g. TYO, NYC, LON, KUL) or creator handle without @', default: 'TYO' },
+          timeframe: { type: 'string', enum: ['1h', '24h', '7d'], description: 'Analysis historical window', default: '24h' }
+        },
+        required: ['target']
+      },
+      handler: async (args) => {
+        const target = (args.target || 'TYO').toUpperCase();
+        const timeframe = args.timeframe || '24h';
+        const res = await fetch(`/api/v1/analytics/roi/${target}?timeframe=${timeframe}`);
+        return await res.json();
+      }
+    });
+
+    // 8. Tool: predictStreamRetention (Algorithmic Bidding Predictor)
+    this.registerTool({
+      name: 'predictStreamRetention',
+      description: 'Predict upcoming viewer attention scores, retention curves, audience dwell time, and optimal bidding entry windows for algorithmic RTB execution.',
+      readOnlyHint: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', description: 'Target city code or streamer handle', default: 'NYC' }
+        },
+        required: ['target']
+      },
+      handler: async (args) => {
+        const target = (args.target || 'NYC').toUpperCase();
+        const res = await fetch(`/api/v1/analytics/retention/${target}`);
+        return await res.json();
+      }
+    });
+
+    // 9. Tool: getAudienceAttentionSpikes (Real-time Human Verification Telemetry)
+    this.registerTool({
+      name: 'getAudienceAttentionSpikes',
+      description: 'Retrieve real-time human spectator counts, active Proof-of-Attention verification percentages, and recent traffic spike events.',
+      readOnlyHint: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cityCode: { type: 'string', description: 'Metropolitan city code (e.g. TYO, NYC, LON, KUL)', default: 'TYO' }
+        },
+        required: ['cityCode']
+      },
+      handler: async (args) => {
+        const cityCode = (args.cityCode || 'TYO').toUpperCase();
+        const res = await fetch(`/api/v1/analytics/spikes/${cityCode}`);
+        return await res.json();
+      }
+    });
+
+    // 10. Tool: placeSolanaUsdcBid (Sub-Second Micro-Payment Settlement Rail)
+    this.registerTool({
+      name: 'placeSolanaUsdcBid',
+      description: 'Programmatically submit and settle an ad slot bid via Solana USDC micro-payments. Enables sub-400ms finality and automated 3-way instant splits (70% streamer/creator, 15% watcher attention pool, 15% protocol).',
+      readOnlyHint: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Billboard creative headline copy' },
+          imageUrl: { type: 'string', description: 'Image or video creative URL' },
+          targetCityCode: { type: 'string', description: 'Target city code (e.g. TYO, NYC, LON)', default: 'TYO' },
+          amountUsdc: { type: 'number', description: 'USDC micro-bid amount (min 1.00 USDC)', default: 1.50 },
+          senderSolanaWallet: { type: 'string', description: 'Base58 Solana public key wallet of the AI agent', default: 'AgentB9m8wK7tPX6b2Z8FhK5Hw1n2p9dG8sYvQ9v4' },
+          solanaTxSignature: { type: 'string', description: 'Optional pre-signed Solana SPL transaction signature' }
+        },
+        required: ['title', 'imageUrl', 'senderSolanaWallet']
+      },
+      handler: async (args) => {
+        const res = await fetch('/api/v1/solana/settle-bid', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(args)

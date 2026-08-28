@@ -573,3 +573,54 @@ export interface StreamerRevenueRecord {
   webhookSecret: string;
 }
 
+// -----------------------------------------------------------------------------
+// SOLANA USDC MICRO-PAYMENT HIGHWAY & WEBMCP ANALYTICS TYPES
+// -----------------------------------------------------------------------------
+
+export interface SolanaUsdcSettlement {
+  signature: string;
+  fromWallet: string;
+  toWallet: string;
+  amountUsdc: number;
+  slotId: string;
+  targetCityOrHandle: string;
+  timestamp: number;
+  network: 'mainnet-beta' | 'devnet';
+  streamerSplitUsdc: number;
+  viewerPoolUsdc: number;
+  protocolTreasuryUsdc: number;
+  memoHash: string;
+}
+
+export interface HistoricalROIReport {
+  target: string;
+  timeframe: '1h' | '24h' | '7d';
+  effectiveCpmDollars: number;
+  clickThroughRatePercent: number;
+  averageBidDollars: number;
+  totalSlotsRotated: number;
+  totalAudienceImpressions: number;
+  proofOfAttentionRatePercent: number;
+  estimatedRoasMultiplier: number;
+  peakHourUtc: number;
+}
+
+export interface StreamRetentionPrediction {
+  target: string;
+  predictedAttentionScore: number; // 0 - 100
+  viewerDwellCurve: { minute: number; predictedRetentionPercent: number }[];
+  expectedViewerCount: number;
+  recommendedBidDollars: number;
+  surgeProbability: number;
+  optimalBiddingWindow: string;
+}
+
+export interface AudienceAttentionSpikesReport {
+  cityCode: string;
+  currentActiveHumans: number;
+  proofOfAttentionSolveRate: number; // 0 - 100%
+  recentSpikeEvents: { timeUtc: string; multiplier: number; reason: string }[];
+  topEngagedLanguage: string;
+}
+
+

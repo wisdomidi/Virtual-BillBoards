@@ -163,6 +163,20 @@ export const WebMcpPlayground: React.FC = () => {
         args = { handle: handleArg };
       } else if (selectedTool === 'getCityLeaderboard') {
         args = { limit: 10 };
+      } else if (selectedTool === 'fetchHistoricalROI') {
+        args = { target: cityArg || 'TYO', timeframe: '24h' };
+      } else if (selectedTool === 'predictStreamRetention') {
+        args = { target: cityArg || 'NYC' };
+      } else if (selectedTool === 'getAudienceAttentionSpikes') {
+        args = { cityCode: cityArg || 'TYO' };
+      } else if (selectedTool === 'placeSolanaUsdcBid') {
+        args = {
+          title: titleArg,
+          imageUrl: imgArg,
+          targetCityCode: cityArg,
+          amountUsdc: Math.max(1.00, bidArg),
+          senderSolanaWallet: 'AgentB9m8wK7tPX6b2Z8FhK5Hw1n2p9dG8sYvQ9v4'
+        };
       }
 
       const result = await webMCPRegistry.executeTool(selectedTool, args);
@@ -404,9 +418,9 @@ print('Takeover Status:', bid['status'])`
                 <span>Input Parameters (JSON Schema)</span>
               </div>
 
-              {(selectedTool === 'fetchActiveBillboard' || selectedTool === 'placeAdBid' || selectedTool === 'bidTier1StaringEyeballs') && (
+              {(selectedTool === 'fetchActiveBillboard' || selectedTool === 'placeAdBid' || selectedTool === 'bidTier1StaringEyeballs' || selectedTool === 'fetchHistoricalROI' || selectedTool === 'predictStreamRetention' || selectedTool === 'getAudienceAttentionSpikes' || selectedTool === 'placeSolanaUsdcBid') && (
                 <div>
-                  <label className="block text-[11px] font-mono text-slate-400 mb-1">targetCityCode:</label>
+                  <label className="block text-[11px] font-mono text-slate-400 mb-1">targetCityCode / Target:</label>
                   <select
                     value={cityArg}
                     onChange={(e) => setCityArg(e.target.value)}
@@ -422,7 +436,7 @@ print('Takeover Status:', bid['status'])`
                 </div>
               )}
 
-              {(selectedTool === 'placeAdBid' || selectedTool === 'bidTier1StaringEyeballs') && (
+              {(selectedTool === 'placeAdBid' || selectedTool === 'bidTier1StaringEyeballs' || selectedTool === 'placeSolanaUsdcBid') && (
                 <>
                   <div>
                     <label className="block text-[11px] font-mono text-slate-400 mb-1">title:</label>
@@ -443,7 +457,9 @@ print('Takeover Status:', bid['status'])`
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-mono text-slate-400 mb-1">bidAmountDollars:</label>
+                    <label className="block text-[11px] font-mono text-slate-400 mb-1">
+                      {selectedTool === 'placeSolanaUsdcBid' ? 'amountUsdc (Solana USDC):' : 'bidAmountDollars:'}
+                    </label>
                     <input
                       type="number"
                       min="1.00"
