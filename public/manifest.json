@@ -1,0 +1,31 @@
+{
+  "name": "LiveBillboards 24/7 TV Screen",
+  "short_name": "LiveBillboards",
+  "description": "Infinite 24/7 Virtual Billboard and DOOH Screen Network for Smart TVs, Venues, and Streamers",
+  "start_url": "/tv",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "categories": ["tv", "entertainment", "business", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "TV Screen Player",
+      "url": "/tv",
+      "description": "Launch 24/7 TV Screen Player"
+    },
+    {
+      "name": "Pair TV Screen",
+      "url": "/pair",
+      "description": "Pair a new Smart TV"
+    }
+  ]
+}

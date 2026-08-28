@@ -273,6 +273,34 @@ redisQueues['billboard:queue:GLOBAL'] = globalAds;
 // Track round-robin rotation pointers for city/regional fallback loops
 const queueRotationPointers: Record<string, number> = {};
 
+// In-Memory Moderation & Flagged Ad Store
+export interface FlaggedAdRecord {
+  id: string;
+  title: string;
+  imageUrl: string;
+  advertiserName: string;
+  bidAmountDollars: string;
+  targetCityCode: string;
+  reason: string;
+  safetyScore: number;
+  timestamp: string;
+  status: 'flagged' | 'overridden' | 'blocked';
+}
+const flaggedAdsStore = new Map<string, FlaggedAdRecord>();
+
+// In-Memory Smart TV Pairing Session Store
+export interface TvPairingSession {
+  pin: string;
+  createdAt: number;
+  status: 'pending' | 'paired';
+  venueName?: string;
+  solanaWallet?: string;
+  city?: string;
+  pairedAt?: string;
+}
+const tvPairingSessions = new Map<string, TvPairingSession>();
+
+
 // ------------------------------------------------------------------------------
 // APP STORE ARCADE TOKEN ECONOMY ENGINE & PACKAGES
 // ------------------------------------------------------------------------------
@@ -2111,10 +2139,24 @@ const handleBidSubmission = async (req: Request, res: Response) => {
     // 3. Gemini Vision AI Content Safety Review
     let safetyScore = 95;
     // 3. Fast Automated Brand Safety Filter (< 1ms execution)
-    const prohibitedKeywords = ['phishing', 'malware', 'exploit', 'darknet'];
+    const prohibitedKeywords = ['phishing', 'malware', 'exploit', 'darknet', 'scam'];
     const hasProhibited = prohibitedKeywords.some(k => title.toLowerCase().includes(k));
     if (hasProhibited) {
-      logTelemetry('SAFETY_CHECK', `Bid REJECTED: Prohibited keyword detected in title "${title}"`);
+      const flagId = `flag_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      flaggedAdsStore.set(flagId, {
+        id: flagId,
+        title,
+        imageUrl,
+        advertiserName,
+        bidAmountDollars: dollarsStr,
+        targetCityCode: cityUpper,
+        reason: 'Restricted keyword detected in ad title',
+        safetyScore: 10,
+        timestamp: new Date().toISOString(),
+        status: 'flagged'
+      });
+
+      logTelemetry('SAFETY_CHECK', `Bid REJECTED & FLAGGED: Prohibited keyword detected in title "${title}"`);
       return res.status(422).json({
         success: false,
         error: 'Creative contains restricted keywords violating platform brand safety rules.'
@@ -2130,7 +2172,23 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       }).then((geminiRes) => {
         try {
           const parsed = JSON.parse(geminiRes.text || '{}');
-          logTelemetry('SAFETY_AUDIT_COMPLETED', `Gemini AI safety audit completed for "${title}": Score ${parsed.safetyScore ?? 95}/100 [${parsed.reason || 'Approved'}]`);
+          const score = parsed.safetyScore ?? 95;
+          if (score < 50) {
+            const flagId = `flag_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            flaggedAdsStore.set(flagId, {
+              id: flagId,
+              title,
+              imageUrl,
+              advertiserName,
+              bidAmountDollars: dollarsStr,
+              targetCityCode: cityUpper,
+              reason: parsed.reason || 'AI safety score below threshold',
+              safetyScore: score,
+              timestamp: new Date().toISOString(),
+              status: 'flagged'
+            });
+          }
+          logTelemetry('SAFETY_AUDIT_COMPLETED', `Gemini AI safety audit completed for "${title}": Score ${score}/100 [${parsed.reason || 'Approved'}]`);
         } catch {}
       }).catch((err) => {
         logTelemetry('SAFETY_CHECK', `Background Gemini audit notice: ${err.message}`);
@@ -5677,6 +5735,170 @@ app.post('/api/watcher/claim-usdc', async (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// -----------------------------------------------------------------------------
+// ADMIN MODERATION & FLAGGED ADS MANAGEMENT ENDPOINTS
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/flagged-ads
+app.get('/api/admin/flagged-ads', (req, res) => {
+  const list = Array.from(flaggedAdsStore.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return res.json({ success: true, count: list.length, flaggedAds: list });
+});
+
+// POST /api/admin/flagged-ads/:id/override
+app.post('/api/admin/flagged-ads/:id/override', (req, res) => {
+  const { id } = req.params;
+  const flagged = flaggedAdsStore.get(id);
+  if (!flagged) {
+    return res.status(404).json({ success: false, error: 'Flagged ad record not found.' });
+  }
+
+  flagged.status = 'overridden';
+  const cleanCity = (flagged.targetCityCode || 'GLOBAL').toUpperCase();
+  const queueKey = cleanCity === 'GLOBAL' ? 'billboard:queue:GLOBAL' : `billboard:queue:${cleanCity}`;
+  
+  if (!redisQueues[queueKey]) redisQueues[queueKey] = [];
+  const dollars = parseFloat(flagged.bidAmountDollars) || 1.5;
+  const cents = Math.round(dollars * 100);
+
+  const newAd: QueueItem = {
+    id: `ad_ovr_${Date.now()}`,
+    title: flagged.title,
+    imageUrl: flagged.imageUrl,
+    bidAmountCents: cents,
+    advertiserName: flagged.advertiserName,
+    targetCityCode: cleanCity,
+    targetCountryCode: 'GLOBAL',
+    createdAt: new Date().toISOString(),
+    ctaType: 'none'
+  };
+
+  redisQueues[queueKey].unshift(newAd);
+  logTelemetry('ADMIN_OVERRIDE', `Admin approved and reinstated flagged ad "${flagged.title}" for zone [${cleanCity}]`);
+
+  return res.json({
+    success: true,
+    message: `✅ Flagged ad "${flagged.title}" approved and injected into [${cleanCity}] live queue!`,
+    ad: newAd
+  });
+});
+
+// DELETE /api/admin/flagged-ads/:id
+app.delete('/api/admin/flagged-ads/:id', (req, res) => {
+  const { id } = req.params;
+  if (flaggedAdsStore.has(id)) {
+    const item = flaggedAdsStore.get(id)!;
+    item.status = 'blocked';
+    flaggedAdsStore.delete(id);
+    logTelemetry('ADMIN_DISMISS', `Admin permanently dismissed flagged ad [${id}]`);
+    return res.json({ success: true, message: 'Flagged ad permanently dismissed.' });
+  }
+  return res.status(404).json({ success: false, error: 'Flagged ad not found.' });
+});
+
+// -----------------------------------------------------------------------------
+// 6-DIGIT SMART TV & FIRE STICK SCREEN PAIRING ENDPOINTS
+// -----------------------------------------------------------------------------
+
+// POST /api/tv/create-pin
+app.post('/api/tv/create-pin', (req, res) => {
+  // Generate high-entropy 6-digit numeric PIN
+  const pin = Math.floor(100000 + Math.random() * 900000).toString();
+  const session: TvPairingSession = {
+    pin,
+    createdAt: Date.now(),
+    status: 'pending'
+  };
+
+  tvPairingSessions.set(pin, session);
+  // Auto-expire session after 15 minutes
+  setTimeout(() => {
+    if (tvPairingSessions.get(pin)?.status === 'pending') {
+      tvPairingSessions.delete(pin);
+    }
+  }, 15 * 60 * 1000);
+
+  logTelemetry('TV_PIN_GENERATED', `New Smart TV screen requested 6-digit pairing PIN: [${pin.substring(0, 3)}-${pin.substring(3)}]`);
+
+  return res.json({
+    success: true,
+    pin,
+    formattedPin: `${pin.substring(0, 3)}-${pin.substring(3)}`,
+    pairingUrl: `https://www.livebillboards.lol/pair?pin=${pin}`,
+    expiresInSeconds: 900
+  });
+});
+
+// POST /api/tv/pair-pin
+app.post('/api/tv/pair-pin', async (req, res) => {
+  const { pin, venueName = 'Lobby Screen', solanaWallet, city = 'GLOBAL' } = req.body;
+  if (!pin) {
+    return res.status(400).json({ success: false, error: 'Missing 6-digit TV PIN.' });
+  }
+
+  const cleanPin = pin.replace(/\D/g, '');
+  const session = tvPairingSessions.get(cleanPin);
+
+  if (!session) {
+    return res.status(404).json({ success: false, error: 'PIN not found or expired. Please refresh the Smart TV screen.' });
+  }
+
+  // Validate Solana wallet if provided
+  if (solanaWallet && solanaWallet.trim()) {
+    const { solanaPaymentEngine } = await import('./src/lib/solanaPaymentEngine.js');
+    if (!solanaPaymentEngine.isValidSolanaAddress(solanaWallet.trim())) {
+      return res.status(400).json({ success: false, error: 'Invalid Solana payout wallet address.' });
+    }
+    // Also save in streamer/venue wallet store
+    const cleanVenueHandle = venueName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    streamerWalletsStore.set(cleanVenueHandle, solanaWallet.trim());
+  }
+
+  session.status = 'paired';
+  session.venueName = venueName;
+  session.solanaWallet = solanaWallet?.trim() || undefined;
+  session.city = city.toUpperCase();
+  session.pairedAt = new Date().toISOString();
+
+  // Broadcast live pairing event to TV screen via WebSocket
+  broadcastToAll({
+    type: 'TV_SCREEN_PAIRED',
+    payload: {
+      pin: cleanPin,
+      venueName: session.venueName,
+      solanaWallet: session.solanaWallet,
+      city: session.city
+    }
+  });
+
+  logTelemetry('TV_SCREEN_PAIRED', `Smart TV screen [${cleanPin}] successfully paired to Venue: "${venueName}" [City: ${session.city}] with Solana Payout Wallet!`);
+
+  return res.json({
+    success: true,
+    pin: cleanPin,
+    venueName: session.venueName,
+    city: session.city,
+    message: `🎉 TV Screen paired successfully! "${venueName}" is now broadcasting 24/7 with instant 70% Solana payouts.`
+  });
+});
+
+// GET /api/tv/poll-status/:pin
+app.get('/api/tv/poll-status/:pin', (req, res) => {
+  const cleanPin = (req.params.pin || '').replace(/\D/g, '');
+  const session = tvPairingSessions.get(cleanPin);
+
+  if (!session) {
+    return res.json({ success: false, expired: true, paired: false });
+  }
+
+  return res.json({
+    success: true,
+    paired: session.status === 'paired',
+    session: session.status === 'paired' ? session : undefined
+  });
+});
+
 
 
 

@@ -46,9 +46,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   selectedCity,
   selectedCountry
 }) => {
-  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
+  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
   const [techTool, setTechTool] = useState<'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger'>('architecture');
   const [creatorFilter, setCreatorFilter] = useState('');
+
+  // Flagged & Rejected Ads Moderation State
+  const [flaggedAds, setFlaggedAds] = useState<any[]>([]);
+  const [loadingFlaggedAds, setLoadingFlaggedAds] = useState(false);
 
   // Platform Settings State
   const [settings, setSettings] = useState<PlatformSettings>({
@@ -130,9 +134,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const fetchFlaggedAds = async () => {
+    setLoadingFlaggedAds(true);
+    try {
+      const res = await fetch('/api/admin/flagged-ads');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.flaggedAds) setFlaggedAds(data.flaggedAds);
+      }
+    } catch (err) {
+      console.error('Failed to fetch flagged ads:', err);
+    } finally {
+      setLoadingFlaggedAds(false);
+    }
+  };
+
+  const handleOverrideFlaggedAd = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/flagged-ads/${id}/override`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        addToast('success', 'Ad Overridden & Approved', data.message || 'Ad injected into live broadcast queue.');
+        fetchFlaggedAds();
+      } else {
+        addToast('error', 'Override Failed', data.error || 'Could not override ad.');
+      }
+    } catch (e: any) {
+      addToast('error', 'Error', e.message);
+    }
+  };
+
+  const handleDismissFlaggedAd = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/flagged-ads/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        addToast('info', 'Ad Dismissed', 'Flagged ad permanently dismissed.');
+        fetchFlaggedAds();
+      }
+    } catch (e: any) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
     fetchCities();
+    fetchFlaggedAds();
   }, []);
 
   const handleSaveSettings = async () => {
@@ -272,6 +320,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="flex space-x-2 border-t border-slate-800/80 pt-4 mt-6 overflow-x-auto scrollbar-none">
           {[
             { id: 'settings', label: '⚙️ Platform Settings & Safety', icon: Settings },
+            { id: 'moderation', label: `🛡️ Moderation & Flagged Ads (${flaggedAds.length})`, icon: ShieldCheck },
             { id: 'creators', label: '👑 Creator Handles & Verification', icon: Crown },
             { id: 'overrides', label: '⚡ Emergency Ad Injector & Ejector', icon: Zap },
             { id: 'cities', label: '🌍 Geofenced Billboard Cities', icon: Globe },
@@ -296,6 +345,91 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           })}
         </div>
       </div>
+
+      {/* SUB-TAB: FLAGGED & REJECTED ADS MODERATION QUEUE */}
+      {activeAdminSubTab === 'moderation' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-2xl border border-rose-500/40">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-base font-black text-white uppercase tracking-tight">
+                  Flagged & Rejected Ad Creative Queue
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Review campaigns rejected by Gemini Vision AI or keyword safety filters. Admins can override or dismiss.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={fetchFlaggedAds}
+              disabled={loadingFlaggedAds}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingFlaggedAds ? 'animate-spin' : ''}`} />
+              <span>Refresh Queue</span>
+            </button>
+          </div>
+
+          {flaggedAds.length === 0 ? (
+            <div className="py-12 text-center space-y-2 bg-slate-950/60 rounded-2xl border border-slate-800/80">
+              <CheckCircle2 className="w-12 h-12 text-emerald-400/80 mx-auto" />
+              <div className="text-sm font-bold text-white uppercase">Moderation Queue is Clean!</div>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                No active flagged ads. All incoming creative has passed Gemini Vision AI brand safety filters.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {flaggedAds.map((ad) => (
+                <div key={ad.id} className="bg-slate-950 border border-rose-500/40 rounded-2xl p-4 space-y-3 shadow-lg flex flex-col justify-between">
+                  <div className="space-y-2.5">
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800">
+                      <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
+                      <span className="absolute top-2 right-2 px-2 py-0.5 bg-rose-950 text-rose-300 border border-rose-600 text-[10px] font-mono font-bold rounded-md">
+                        Safety: {ad.safetyScore}/100
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-black text-white line-clamp-1">{ad.title}</h4>
+                      <div className="text-[11px] text-slate-400 mt-0.5 flex items-center justify-between">
+                        <span>By: <strong className="text-slate-200">{ad.advertiserName || 'Anonymous'}</strong></span>
+                        <span className="font-mono text-amber-400 font-bold">${ad.bidAmountDollars}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-rose-950/40 border border-rose-500/30 rounded-xl text-[11px] font-mono text-rose-300">
+                      <strong>Flag Reason: </strong>{ad.reason}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                    <button
+                      onClick={() => handleOverrideFlaggedAd(ad.id)}
+                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Approve & Reinstate</span>
+                    </button>
+                    <button
+                      onClick={() => handleDismissFlaggedAd(ad.id)}
+                      className="p-2 bg-slate-800 hover:bg-rose-900 text-slate-400 hover:text-rose-200 rounded-xl transition-all cursor-pointer"
+                      title="Permanently Dismiss"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* SUB-TAB 1: DYNAMIC PLATFORM SETTINGS */}
       {activeAdminSubTab === 'settings' && (

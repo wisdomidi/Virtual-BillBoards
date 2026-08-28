@@ -30,7 +30,10 @@ import { ClaimUsernameModal } from './components/ClaimUsernameModal';
 import { BlogEngine } from './components/BlogEngine';
 import { BrandLogo } from './components/BrandLogo';
 import { WebMcpPlayground } from './components/WebMcpPlayground';
-import { Sparkles, Globe, Radio } from 'lucide-react';
+import { SmartTvScreen } from './components/SmartTvScreen';
+import { TvPairingModal } from './components/TvPairingModal';
+import { VenuePitchDeckModal } from './components/VenuePitchDeckModal';
+import { Sparkles, Globe, Radio, Tv, FileText } from 'lucide-react';
 import {
   auth,
   onAuthStateChanged,
@@ -216,9 +219,19 @@ export default function App() {
       new URLSearchParams(window.location.search).get('mode') === 'preview' ||
       new URLSearchParams(window.location.search).get('mode') === 'overlay');
 
-  if (isScreenOnlyMode) {
-    return <StreamerObsOverlay />;
-  }
+  const isTvMode =
+    typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/tv') ||
+      new URLSearchParams(window.location.search).get('mode') === 'tv');
+
+  const isPairRoute =
+    typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/pair') ||
+      new URLSearchParams(window.location.search).get('mode') === 'pair');
+
+  const initialPairPin = typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.search).get('pin') || '')
+    : '';
 
   const initialGeo = detectInitialUserCity();
   const [userRole, setUserRole] = useState<UserRole>('advertiser');
@@ -227,6 +240,11 @@ export default function App() {
   // Creator Vanity Billboard Routing State (e.g. livebillboards.lol/@elonmusk)
   const [selectedCreatorHandle, setSelectedCreatorHandle] = useState<string | null>(() => detectCreatorHandleFromUrl());
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
+
+  // TV Pairing & Venue Pitch Deck Modals
+  const [isTvPairModalOpen, setIsTvPairModalOpen] = useState<boolean>(isPairRoute);
+  const [isPitchDeckModalOpen, setIsPitchDeckModalOpen] = useState<boolean>(false);
+  const [tvPairPin, setTvPairPin] = useState<string>(initialPairPin);
 
   // Sync tab with browser back/forward buttons
   useEffect(() => {
@@ -257,6 +275,14 @@ export default function App() {
   const [slotData, setSlotData] = useState<ActiveBillboardSlot | null>(null);
   const [viewerPoints, setViewerPoints] = useState(120);
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryLog[]>([]);
+
+  if (isTvMode) {
+    return <SmartTvScreen slotData={slotData} selectedCity={selectedCity} />;
+  }
+
+  if (isScreenOnlyMode) {
+    return <StreamerObsOverlay />;
+  }
 
   // Auto-detect server IP geolocation fallback
   useEffect(() => {
@@ -1256,6 +1282,24 @@ export default function App() {
                   🤖 Autonomous AI Agents Hub
                 </button>
               </li>
+              <li>
+                <button
+                  onClick={() => setIsTvPairModalOpen(true)}
+                  className="text-cyan-400 hover:text-cyan-300 font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Tv className="w-3.5 h-3.5" />
+                  <span>📺 Pair Smart TV (6-Digit PIN)</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => setIsPitchDeckModalOpen(true)}
+                  className="text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>📄 Venue Pitch Deck & Calculator</span>
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -1279,6 +1323,22 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Smart TV Screen 6-Digit PIN Pairing Modal */}
+      <TvPairingModal
+        isOpen={isTvPairModalOpen}
+        onClose={() => setIsTvPairModalOpen(false)}
+        initialPin={tvPairPin}
+        onOpenPitchDeck={() => setIsPitchDeckModalOpen(true)}
+      />
+
+      {/* Turnkey Venue PDF Pitch Deck & Revenue Calculator Modal */}
+      <VenuePitchDeckModal
+        isOpen={isPitchDeckModalOpen}
+        onClose={() => setIsPitchDeckModalOpen(false)}
+        onOpenPairModal={() => setIsTvPairModalOpen(true)}
+      />
     </div>
   );
 }
+
