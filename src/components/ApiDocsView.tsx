@@ -267,7 +267,7 @@ if __name__ == "__main__":
           </div>
           <div className="bg-slate-950/80 border border-slate-800/90 rounded-2xl p-3.5">
             <div className="text-[11px] text-slate-500 uppercase font-semibold">Settlement Rails</div>
-            <div className="text-xs font-mono font-bold text-purple-400 mt-0.5">Wallet Balance & Stripe M2M</div>
+            <div className="text-xs font-mono font-bold text-cyan-400 mt-0.5">Solana USDC & Stripe Card</div>
           </div>
         </div>
       </div>

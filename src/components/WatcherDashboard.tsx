@@ -382,7 +382,7 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
           )}
         </div>
 
-        {/* Instant Action Prompt Bar */}
+        {/* Anti-Bot Human Attention Indicator Bar */}
         <div className="bg-slate-950/90 border border-amber-500/40 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-amber-500/20 rounded-xl text-amber-400 border border-amber-500/30">
@@ -390,27 +390,28 @@ export const WatcherDashboard: React.FC<WatcherDashboardProps> = ({
             </div>
             <div>
               <div className="font-bold text-white flex items-center gap-1.5">
-                <span>Proof-of-Attention Verification</span>
-                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono">15s Live Cycle</span>
+                <span>Proof-of-Attention Anti-Bot Verification</span>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono">15s Spatial Radar</span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Click the glowing radar target on the video or press the button to mine +25 Attention Points into your wallet.
+                To prevent bots, click the <strong>floating 💎 radar target</strong> directly on the video screen above to mine +25 Attention Points.
               </p>
             </div>
           </div>
 
-          <button
-            onClick={handlePoATargetClick}
-            disabled={poaMinedForSlot || !slotData?.winningAd}
-            className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-1.5 shrink-0 ${
-              poaMinedForSlot
-                ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-lg shadow-amber-500/25 cursor-pointer'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 fill-current" />
-            <span>{poaMinedForSlot ? 'Mined for this Ad ✅' : '⚡ Mine Attention Now (+25 Pts)'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {poaMinedForSlot ? (
+              <div className="px-3.5 py-2 bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 shadow-sm">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Verified for this Ad (+25 Pts)</span>
+              </div>
+            ) : (
+              <div className="px-3.5 py-2 bg-amber-950/60 border border-amber-500/50 text-amber-300 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 animate-pulse">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Click Floating 💎 Above</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

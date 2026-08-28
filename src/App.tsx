@@ -246,6 +246,18 @@ export default function App() {
   const [isPitchDeckModalOpen, setIsPitchDeckModalOpen] = useState<boolean>(false);
   const [tvPairPin, setTvPairPin] = useState<string>(initialPairPin);
 
+  // Dynamic URL Router & Browser History Syncer
+  const handleNavigateTab = useCallback((newTab: TabType) => {
+    setSelectedCreatorHandle(null);
+    setActiveTab(newTab);
+    if (typeof window !== 'undefined') {
+      const newPath = newTab === 'live' ? '/' : `/${newTab}`;
+      if (window.location.pathname !== newPath) {
+        window.history.pushState({ tab: newTab }, '', newPath);
+      }
+    }
+  }, []);
+
   // Sync tab with browser back/forward buttons
   useEffect(() => {
     const handlePopState = () => {
@@ -816,14 +828,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       <Navbar
         activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setSelectedCreatorHandle(null);
-          setActiveTab(tab);
-          if (typeof window !== 'undefined') {
-            const targetPath = tab === 'live' ? '/' : `/${tab}`;
-            window.history.pushState({}, '', targetPath);
-          }
-        }}
+        setActiveTab={handleNavigateTab}
         userRole={userRole}
         setUserRole={setUserRole}
         isConnected={isConnected}
@@ -1213,7 +1218,7 @@ export default function App() {
             <ul className="space-y-2">
               <li>
                 <button
-                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('live'); }}
+                  onClick={() => handleNavigateTab('live')}
                   className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span>📺 Live Billboard Stream</span>
@@ -1221,7 +1226,7 @@ export default function App() {
               </li>
               <li>
                 <button
-                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('leaderboard'); }}
+                  onClick={() => handleNavigateTab('leaderboard')}
                   className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span>🏆 Leaderboard & Ad Catalog</span>
@@ -1229,7 +1234,7 @@ export default function App() {
               </li>
               <li>
                 <button
-                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('streamer'); }}
+                  onClick={() => handleNavigateTab('streamer')}
                   className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span>🎥 Streamer Overlay Hub</span>
@@ -1237,7 +1242,7 @@ export default function App() {
               </li>
               <li>
                 <button
-                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('watcher'); }}
+                  onClick={() => handleNavigateTab('watcher')}
                   className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span>✨ Watcher Earn Hub</span>
@@ -1260,7 +1265,7 @@ export default function App() {
               </li>
               <li>
                 <button
-                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('blog'); }}
+                  onClick={() => handleNavigateTab('blog')}
                   className="hover:text-cyan-300 transition-colors cursor-pointer"
                 >
                   📰 Insights & Guides Blog
@@ -1268,7 +1273,7 @@ export default function App() {
               </li>
               <li>
                 <button
-                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('api_docs'); }}
+                  onClick={() => handleNavigateTab('api_docs')}
                   className="hover:text-cyan-300 transition-colors cursor-pointer"
                 >
                   📖 Programmatic REST API
@@ -1276,10 +1281,18 @@ export default function App() {
               </li>
               <li>
                 <button
-                  onClick={() => { setSelectedCreatorHandle(null); setActiveTab('ai_agents'); }}
+                  onClick={() => handleNavigateTab('ai_agents')}
                   className="hover:text-cyan-300 transition-colors cursor-pointer"
                 >
                   🤖 Autonomous AI Agents Hub
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => handleNavigateTab('webmcp')}
+                  className="hover:text-cyan-300 transition-colors cursor-pointer text-indigo-400 font-bold"
+                >
+                  ⚡ WebMCP Suite (AI Bidding)
                 </button>
               </li>
               <li>

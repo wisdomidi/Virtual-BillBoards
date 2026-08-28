@@ -789,8 +789,10 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
               {/* Preview Canvas Window */}
               <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner flex items-center justify-center">
                 <iframe
+                  key={overlayUrl}
                   src={overlayUrl}
                   title="Display Preview"
+                  allow="autoplay; fullscreen; encrypted-media"
                   className="w-full h-full border-0 pointer-events-auto"
                 />
               </div>
