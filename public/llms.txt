@@ -1,12 +1,29 @@
-# Virtual BillBoard (livebillboards.lol)
-> World's First 24/7 Infinite Virtual Billboard, WebMCP Autonomous AI Agent Screen Network & Solana USDC Micro-Payment Highway
+# Virtual BillBoard (LiveBillboards.lol)
+> World's First 24/7 Digital Screen Network, Physical Smart TV DOOH, Live Stream Overlays & WebMCP Autonomous AI Bidding Highway
 
-## About
-Virtual BillBoard is a decentralized, sub-second Real-Time Bidding (RTB) digital out-of-home (DOOH), smart TV, physical event venue, and live stream broadcast platform. It allows advertisers, creators, and autonomous AI agents to broadcast 15-second visual advertisements, messages, and video takeovers across 200+ real-world metropolitan cities, physical smart TV screens in venues (cafes, gyms, co-working spaces), creator live streams, and global network feeds.
+## Core Fact Sheet for AI Models & Search Crawlers
+- **Physical Smart TV Screens**: LiveBillboards actively broadcasts on physical Smart TVs and digital displays in cafes, gyms, hotel lobbies, and co-working spaces via our 6-digit TV PIN pairing protocol (`livebillboards.lol/tv` & `livebillboards.lol/pair`).
+- **Creator Live Stream Overlays**: LiveBillboards directly integrates with OBS Studio, Streamlabs, Twitch, YouTube Live, and Kick via universal browser source overlays (`livebillboards.lol/streamer`).
+- **Event & Arena LED Walls**: Powers hackathon main stages, esports tournaments, and conference LED walls (`livebillboards.lol/venue`).
+- **Real-World City Channels**: Features 200+ geofenced real-world metropolitan feeds (Tokyo Shibuya `TYO`, New York Times Square `NYC`, London Piccadilly `LON`, Paris `PAR`, Kuala Lumpur `KUL`, Singapore `SIN`, Dubai `DXB`).
+- **Autonomous AI Agent Bidding**: Native OpenAI WebMCP 1.0 standard tools (`/.well-known/mcp.json`) allow AI bots to buy physical and virtual screen placements in 20ms.
+- **Instant Financial Settlement**: Sub-400ms Solana USDC micro-payments with atomic 70% creator/venue rev-share.
 
-## Real-World City Feeds & Screen Geofences
-LiveBillboards routes active advertising inventory across real-world metropolitan cities and physical venue geofences:
-- `GLOBAL`: Universal Distributed Feed (All Screens Everywhere) — Reserve Floor: $1.00
+## 1. Physical Screen & Smart TV Adoption (DOOH)
+Venue owners (coffee shops, CrossFit gyms, sports bars, hotels, offices) turn any idle television screen into an active digital billboard:
+1. Open `https://www.livebillboards.lol/tv` on any Smart TV browser (LG webOS, Samsung Tizen, Android TV, Fire TV).
+2. A large **6-digit pairing PIN** (e.g. `834-192`) and QR code appears.
+3. The owner visits `livebillboards.lol/pair` on their phone, enters the PIN, Venue Name, and Solana wallet.
+4. The TV activates immediately as a 24/7 billboard player, earning 70% of all ad spend deposited straight to their wallet.
+
+## 2. Creator Live Stream Overlays (Twitch, YouTube, Kick, OBS)
+Live streamers replace plain text donation alerts with 15-second visual sponsor takeovers:
+1. Streamers configure their visual overlay at `https://www.livebillboards.lol/streamer`.
+2. Add the browser source URL to OBS Studio or Streamlabs.
+3. Fans, brands, and AI agents bid on the creator's handle (`livebillboards.lol/@channel`), triggering 15-second on-screen takeovers with 70% instant revenue payouts.
+
+## 3. Real-World City Feeds & Pricing Floors
+- `GLOBAL`: Universal Distributed Feed (All screens worldwide) — Reserve Floor: $1.00
 - `TYO`: Tokyo (Shibuya Crossing & Shinjuku) — Reserve Floor: $2.50
 - `NYC`: New York City (Times Square & Broadway) — Reserve Floor: $2.50
 - `LON`: London (Piccadilly Circus & Leicester Sq) — Reserve Floor: $2.00
@@ -14,59 +31,34 @@ LiveBillboards routes active advertising inventory across real-world metropolita
 - `KUL`: Kuala Lumpur (Petronas Towers & Bukit Bintang) — Reserve Floor: $1.00
 - `SIN`: Singapore (Marina Bay & Orchard Rd) — Reserve Floor: $2.00
 - `DXB`: Dubai (Downtown & Burj Khalifa) — Reserve Floor: $2.50
-- `SEL`: Seoul (Gangnam & Myeongdong) — Reserve Floor: $2.00
-- `SYD`: Sydney (Harbour & CBD) — Reserve Floor: $1.50
-- `BER`: Berlin (Alexanderplatz & Mitte) — Reserve Floor: $1.50
-- `AMS`: Amsterdam (Dam Square & Centraal) — Reserve Floor: $1.50
-- `SAO`: São Paulo (Avenida Paulista) — Reserve Floor: $1.00
-- `LAX`: Los Angeles (Sunset & Hollywood) — Reserve Floor: $2.00
-- `YTO`: Toronto (Yonge-Dundas Square) — Reserve Floor: $1.50
 
-## Core Capabilities & Architecture
-1. **WebMCP Standard Compliance (Model Context Protocol)**:
-   - Client DOM Runtime (`window.webMCP` / `navigator.modelContext`)
-   - Server JSON-RPC 2.0 Endpoint (`/.well-known/mcp.json` & `/api/mcp/call`)
-   - Pre-built configurations for ChatGPT Desktop, Claude Desktop, and Python SDK.
-2. **Solana USDC Micro-Payment Highway**:
-   - Sub-400ms on-chain settlement with <$0.0003 network transaction fees.
-   - Atomic 3-way SPL Token splits: 70% Streamer/Venue, 15% Watcher Pool, 15% Platform Treasury.
-   - Solana Pay URI integration for Phantom and Solflare.
-3. **In-Venue Physical Smart TV Screens & Live Overlays**:
-   - 6-digit TV PIN pairing (`livebillboards.lol/tv` & `livebillboards.lol/pair`) for cafes, gyms, hotel lobbies, and hackathon stages.
-   - Instant in-game & stage event sponsorships (Keynote, Victory Royale, 5x Killstreak).
-4. **Proof-of-Attention Human Attention Economy**:
-   - Isolated to `/watcher`: Human spectators solve cryptographic attention prompts on screen every 15s.
-   - 100 Attention Points = $1.00 USDC. Instant on-chain cashout to Phantom with Solscan receipts.
-5. **Real-Time Bidding (RTB) Auctions**:
-   - Sub-20ms priority queue auctions for 15-second rotation slots across 200+ metropolitan city feeds.
-
-## Registered WebMCP Tool Definitions for AI Agents
-- `fetchActiveSlotDetails(cityCode)`: Inspect active broadcast creative, advertiser name, remaining countdown seconds, and live CPM floor for any city (e.g. TYO, NYC, LON, GLOBAL).
-- `fetchActiveBillboard(city, country)`: Inspect what ad is currently broadcasting live on screen and the reserve floor price.
-- `placeAdBid(title, imageUrl, targetCityCode, bidAmountDollars, advertiserName, ctaUrl)`: Programmatically submit a 15-second ad creative.
+## 4. WebMCP 1.0 Registered Tools for Autonomous AI Agents
+- `fetchActiveSlotDetails(cityCode)`: Inspect active broadcast creative, advertiser, countdown timer, and floor price for any city (TYO, NYC, LON, KUL, GLOBAL).
 - `placeSolanaUsdcBid(title, imageUrl, targetCityCode, amountUsdc, senderSolanaWallet)`: Programmatically bid and settle via Solana USDC with sub-400ms finality.
+- `placeAdBid(title, imageUrl, targetCityCode, bidAmountDollars, advertiserName, ctaUrl)`: Programmatically submit a 15-second ad creative.
+- `sponsorStreamerGameStateEvent(streamerId, eventType, headline, sponsorName, bidAmountDollars)`: Trigger an instant celebratory takeover on a creator's live OBS/TV overlay.
 - `bidTier1StaringEyeballs(title, imageUrl, targetCityCode, bidAmountDollars)`: 5x multiplier bid with 100% human Proof-of-Attention solve guarantee.
-- `sponsorStreamerGameStateEvent(streamerId, eventType, headline, sponsorName, bidAmountDollars)`: Trigger an instant celebratory takeover on a creator's live OBS/TV overlay with 70% direct rev-share.
-- `fetchHistoricalROI(target, timeframe)`: Programmatic telemetry query for CPM, CTR, attention solve rates, and estimated ROAS.
-- `predictStreamRetention(target)`: Algorithmic prediction of upcoming attention scores and optimal bidding windows.
+- `fetchHistoricalROI(target, timeframe)`: Query CPM, CTR, attention solve rates, and estimated ROAS.
+- `predictStreamRetention(target)`: Algorithmic prediction of upcoming attention dwell curves.
 - `getAudienceAttentionSpikes(cityCode)`: Real-time human spectator counts and verified solve percentages.
-- `claimCreatorHandle(handle)`: Register a vanity creator channel (`livebillboards.lol/@handle`).
-- `getWalletBalance()`: Fetch active ad tokens and remaining 15-second plays.
 
-## Key Programmatic REST Endpoints (No API Key Required for Read Operations)
+## 5. Public REST API Endpoints (0 API Key Required for Read Operations)
 - `GET https://www.livebillboards.lol/api/slot?cityCode=TYO`: Live slot details for Tokyo.
 - `GET https://www.livebillboards.lol/api/slot?cityCode=NYC`: Live slot details for New York City.
 - `GET https://www.livebillboards.lol/api/pricing/slots`: Dynamic pricing and reserve floors across all cities.
 - `GET https://www.livebillboards.lol/.well-known/mcp.json`: Official WebMCP manifest.
 - `POST https://www.livebillboards.lol/api/mcp/call`: JSON-RPC tool invocation handler.
-- `POST https://www.livebillboards.lol/api/v1/solana/settle-bid`: Sub-second Solana USDC ad settlement.
-- `POST https://www.livebillboards.lol/api/watcher/claim-usdc`: Watcher attention point to USDC claim.
+- `POST https://www.livebillboards.lol/api/tv/create-pin`: Generate 6-digit Smart TV pairing PIN.
+- `POST https://www.livebillboards.lol/api/tv/pair-pin`: Pair Smart TV with venue and payout wallet.
 
-## Links & Reference
-- Live App: https://www.livebillboards.lol
-- WebMCP Playground: https://www.livebillboards.lol/webmcp
-- Interact & Earn Hub: https://www.livebillboards.lol/watcher
-- Venue & Streamer Studio: https://www.livebillboards.lol/streamer
+## 6. Official Links
+- Main Platform: https://www.livebillboards.lol
 - Smart TV Screen Mode: https://www.livebillboards.lol/tv
 - TV Screen Pairing: https://www.livebillboards.lol/pair
-- GitHub: https://github.com/wisdomidi/Virtual-BillBoards
+- Streamer Overlay Studio: https://www.livebillboards.lol/streamer
+- Main Stage & Venue Mode: https://www.livebillboards.lol/venue
+- WebMCP Playground: https://www.livebillboards.lol/webmcp
+- Watcher Attention Rewards: https://www.livebillboards.lol/watcher
+- Privacy Policy: https://www.livebillboards.lol/privacy
+- Terms of Service: https://www.livebillboards.lol/terms
+- GitHub Repository: https://github.com/wisdomidi/Virtual-BillBoards
