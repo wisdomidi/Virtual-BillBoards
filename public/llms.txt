@@ -1,25 +1,51 @@
 # Virtual BillBoard (livebillboards.lol)
-> World's First 24/7 Infinite Virtual Billboard & Live Stream Advertising Network
+> World's First 24/7 Infinite Virtual Billboard, WebMCP Autonomous AI Agent Screen Network & Solana USDC Micro-Payment Highway
 
 ## About
-Virtual BillBoard is a decentralized, sub-second Real-Time Bidding (RTB) digital out-of-home (DOOH) and live stream broadcast platform. It allows advertisers, creators, and autonomous AI agents to broadcast 15-second visual advertisements, messages, and video takeovers across 200+ countries, every city on Earth, live creator streams, and orbital space feeds (such as ISS Orbit and Mars Colony).
+Virtual BillBoard is a decentralized, sub-second Real-Time Bidding (RTB) digital out-of-home (DOOH), smart TV, physical event venue, and live stream broadcast platform. It allows advertisers, creators, and autonomous AI agents to broadcast 15-second visual advertisements, messages, and video takeovers across 200+ countries, every city on Earth, live creator streams, and orbital space feeds (such as ISS Orbit and Mars Colony).
 
-## Core Capabilities
-- **Real-Time Bidding (RTB) Auctions**: Sub-20ms priority queue auctions for 15-second rotation slots.
-- **Creator & Celebrity Vanity Live Billboards**: Any creator or celebrity can claim their handle (`livebillboards.lol/@handle`) and earn an 80% revenue split from fan and sponsor bids.
-- **Universal Live Stream Overlay**: Embeddable browser source compatible with YouTube Live, Twitch, TikTok Live, Kick, Zoom, and stage screens.
-- **Autonomous AI Agent API**: Machine-to-Machine (M2M) programmatic bidding endpoints via REST API and WebSockets.
-- **Proof-of-Human Attention Economy**: Viewers and spectators earn pro-rata revenue-share points and cash payouts for verified watch-time.
+## Core Capabilities & Architecture
+1. **WebMCP Standard Compliance (Model Context Protocol)**:
+   - Client DOM Runtime (`window.webMCP` / `navigator.modelContext`)
+   - Server JSON-RPC 2.0 Endpoint (`/.well-known/mcp.json` & `/api/mcp/call`)
+   - Pre-built configurations for ChatGPT Desktop, Claude Desktop, and Python SDK.
+2. **Solana USDC Micro-Payment Highway**:
+   - Sub-400ms on-chain settlement with <$0.0003 network transaction fees.
+   - Atomic 3-way SPL Token splits: 70% Streamer/Venue, 15% Watcher Pool, 15% Platform Treasury.
+   - Solana Pay URI integration for Phantom and Solflare.
+3. **In-Venue Physical Screens & Live Overlays**:
+   - Plug-and-play TV screen URL for conferences, hackathons, arena LED walls, and lounge displays.
+   - Instant in-game & stage event sponsorships (Keynote, Victory Royale, 5x Killstreak).
+4. **Proof-of-Attention Human Attention Economy**:
+   - Isolated to `/watcher`: Human spectators solve cryptographic attention prompts on screen every 15s.
+   - 100 Attention Points = $1.00 USDC. Instant on-chain cashout to Phantom with Solscan receipts.
+5. **Real-Time Bidding (RTB) Auctions**:
+   - Sub-20ms priority queue auctions for 15-second rotation slots across 200+ metropolitan city feeds.
 
-## Key Endpoints for AI Agents & Developers
-- `GET /api/billboard/active?city=TYO`: Fetch active winning ad, remaining seconds, and floor price.
-- `POST /api/bid`: Place a programmatic bid with creative payload (Image or MP4 video, CTA link, target city or creator handle).
-- `GET /api/cities`: List all global city feeds and reserve floors.
-- `GET /api/bids/top-history`: Retrieve historical winning bids and valuation trends.
-- `GET /robots.txt`: Crawler policy.
-- `GET /sitemap.xml`: XML sitemap for search engines.
+## Registered WebMCP Tool Definitions for AI Agents
+- `fetchActiveBillboard(city, country)`: Inspect what ad is currently broadcasting live on screen and the reserve floor price.
+- `placeAdBid(title, imageUrl, targetCityCode, bidAmountDollars, advertiserName, ctaUrl)`: Programmatically submit a 15-second ad creative.
+- `placeSolanaUsdcBid(title, imageUrl, targetCityCode, amountUsdc, senderSolanaWallet)`: Programmatically bid and settle via Solana USDC with sub-400ms finality.
+- `bidTier1StaringEyeballs(title, imageUrl, targetCityCode, bidAmountDollars)`: 5x multiplier bid with 100% human Proof-of-Attention solve guarantee.
+- `sponsorStreamerGameStateEvent(streamerId, eventType, headline, sponsorName, bidAmountDollars)`: Trigger an instant celebratory takeover on a creator's live OBS/TV overlay with 70% direct rev-share.
+- `fetchHistoricalROI(target, timeframe)`: Programmatic telemetry query for CPM, CTR, attention solve rates, and estimated ROAS.
+- `predictStreamRetention(target)`: Algorithmic prediction of upcoming attention scores and optimal bidding windows.
+- `getAudienceAttentionSpikes(cityCode)`: Real-time human spectator counts and verified solve percentages.
+- `claimCreatorHandle(handle)`: Register a vanity creator channel (`livebillboards.lol/@handle`).
+- `getWalletBalance()`: Fetch active ad tokens and remaining 15-second plays.
 
-## Full Documentation & Specifications
-- Developer API Docs: https://livebillboards.lol/api-docs
-- Blog & Insights: https://livebillboards.lol/blog
-- Full Agent Specifications: https://livebillboards.lol/llms-full.txt
+## Key Endpoints
+- `GET /.well-known/mcp.json`: Official WebMCP manifest.
+- `POST /api/mcp/call`: JSON-RPC tool invocation handler.
+- `GET /api/billboard/active?city=TYO`: Fetch active winning ad and countdown.
+- `POST /api/v1/solana/settle-bid`: Sub-second Solana USDC ad settlement.
+- `POST /api/watcher/claim-usdc`: Watcher attention point to USDC claim.
+- `POST /api/streamer/wallet`: Register creator/venue Solana payout address.
+- `GET /api/v1/analytics/roi/:target`: Real-time ROI telemetry.
+
+## Links & Reference
+- Live App: https://www.livebillboards.lol
+- WebMCP Playground: https://www.livebillboards.lol/webmcp
+- Interact & Earn Hub: https://www.livebillboards.lol/watcher
+- Venue & Streamer Studio: https://www.livebillboards.lol/streamer
+- GitHub: https://github.com/wisdomidi/Virtual-BillBoards
