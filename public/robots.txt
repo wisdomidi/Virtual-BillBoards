@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.livebillboards.lol/sitemap.xml
+Sitemap: https://livebillboards.lol/sitemap.xml

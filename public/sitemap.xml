@@ -2,73 +2,73 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <!-- Core Public Landing & Hubs -->
   <url>
-    <loc>https://www.livebillboards.lol/</loc>
+    <loc>https://livebillboards.lol/</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>always</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/webmcp</loc>
+    <loc>https://livebillboards.lol/webmcp</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>always</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/watcher</loc>
+    <loc>https://livebillboards.lol/watcher</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>always</changefreq>
     <priority>0.95</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/streamer</loc>
+    <loc>https://livebillboards.lol/streamer</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/venue</loc>
+    <loc>https://livebillboards.lol/venue</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/tv</loc>
+    <loc>https://livebillboards.lol/tv</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/pair</loc>
+    <loc>https://livebillboards.lol/pair</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/leaderboard</loc>
+    <loc>https://livebillboards.lol/leaderboard</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog</loc>
+    <loc>https://livebillboards.lol/blog</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/api_docs</loc>
+    <loc>https://livebillboards.lol/api_docs</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/privacy</loc>
+    <loc>https://livebillboards.lol/privacy</loc>
     <lastmod>2026-08-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/terms</loc>
+    <loc>https://livebillboards.lol/terms</loc>
     <lastmod>2026-08-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -76,91 +76,91 @@
 
   <!-- 15 Seeded Growth & Discovery Blog Articles -->
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=streamer-monetization-live-billboards-guide</loc>
+    <loc>https://livebillboards.lol/blog?article=streamer-monetization-live-billboards-guide</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=monetize-smart-tv-lobby-screens-venue-guide</loc>
+    <loc>https://livebillboards.lol/blog?article=monetize-smart-tv-lobby-screens-venue-guide</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=webmcp-protocol-ai-agent-billboard-bidding</loc>
+    <loc>https://livebillboards.lol/blog?article=webmcp-protocol-ai-agent-billboard-bidding</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=solana-usdc-micropayments-destroy-net-60-terms</loc>
+    <loc>https://livebillboards.lol/blog?article=solana-usdc-micropayments-destroy-net-60-terms</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=death-of-unskippable-ads-proof-of-attention</loc>
+    <loc>https://livebillboards.lol/blog?article=death-of-unskippable-ads-proof-of-attention</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=autonomous-ai-agent-times-square-takeover</loc>
+    <loc>https://livebillboards.lol/blog?article=autonomous-ai-agent-times-square-takeover</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=hackathon-conference-stage-sponsorship-guide</loc>
+    <loc>https://livebillboards.lol/blog?article=hackathon-conference-stage-sponsorship-guide</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=guerrilla-billboard-campaigns-indie-hackers</loc>
+    <loc>https://livebillboards.lol/blog?article=guerrilla-billboard-campaigns-indie-hackers</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=physical-screen-proof-of-scan-barcodes</loc>
+    <loc>https://livebillboards.lol/blog?article=physical-screen-proof-of-scan-barcodes</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=creator-playbook-monetizing-50-viewer-streams</loc>
+    <loc>https://livebillboards.lol/blog?article=creator-playbook-monetizing-50-viewer-streams</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=ecommerce-brands-roas-geofenced-dooh</loc>
+    <loc>https://livebillboards.lol/blog?article=ecommerce-brands-roas-geofenced-dooh</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=setup-firestick-android-tv-virtual-screen</loc>
+    <loc>https://livebillboards.lol/blog?article=setup-firestick-android-tv-virtual-screen</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=guardian-agent-outbid-protection-ai</loc>
+    <loc>https://livebillboards.lol/blog?article=guardian-agent-outbid-protection-ai</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=brave-browser-bat-attention-economy-video</loc>
+    <loc>https://livebillboards.lol/blog?article=brave-browser-bat-attention-economy-video</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/blog?article=m2m-autonomous-advertising-100b-market</loc>
+    <loc>https://livebillboards.lol/blog?article=m2m-autonomous-advertising-100b-market</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -168,19 +168,19 @@
 
   <!-- Creator 24/7 Live Billboard Screens -->
   <url>
-    <loc>https://www.livebillboards.lol/elonmusk</loc>
+    <loc>https://livebillboards.lol/elonmusk</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/mrbeast</loc>
+    <loc>https://livebillboards.lol/mrbeast</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
-    <loc>https://www.livebillboards.lol/kaicenat</loc>
+    <loc>https://livebillboards.lol/kaicenat</loc>
     <lastmod>2026-08-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.75</priority>
