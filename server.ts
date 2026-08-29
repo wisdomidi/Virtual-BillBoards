@@ -3141,7 +3141,7 @@ app.get('/api/wallet/balance', handleWalletGet);
 
 // POST /api/wallet/claim-starter - Claim 1 Free 15s Slot (1,000 Tokens = $1.00 USD)
 app.post('/api/wallet/claim-starter', async (req: Request, res: Response) => {
-  const userId = (req.headers['x-user-uid'] as string) || req.body.userId;
+  const userId = (req.headers['x-user-uid'] as string) || req.body?.userId;
   if (!userId || userId.startsWith('guest_') || userId === 'default_user' || userId === 'usr_anonymous') {
     return res.status(401).json({
       success: false,
@@ -3149,49 +3149,51 @@ app.post('/api/wallet/claim-starter', async (req: Request, res: Response) => {
     });
   }
 
+  const newTokens = 1000;
+  const newCents = 100;
+
+  // 1. Immediately record in memory
+  const cached = userWalletsMemoryMap.get(userId);
+  const currentBids = cached?.bidsPlacedCount || 0;
+  if (currentBids > 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'You have already used your starter credits. Please top up your wallet to place more ads.'
+    });
+  }
+
+  userWalletsMemoryMap.set(userId, {
+    tokensBalance: newTokens,
+    walletBalanceCents: newCents,
+    freeSlotClaimed: true,
+    bidsPlacedCount: 0
+  });
+
+  // 2. Persist to Firestore in background safely
   try {
     const userRef = doc(db, 'users', userId);
-    const snap = await getDoc(userRef);
-    const data = snap.exists() ? snap.data() : {};
-
-    const bidsCount = data.bidsPlacedCount || 0;
-    if (bidsCount > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'You have already used your starter credits. Please top up your wallet to place more ads.'
-      });
-    }
-
-    const newTokens = 1000;
-    const newCents = 100;
-
-    userWalletsMemoryMap.set(userId, {
-      tokensBalance: newTokens,
-      walletBalanceCents: newCents,
-      freeSlotClaimed: true,
-      bidsPlacedCount: data.bidsPlacedCount || 0
-    });
-
-    await setDoc(userRef, {
+    setDoc(userRef, {
       tokensBalance: newTokens,
       walletBalanceCents: newCents,
       starterGrantClaimed: true,
       freeSlotClaimed: true,
+      bidsPlacedCount: 0,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
-
-    logTelemetry('STARTER_CREDIT_CLAIMED', `User [${userId}] claimed 1,000 Free Starter Tokens ($1.00 USD).`);
-
-    return res.json({
-      success: true,
-      tokensBalance: newTokens,
-      walletBalanceCents: newCents,
-      walletBalanceDollars: '1.00',
-      message: '🎉 $1.00 Free Starter Credit (1,000 Tokens) successfully added to your Ad Wallet!'
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message || 'Failed to claim starter credit' });
+    }, { merge: true }).catch((err) => console.warn('Background setDoc claim warning:', err));
+  } catch (fsErr) {
+    console.warn('Firestore doc creation error:', fsErr);
   }
+
+  logTelemetry('STARTER_CREDIT_CLAIMED', `User [${userId}] claimed 1,000 Free Starter Tokens ($1.00 USD).`);
+
+  return res.json({
+    success: true,
+    tokensBalance: newTokens,
+    walletBalanceCents: newCents,
+    walletBalanceDollars: '1.00',
+    starterGrantClaimed: true,
+    message: '🎉 $1.00 Free Starter Credit (1,000 Tokens) successfully added to your Ad Wallet!'
+  });
 });
 
 // POST /api/admin/clean-guest-users - Purge all placeholder guest_* docs from Firestore
