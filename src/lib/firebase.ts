@@ -108,7 +108,7 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
 
     if (snap.exists()) {
       const data = snap.data();
-      // Always use the balance stored in Firestore — grant 1,000 starter tokens if brand new with 0 bids
+      const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
       let tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
         : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isAnon ? 0 : 1000));
@@ -116,15 +116,14 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
         ? data.walletBalanceCents
         : Math.round(tokensBalance / 10);
 
-      const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
-      if (!isAnon && tokensBalance === 0 && bidsCount === 0) {
+      if (!isAnon && tokensBalance === 0 && bidsCount === 0 && !data.starterGrantClaimed) {
         tokensBalance = 1000;
         walletBalanceCents = 100;
       }
 
       return {
         uid: user.uid,
-        email: user.email || '',
+        email: user.email || data.email || '',
         displayName: user.displayName || data.displayName || (isAnon ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
         photoURL: user.photoURL || data.photoURL || undefined,
         role: (data.role as UserRole) || defaultRole,
@@ -136,28 +135,34 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
       };
     }
 
-    // Brand-new registered user: grant 1,000 starter tokens (one-time only via server)
-    // We write the doc here so server sees starterGrantClaimed = true immediately
+    // Brand-new registered user: grant 1,000 starter tokens ($1.00 USD)
     if (!isAnon) {
-      const newProfile: UserProfile = {
-        ...baseProfile,
+      const cleanDoc: Record<string, any> = {
+        uid: user.uid,
+        email: user.email || '',
+        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        role: defaultRole,
         walletBalanceCents: 100, // $1.00
         tokensBalance: 1000,
-        hasClaimedFreeSlot: true
-      };
-      await setDoc(userRef, {
-        ...newProfile,
         starterGrantClaimed: true,
         freeSlotClaimed: true,
-        bidsPlacedCount: 0
-      }, { merge: true });
-      return newProfile;
+        bidsPlacedCount: 0,
+        isAnonymous: false,
+        createdAt: new Date().toISOString()
+      };
+      if (user.photoURL) {
+        cleanDoc.photoURL = user.photoURL;
+      }
+
+      await setDoc(userRef, cleanDoc, { merge: true });
+      return cleanDoc as UserProfile;
     }
 
     // Anonymous user: no starter grant
     return baseProfile;
   } catch (err: any) {
-    return { ...baseProfile, walletBalanceCents: 0 };
+    console.error('syncUserProfile Firestore write error:', err);
+    return { ...baseProfile, walletBalanceCents: isAnon ? 0 : 100, tokensBalance: isAnon ? 0 : 1000 };
   }
 }
 
