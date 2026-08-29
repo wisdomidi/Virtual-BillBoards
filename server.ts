@@ -54,13 +54,22 @@ import {
   handleGetM2mTransactions,
   handleAuctionBidMPP
 } from './src/server/aiAgentsEngine.js';
+let parsedWebappConfig: any = {};
+if (process.env.FIREBASE_WEBAPP_CONFIG) {
+  try {
+    parsedWebappConfig = JSON.parse(process.env.FIREBASE_WEBAPP_CONFIG);
+  } catch (e) {
+    console.warn('Failed to parse FIREBASE_WEBAPP_CONFIG:', e);
+  }
+}
+
 const firebaseServerConfig = {
-  apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_AUTH_DOMAIN || `${process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || 'livebillboards-production'}.firebaseapp.com`,
-  projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || 'livebillboards-production',
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || 'livebillboards-production'}.firebasestorage.app`,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID || '',
+  apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || parsedWebappConfig.apiKey || 'AIzaSyABGBRrkBpZHLExneNqGbQd-JqbYP6IvsI',
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_AUTH_DOMAIN || parsedWebappConfig.authDomain || 'livebillboards-production.firebaseapp.com',
+  projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || parsedWebappConfig.projectId || 'livebillboards-production',
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET || parsedWebappConfig.storageBucket || 'livebillboards-production.firebasestorage.app',
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || parsedWebappConfig.messagingSenderId || '956720374475',
+  appId: process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID || parsedWebappConfig.appId || '1:956720374475:web:72b781216f12df6ef2314e',
 };
 
 const firebaseApp = !getApps().length ? initializeApp(firebaseServerConfig) : getApp();
@@ -6005,8 +6014,29 @@ async function startServer() {
 
   if (isProduction) {
     console.log(`Serving production static assets from: ${distPath}`);
-    app.use(express.static(distPath));
+
+    // Hashed static assets (JS, CSS, images) can be cached long-term
+    app.use('/assets', express.static(path.join(distPath, 'assets'), {
+      maxAge: '1y',
+      immutable: true
+    }));
+
+    // General static files with no-cache for HTML
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      }
+    }));
+
+    // SPA fallback: NEVER cache index.html
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(indexHtmlPath);
     });
   } else {
