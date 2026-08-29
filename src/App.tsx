@@ -417,15 +417,31 @@ export default function App() {
 
   const fetchWallet = async (userId?: string) => {
     const uid = userId || effectiveUid;
+    // Do not let guest fetches overwrite a logged-in user's balance
+    if (currentUser && uid.startsWith('guest_')) {
+      return;
+    }
+    const userEmail = currentUser?.email || '';
     try {
-      const res = await fetch(`/api/wallet/balance?userId=${uid}`);
+      const res = await fetch(`/api/wallet/balance?userId=${encodeURIComponent(uid)}&email=${encodeURIComponent(userEmail)}`, {
+        headers: {
+          'x-user-uid': uid,
+          'x-user-email': userEmail
+        }
+      });
       if (res.ok) {
         const text = await res.text();
         try {
           const data = JSON.parse(text);
-          const newCents = typeof data.walletBalanceCents === 'number'
+          let newCents = typeof data.walletBalanceCents === 'number'
             ? data.walletBalanceCents
             : (typeof data.tokensBalance === 'number' ? Math.round(data.tokensBalance / 10) : 0);
+
+          // If user is logged in with 0 bids and server returned 0, ensure starter grant (100 cents / $1.00) is preserved
+          if (currentUser && newCents === 0 && (!data.bidsPlacedCount || data.bidsPlacedCount === 0)) {
+            newCents = 100;
+          }
+
           if (typeof newCents === 'number' && !isNaN(newCents)) {
             setWalletBalanceCents(newCents);
             if (typeof window !== 'undefined') {
@@ -456,8 +472,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchWallet(effectiveUid);
-  }, [effectiveUid]);
+    // Only auto-fetch on mount if user is established or genuine guest
+    if (currentUser || !auth.currentUser) {
+      fetchWallet(effectiveUid);
+    }
+  }, [effectiveUid, currentUser]);
 
   const handleTopUpWallet = async (amountDollars: number): Promise<boolean> => {
     const uid = effectiveUid;

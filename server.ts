@@ -411,10 +411,11 @@ interface UserWalletStoreItem {
 }
 const userWalletsMemoryMap: Map<string, UserWalletStoreItem> = new Map();
 
-async function getUserWalletFromFirestore(userId: string) {
+async function getUserWalletFromFirestore(userId: string, userEmail?: string) {
   const isGuest = !userId || userId.startsWith('guest_') || userId === 'guest_default' || userId === 'default_user' || userId === 'usr_anonymous';
   const defaultInitialTokens = 0; // Starts at 0 until claimed or first registered
   const defaultInitialCents = 0;
+  const resolvedEmail = userEmail && userEmail.includes('@') ? userEmail : (isGuest ? 'guest@example.com' : 'user@example.com');
 
   // 1. Immediate in-memory fast return (0ms execution)
   const cached = userWalletsMemoryMap.get(userId);
@@ -424,7 +425,7 @@ async function getUserWalletFromFirestore(userId: string) {
       tokensBalance: cached.tokensBalance,
       walletBalanceCents: cached.walletBalanceCents,
       starterGrantClaimed: cached.freeSlotClaimed,
-      email: isGuest ? 'guest@example.com' : 'user@example.com',
+      email: resolvedEmail,
       role: 'advertiser'
     };
   }
@@ -448,7 +449,7 @@ async function getUserWalletFromFirestore(userId: string) {
       if (!isGuest && tokensBalance === 0 && bidsCount === 0) {
         tokensBalance = 1000;
         hasClaimed = false;
-        setDoc(userRef, { tokensBalance: 1000, walletBalanceCents: 100, starterGrantClaimed: true, freeSlotClaimed: true, bidsPlacedCount: 0 }, { merge: true }).catch(() => {});
+        setDoc(userRef, { tokensBalance: 1000, walletBalanceCents: 100, starterGrantClaimed: true, freeSlotClaimed: true, bidsPlacedCount: 0, email: resolvedEmail }, { merge: true }).catch(() => {});
       }
 
       const walletBalanceCents = Math.round(tokensBalance / 10);
@@ -465,7 +466,7 @@ async function getUserWalletFromFirestore(userId: string) {
         tokensBalance,
         walletBalanceCents,
         starterGrantClaimed: hasClaimed,
-        email: data.email || (isGuest ? 'guest@example.com' : 'user@example.com'),
+        email: data.email || resolvedEmail,
         role: data.role || 'advertiser'
       };
     } else {
@@ -481,7 +482,7 @@ async function getUserWalletFromFirestore(userId: string) {
 
       const newProfile = {
         uid: userId,
-        email: isGuest ? 'guest@example.com' : 'user@example.com',
+        email: resolvedEmail,
         role: 'advertiser',
         tokensBalance: initialTokens,
         walletBalanceCents: initialCents,
@@ -510,7 +511,7 @@ async function getUserWalletFromFirestore(userId: string) {
         tokensBalance: cachedItem.tokensBalance,
         walletBalanceCents: cachedItem.walletBalanceCents,
         starterGrantClaimed: cachedItem.freeSlotClaimed,
-        email: isGuest ? 'guest@example.com' : 'user@example.com',
+        email: resolvedEmail,
         role: 'advertiser'
       };
     }
@@ -527,7 +528,7 @@ async function getUserWalletFromFirestore(userId: string) {
       tokensBalance: initialTokens,
       walletBalanceCents: initialCents,
       starterGrantClaimed: false,
-      email: isGuest ? 'guest@example.com' : 'user@example.com',
+      email: resolvedEmail,
       role: 'advertiser'
     };
   }
@@ -3101,8 +3102,9 @@ app.post('/api/cities/ensure', (req, res) => {
 // Secure Multi-User Wallet Endpoints connected directly to Firestore
 const handleWalletGet = async (req: Request, res: Response) => {
   const userId = (req.headers['x-user-uid'] as string) || (req.query.userId as string) || 'default_user';
+  const userEmail = (req.headers['x-user-email'] as string) || (req.query.email as string);
   try {
-    const userProfile = await getUserWalletFromFirestore(userId);
+    const userProfile = await getUserWalletFromFirestore(userId, userEmail);
     let txns = [...walletTransactionsLedger];
 
     try {
