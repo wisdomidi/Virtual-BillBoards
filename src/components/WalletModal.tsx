@@ -300,7 +300,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({
         {activeRailTab === 'stripe' && (
           <div className="space-y-4">
             {/* Free Starter Credit Claim Banner */}
-            {!hasClaimedStarter && safeTokensBalance <= 0 && onClaimStarter && (
+            {safeTokensBalance <= 0 && onClaimStarter && (
               <div className="bg-gradient-to-r from-cyan-950/80 via-indigo-950/60 to-slate-950 border border-cyan-500/40 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-md">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 bg-cyan-500/20 border border-cyan-500/40 rounded-xl text-cyan-400 shrink-0">

@@ -7,6 +7,7 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   onAuthStateChanged,
   User as FirebaseUser,
   Auth
@@ -99,7 +100,7 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
   };
 
   try {
-    if (!db || !db.type) {
+    if (!db) {
       return { ...baseProfile, walletBalanceCents: 0 };
     }
     const userRef = doc(db, 'users', user.uid);
@@ -107,13 +108,19 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
 
     if (snap.exists()) {
       const data = snap.data();
-      // Always use the balance stored in Firestore — NEVER override with a client-side default
-      const tokensBalance = typeof data.tokensBalance === 'number'
+      // Always use the balance stored in Firestore — grant 1,000 starter tokens if brand new with 0 bids
+      let tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
-        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : 0);
-      const walletBalanceCents = typeof data.walletBalanceCents === 'number'
+        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isAnon ? 0 : 1000));
+      let walletBalanceCents = typeof data.walletBalanceCents === 'number'
         ? data.walletBalanceCents
         : Math.round(tokensBalance / 10);
+
+      const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
+      if (!isAnon && tokensBalance === 0 && bidsCount === 0) {
+        tokensBalance = 1000;
+        walletBalanceCents = 100;
+      }
 
       return {
         uid: user.uid,
@@ -123,7 +130,7 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
         role: (data.role as UserRole) || defaultRole,
         walletBalanceCents,
         tokensBalance,
-        hasClaimedFreeSlot: data.hasClaimedFreeSlot ?? data.starterGrantClaimed ?? data.freeSlotClaimed ?? (tokensBalance <= 0),
+        hasClaimedFreeSlot: bidsCount > 0,
         isAnonymous: isAnon,
         createdAt: data.createdAt || new Date().toISOString()
       };
@@ -157,7 +164,7 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
 
 export async function updateUserRoleInDb(uid: string, newRole: UserRole): Promise<void> {
   try {
-    if (db && db.type) {
+    if (db) {
       const userRef = doc(db, 'users', uid);
       await updateDoc(userRef, { role: newRole });
     }
@@ -168,7 +175,7 @@ export async function updateUserRoleInDb(uid: string, newRole: UserRole): Promis
 
 export async function updateUserWalletInDb(uid: string, newBalanceCents: number): Promise<void> {
   try {
-    if (db && db.type) {
+    if (db) {
       const userRef = doc(db, 'users', uid);
       await updateDoc(userRef, {
         walletBalanceCents: newBalanceCents,
@@ -186,6 +193,7 @@ export {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   onAuthStateChanged,
   onSnapshot
 };

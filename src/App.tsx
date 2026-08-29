@@ -324,12 +324,7 @@ export default function App() {
   const [isMyAdsModalOpen, setIsMyAdsModalOpen] = useState(false);
   const [walletBalanceCents, setWalletBalanceCents] = useState<number>(0);
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
-  const [hasClaimedStarter, setHasClaimedStarter] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('vb_starter_claimed') === 'true';
-    }
-    return false;
-  });
+  const [hasClaimedStarter, setHasClaimedStarter] = useState<boolean>(false);
 
   // Toast Notification State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -345,20 +340,18 @@ export default function App() {
         const profile = await syncUserProfile(user, 'advertiser');
         setCurrentUser(profile);
         setUserRole(profile.role);
-        // profile.walletBalanceCents may be -1 (sentinel = Firestore unreachable)
-        // or the real Firestore value. Either way, always call the server API
-        // to get the authoritative balance — never trust the client-side default.
-        if (profile.walletBalanceCents !== -1 && profile.walletBalanceCents > 0) {
+        if (profile.tokensBalance && profile.tokensBalance > 0) {
+          setWalletBalanceCents(Math.round(profile.tokensBalance / 10));
+        } else if (profile.walletBalanceCents && profile.walletBalanceCents > 0) {
           setWalletBalanceCents(profile.walletBalanceCents);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('vb_cached_balance_cents', String(profile.walletBalanceCents));
-          }
         }
+        setHasClaimedStarter(Boolean(profile.hasClaimedFreeSlot && (!profile.tokensBalance || profile.tokensBalance <= 0)));
         // Server is always authoritative — non-blocking background sync
         setTimeout(() => fetchWallet(profile.uid), 200);
       } else {
         setCurrentUser(null);
         setUserRole('guest');
+        setHasClaimedStarter(false);
       }
     });
     return () => unsubscribe();
@@ -509,8 +502,8 @@ export default function App() {
       addToast('info', 'Sign In Required', 'Please sign in to claim your $1.00 Free Slot!');
       return;
     }
-    if (hasClaimedStarter || currentUser.hasClaimedFreeSlot || (currentUser as any).starterGrantClaimed) {
-      addToast('info', 'Already Claimed', 'You have already claimed your 1 Free 15s Slot ($1.00 starter grant)!');
+    if (tokensBalance > 0) {
+      addToast('info', 'Active Balance', `Your wallet already has ${tokensBalance.toLocaleString()} tokens ($${(tokensBalance / 1000).toFixed(2)}) ready to spend!`);
       return;
     }
     try {
@@ -526,16 +519,9 @@ export default function App() {
       if (data.success) {
         setWalletBalanceCents(100);
         setHasClaimedStarter(true);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('vb_starter_claimed', 'true');
-        }
         await fetchWallet(currentUser.uid);
         addToast('success', 'Starter Credit Claimed!', '🎉 $1.00 (1,000 Tokens) added to your Ad Wallet! Place your ad now.');
       } else {
-        setHasClaimedStarter(true);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('vb_starter_claimed', 'true');
-        }
         addToast('warning', 'Claim Notice', data.error || 'Failed to claim starter credit.');
       }
     } catch (e: any) {
@@ -1004,6 +990,7 @@ export default function App() {
               isPureViewerMode={userRole === 'viewer'}
               walletBalanceDollars={safeWalletBalanceDollars}
               hasClaimedStarter={hasClaimedStarter || (currentUser?.hasClaimedFreeSlot ?? false)}
+              onClaimStarter={handleClaimStarterCredit}
               onOpenWalletModal={() => setIsWalletModalOpen(true)}
               onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
               onOpenClaimModal={() => setIsClaimModalOpen(true)}
@@ -1095,17 +1082,21 @@ export default function App() {
           }}
         />
 
-        {/* Real Firebase Auth Modal */}
         <AuthModal
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
           onAuthSuccess={(profile) => {
             setCurrentUser(profile);
             setUserRole(profile.role);
+            const tokens = profile.tokensBalance || (typeof profile.walletBalanceCents === 'number' ? profile.walletBalanceCents * 10 : 1000);
             if (typeof profile.walletBalanceCents === 'number') {
               setWalletBalanceCents(profile.walletBalanceCents);
             }
-            addToast('success', 'Authenticated Successfully', `Welcome back, ${profile.displayName || profile.email}! Role: ${profile.role}`);
+            if (tokens > 0) {
+              addToast('success', '🎉 Welcome to LiveBillboards!', `Hi ${profile.displayName || profile.email?.split('@')[0] || 'Friend'}! Your $1.00 starter grant (${tokens.toLocaleString()} Tokens) is ready in your wallet.`);
+            } else {
+              addToast('success', 'Authenticated Successfully', `Welcome back, ${profile.displayName || profile.email}!`);
+            }
           }}
         />
 

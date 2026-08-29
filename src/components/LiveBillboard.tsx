@@ -59,6 +59,7 @@ interface LiveBillboardProps {
   isPureViewerMode?: boolean;
   walletBalanceDollars?: string;
   hasClaimedStarter?: boolean;
+  onClaimStarter?: () => Promise<void>;
   onOpenWalletModal?: () => void;
   currentUser?: { uid: string; email: string; displayName: string; role: UserRole; starterGrantClaimed?: boolean; hasClaimedFreeSlot?: boolean } | null;
   onOpenAuthModal?: () => void;
@@ -139,6 +140,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   isPureViewerMode = false,
   walletBalanceDollars = '0.00',
   hasClaimedStarter = false,
+  onClaimStarter,
   onOpenWalletModal,
   onOpenMyAdsModal,
   onOpenClaimModal,
@@ -1158,7 +1160,13 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                   </span>
                 </div>
                 <button
-                  onClick={onOpenWalletModal}
+                  onClick={() => {
+                    if (!hasClaimedStarter && (Number(walletBalanceDollars) || 0) <= 0 && onClaimStarter) {
+                      onClaimStarter();
+                    } else if (onOpenWalletModal) {
+                      onOpenWalletModal();
+                    }
+                  }}
                   className={`px-2.5 py-1 border font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
                     !hasClaimedStarter && (Number(walletBalanceDollars) || 0) <= 0
                       ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300 animate-pulse'

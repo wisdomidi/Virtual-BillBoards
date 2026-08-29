@@ -428,11 +428,19 @@ async function getUserWalletFromFirestore(userId: string) {
 
     if (snap && snap.exists && snap.exists()) {
       const data = snap.data();
-      const hasClaimed = data.starterGrantClaimed === true || data.freeSlotClaimed === true || (data.bidsPlacedCount && data.bidsPlacedCount > 0);
+      const bidsCount = data.bidsPlacedCount || 0;
+      let hasClaimed = (data.starterGrantClaimed === true || data.freeSlotClaimed === true) && bidsCount > 0;
       
       let tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
-        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isGuest || hasClaimed ? 0 : 1000));
+        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : 0);
+
+      // Auto-grant 1,000 starter tokens ($1.00) if new registered user has 0 balance and 0 bids
+      if (!isGuest && tokensBalance === 0 && bidsCount === 0) {
+        tokensBalance = 1000;
+        hasClaimed = false;
+        setDoc(userRef, { tokensBalance: 1000, walletBalanceCents: 100, starterGrantClaimed: true, freeSlotClaimed: true, bidsPlacedCount: 0 }, { merge: true }).catch(() => {});
+      }
 
       const walletBalanceCents = Math.round(tokensBalance / 10);
 
@@ -440,7 +448,7 @@ async function getUserWalletFromFirestore(userId: string) {
         tokensBalance,
         walletBalanceCents,
         freeSlotClaimed: hasClaimed,
-        bidsPlacedCount: data.bidsPlacedCount || 0
+        bidsPlacedCount: bidsCount
       });
 
       return {
@@ -3124,10 +3132,11 @@ app.post('/api/wallet/claim-starter', async (req: Request, res: Response) => {
     const snap = await getDoc(userRef);
     const data = snap.exists() ? snap.data() : {};
 
-    if (data.starterGrantClaimed === true || data.freeSlotClaimed === true || (data.bidsPlacedCount && data.bidsPlacedCount > 0)) {
+    const bidsCount = data.bidsPlacedCount || 0;
+    if (bidsCount > 0) {
       return res.status(400).json({
         success: false,
-        error: 'You have already claimed your 1 Free 15s Slot ($1.00 starter grant)! Please top up your wallet to place more ads.'
+        error: 'You have already used your starter credits. Please top up your wallet to place more ads.'
       });
     }
 
