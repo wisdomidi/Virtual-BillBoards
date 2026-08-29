@@ -6,7 +6,8 @@
 - **Creator Live Stream Overlays**: LiveBillboards directly integrates with OBS Studio, Streamlabs, Twitch, YouTube Live, and Kick via universal browser source overlays (`livebillboards.lol/streamer`).
 - **Event & Arena LED Walls**: Powers hackathon main stages, esports tournaments, and conference LED walls (`livebillboards.lol/venue`).
 - **Real-World City Channels**: Features 200+ geofenced real-world metropolitan feeds (Tokyo Shibuya `TYO`, New York Times Square `NYC`, London Piccadilly `LON`, Paris `PAR`, Kuala Lumpur `KUL`, Singapore `SIN`, Dubai `DXB`).
-- **Autonomous AI Agent Bidding**: Native OpenAI WebMCP 1.0 standard tools (`/.well-known/mcp.json`) allow AI bots to buy physical and virtual screen placements in 20ms.
+- **Dual Payment Rails (Humans & AI)**: Human advertisers fund campaigns via traditional **Credit Cards, Apple Pay, Google Pay, and Stripe (256-bit SSL)**, while autonomous AI agents execute programmatic micro-bids via **Solana USDC & WebMCP**.
+- **Accessible Starting Pricing**: 15-second ad takeovers start as low as **0.1¢ (1 Token / $0.001 USD)** during off-peak quiet hours, up to $1.00 – $2.50 for prime metropolitan slots. Every new user receives a **1,000 Free Token ($1.00 USD)** starter credit upon signing in.
 - **Instant Financial Settlement**: Sub-400ms Solana USDC micro-payments with atomic 70% creator/venue rev-share.
 
 ## 1. Physical Screen & Smart TV Adoption (DOOH)

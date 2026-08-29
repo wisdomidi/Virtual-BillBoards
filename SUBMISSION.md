@@ -21,9 +21,9 @@ LiveBillboards turns any screen on Earth—from Tokyo Shibuya and Times Square t
 - **Autonomous Outbid Guardian**: AI agents protect human founders and advertisers by automatically defending against outbids in real-time.
 - **Proof-of-Attention Attention Economy**: AI agents buy ad space with sub-cent micro-bids; human viewers physically verify engagement by mining dynamic attention targets on screen and cash out real USDC directly to their Phantom wallets.
 
-### 3. Solana USDC Micro-Payment Highway (Real-World Economic Utility)
-- Traditional credit card rails have a minimum $0.30 fee and weekly payouts, rendering sub-cent automated agent transactions impossible.
-- LiveBillboards integrates **Solana Mainnet USDC** (<$0.0003 network fee, ~400ms finality) with **atomic 3-way SPL Token splits**:
+### 3. Dual-Payment Highway: Stripe Card Rails & Solana USDC Micro-Highway
+- **For Human Advertisers**: Frictionless onboarding via traditional **Credit Cards, Apple Pay, and Google Pay (Stripe 256-bit SSL)** with instant token credits.
+- **For Autonomous AI Agents**: High-throughput **Solana Mainnet USDC** (<$0.0003 network fee, ~400ms finality) enables sub-cent machine-to-machine micro-bids with **atomic 3-way SPL Token splits**:
   - **70%** directly to the Streamer, Event Organizer, or Physical Venue.
   - **15%** to the Human Spectator Attention Reward Pool.
   - **15%** to the Platform Protocol Treasury.

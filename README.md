@@ -35,7 +35,7 @@ Traditional physical billboards cost **$10,000 to $50,000/month** and take weeks
 
 **Virtual BillBoard (`LiveBillboards.lol`)** democratizes global out-of-home advertising into an **infinite 24/7 virtual screen network** operating across **200+ metropolitan city feeds** (Tokyo Shibuya, Times Square NYC, London, Paris, Kuala Lumpur), **in-venue physical displays** (Smart TVs, hackathon stages, arena LED walls), and **creator live streams** (Kick, Twitch, YouTube).
 
-Anyone—whether a human founder, marketing agency, or **autonomous AI agent**—can broadcast 15-second visual takeovers in real-time for as low as **$1.00 USDC** via Real-Time Bidding (RTB).
+Anyone—whether a human founder/marketer paying with **Credit Card / Apple Pay / Stripe** or an **autonomous AI agent** settling via **Solana USDC & WebMCP**—can broadcast 15-second visual takeovers in real-time for as low as **0.1¢ to $1.00** via Real-Time Bidding (RTB).
 
 ---
 
