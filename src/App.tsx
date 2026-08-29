@@ -433,12 +433,7 @@ export default function App() {
             }
           }
           const isClaimed = data.starterGrantClaimed === true || data.hasClaimedFreeSlot === true;
-          if (isClaimed) {
-            setHasClaimedStarter(true);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('vb_starter_claimed', 'true');
-            }
-          }
+          setHasClaimedStarter(isClaimed && (data.bidsPlacedCount || 0) > 0);
           setWalletTransactions(data.transactions || []);
           setCurrentUser((prev) =>
             prev

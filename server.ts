@@ -485,14 +485,19 @@ async function getUserWalletFromFirestore(userId: string) {
         role: 'advertiser',
         tokensBalance: initialTokens,
         walletBalanceCents: initialCents,
-        starterGrantClaimed: !isGuest,
-        freeSlotClaimed: !isGuest,
+        starterGrantClaimed: false,
+        freeSlotClaimed: false,
         isGuest,
         createdAt: new Date().toISOString()
       };
       userWalletsMemoryMap.set(userId, memoryRecord);
       if (!isGuest) {
-        setDoc(userRef, newProfile, { merge: true }).catch((e) => console.warn('Background user init warning:', e));
+        setDoc(userRef, {
+          ...newProfile,
+          starterGrantClaimed: true,
+          freeSlotClaimed: true,
+          bidsPlacedCount: 0
+        }, { merge: true }).catch((e) => console.warn('Background user init warning:', e));
       }
       return newProfile;
     }
@@ -509,11 +514,19 @@ async function getUserWalletFromFirestore(userId: string) {
         role: 'advertiser'
       };
     }
+    const initialTokens = isGuest ? 0 : 1000;
+    const initialCents = isGuest ? 0 : 100;
+    userWalletsMemoryMap.set(userId, {
+      tokensBalance: initialTokens,
+      walletBalanceCents: initialCents,
+      freeSlotClaimed: false,
+      bidsPlacedCount: 0
+    });
     return {
       uid: userId,
-      tokensBalance: 0,
-      walletBalanceCents: 0,
-      starterGrantClaimed: true, // Do NOT re-grant on errors
+      tokensBalance: initialTokens,
+      walletBalanceCents: initialCents,
+      starterGrantClaimed: false,
       email: isGuest ? 'guest@example.com' : 'user@example.com',
       role: 'advertiser'
     };
