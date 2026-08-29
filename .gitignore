@@ -8,3 +8,10 @@ coverage/
 !.env.example
 .antigravity/
 .firebase/
+
+# Private Challenge, Video & Growth Strategy Documents
+VIDEO_DEMO_SCRIPT.md
+SUBMISSION.md
+TODO.md
+todo.md
+todo

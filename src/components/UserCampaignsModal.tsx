@@ -63,8 +63,9 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
 
   const fetchCampaigns = async () => {
     if (!userId) return;
+    setLoading(true);
     try {
-      const res = await fetch(`/api/user/campaigns?userId=${userId}`, {
+      const res = await fetch(`/api/user/campaigns?userId=${encodeURIComponent(userId)}`, {
         headers: { 'x-user-uid': userId }
       });
       if (res.ok) {
@@ -82,6 +83,12 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen && userId) {
+      fetchCampaigns();
+    }
+  }, [isOpen, userId]);
 
   const [isGeneratingProof, setIsGeneratingProof] = useState(false);
   const [selectedProofAd, setSelectedProofAd] = useState<UserCampaignItem | null>(null);

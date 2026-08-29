@@ -973,31 +973,53 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                     {winningAd.title}
                   </h2>
 
-                  {/* Single CTA Button Overlay */}
+                  {/* Single CTA Button Overlay & Live Scannable QR Code */}
                   {((winningAd as any).ctaType !== 'none') && (
-                    <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                    <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                       {((winningAd as any).ctaType === 'whatsapp' || (!(winningAd as any).ctaType && !(winningAd as any).landingPageUrl && (winningAd as any).whatsappLink)) ? (
-                        <a
-                          href={(winningAd as any).ctaUrl || ((winningAd as any).whatsappLink?.startsWith('http') ? (winningAd as any).whatsappLink : `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}`)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md"
-                        >
-                          <MessageSquare className="w-3 h-3 fill-current" />
-                          <span>WhatsApp</span>
-                          <span className="text-[8px]">↗</span>
-                        </a>
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={(winningAd as any).ctaUrl || ((winningAd as any).whatsappLink?.startsWith('http') ? (winningAd as any).whatsappLink : `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}`)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md"
+                          >
+                            <MessageSquare className="w-3 h-3 fill-current" />
+                            <span>WhatsApp</span>
+                            <span className="text-[8px]">↗</span>
+                          </a>
+                          {/* Scannable QR Code for Mobile Phones */}
+                          <div className="hidden sm:flex items-center gap-1 bg-white/95 px-1.5 py-0.5 rounded-lg border border-emerald-500/40 shadow-sm" title="Scan with Phone Camera">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent((winningAd as any).ctaUrl || (winningAd as any).whatsappLink || 'https://livebillboards.lol')}`}
+                              alt="Scan QR"
+                              className="w-5 h-5 object-contain"
+                            />
+                            <span className="text-[9px] font-black text-slate-900 font-mono">SCAN</span>
+                          </div>
+                        </div>
                       ) : ((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl) ? (
-                        <a
-                          href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md font-mono"
-                        >
-                          <Globe className="w-3 h-3" />
-                          <span>{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
-                          <span className="text-[8px]">↗</span>
-                        </a>
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md font-mono"
+                          >
+                            <Globe className="w-3 h-3" />
+                            <span>{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
+                            <span className="text-[8px]">↗</span>
+                          </a>
+                          {/* Scannable QR Code for Mobile Phones */}
+                          <div className="hidden sm:flex items-center gap-1 bg-white/95 px-1.5 py-0.5 rounded-lg border border-cyan-500/40 shadow-sm" title="Scan with Phone Camera">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || 'https://livebillboards.lol')}`}
+                              alt="Scan QR"
+                              className="w-5 h-5 object-contain"
+                            />
+                            <span className="text-[9px] font-black text-slate-900 font-mono">SCAN</span>
+                          </div>
+                        </div>
                       ) : null}
                     </div>
                   )}

@@ -2284,7 +2284,7 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       ctaUrl: ctaUrl || finalLandingUrl || finalWhatsappLink || undefined,
       landingPageUrl: finalLandingUrl,
       whatsappLink: finalWhatsappLink,
-      qrCodeUrl: qrCodeUrl || undefined,
+      qrCodeUrl: qrCodeUrl || (ctaUrl || finalLandingUrl || finalWhatsappLink ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(ctaUrl || finalLandingUrl || finalWhatsappLink || '')}` : undefined),
       targetCountryCode: countryUpper,
       targetCityCode: cityUpper,
       bidAmountCents: cents,
