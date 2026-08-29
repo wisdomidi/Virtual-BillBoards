@@ -1129,15 +1129,15 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
 
         {/* RIGHT COLUMN: Fast Bidding Console with Live 16:9 Mockup Card (lg:col-span-5) */}
         <div className="lg:col-span-5">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/30 border border-slate-800 p-4 sm:p-5 rounded-3xl space-y-3.5 shadow-xl">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/30 border border-slate-800 p-3.5 sm:p-4 rounded-3xl space-y-2.5 shadow-xl">
             {/* Header & Wallet */}
-            <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-cyan-500/15 border border-cyan-500/30 rounded-xl text-cyan-400 shrink-0">
-                  <Megaphone className="w-4 h-4" />
+                <div className="p-1.5 bg-cyan-500/15 border border-cyan-500/30 rounded-xl text-cyan-400 shrink-0">
+                  <Megaphone className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-white flex items-center gap-1.5">
+                  <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-1.5">
                     Fast Bidding Console
                     <span className="text-[9px] bg-cyan-950 text-cyan-400 border border-cyan-800 px-1.5 py-0.2 rounded font-mono font-bold">
                       Instant RTB
@@ -1150,20 +1150,22 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
               </div>
 
               {/* Ad Wallet Pill */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <div className="bg-slate-950 border border-emerald-500/30 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-xs font-mono">
                   <Wallet className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="font-black text-emerald-400 text-xs">${walletBalanceDollars}</span>
+                  <span className="font-black text-emerald-400 text-xs">
+                    ${Math.max(0, Number(walletBalanceDollars) || 0).toFixed(2)}
+                  </span>
                 </div>
                 <button
                   onClick={onOpenWalletModal}
                   className={`px-2.5 py-1 border font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
-                    !hasClaimedStarter && Number(walletBalanceDollars || 0) <= 0
+                    !hasClaimedStarter && (Number(walletBalanceDollars) || 0) <= 0
                       ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300 animate-pulse'
                       : 'bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30'
                   }`}
                 >
-                  {!hasClaimedStarter && Number(walletBalanceDollars || 0) <= 0 ? <span>Claim $1.00</span> : <span>+ Top Up</span>}
+                  {!hasClaimedStarter && (Number(walletBalanceDollars) || 0) <= 0 ? <span>Claim $1.00</span> : <span>+ Top Up</span>}
                 </button>
               </div>
             </div>
@@ -1386,19 +1388,19 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
               </div>
 
               {/* LIVE INTERACTIVE BILLBOARD MOCKUP PREVIEW CARD */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-300 uppercase flex items-center gap-1">
                     <Sparkles className="w-3 h-3 text-cyan-400" />
                     <span>Live Screen Mockup Preview</span>
                   </span>
-                  <span className="text-[9px] font-mono text-cyan-400 bg-cyan-950 px-2 py-0.2 rounded border border-cyan-800">
+                  <span className="text-[9px] font-mono text-cyan-400 bg-cyan-950 px-1.5 py-0.2 rounded border border-cyan-800">
                     16:9 Billboard
                   </span>
                 </div>
 
-                {/* Mockup Billboard Bezel */}
-                <div className="relative aspect-video rounded-xl bg-slate-950 border border-cyan-500/40 overflow-hidden shadow-inner flex items-center justify-center group">
+                {/* Compact Mockup Billboard Bezel */}
+                <div className="relative h-24 sm:h-28 rounded-xl bg-slate-950 border border-cyan-500/40 overflow-hidden shadow-inner flex items-center justify-center group">
                   {bidImageUrl ? (
                     bidMediaType === 'video' || bidImageUrl.startsWith('data:video/') || bidImageUrl.toLowerCase().includes('.mp4') ? (
                       <video
@@ -1417,15 +1419,14 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                       />
                     )
                   ) : (
-                    <div className="text-center p-4 space-y-1">
-                      <FileImage className="w-8 h-8 text-cyan-500/50 mx-auto" />
-                      <p className="text-[11px] font-bold text-slate-300">No Creative Selected</p>
-                      <p className="text-[9px] text-slate-500">Pick a 1-click template above or upload your image/video</p>
+                    <div className="text-center p-2 flex items-center justify-center gap-2">
+                      <FileImage className="w-4 h-4 text-cyan-500/70 shrink-0" />
+                      <p className="text-[10px] text-slate-300 font-medium">1-Click template or upload image/video below</p>
                     </div>
                   )}
 
                   {/* Overlaid Headline & CTA (matching real billboard display) */}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 via-slate-950/70 to-transparent p-2.5 flex items-end justify-between gap-2 pointer-events-none">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 via-slate-950/70 to-transparent p-2 flex items-end justify-between gap-2 pointer-events-none">
                     <div className="min-w-0">
                       <div className="text-[8px] font-mono font-bold text-cyan-300 uppercase truncate">
                         {currentUser?.displayName || 'Your Brand'} • [{selectedCity}]
@@ -1435,7 +1436,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                       </div>
                     </div>
                     {bidCtaType !== 'none' && (
-                      <span className="px-2 py-0.5 bg-cyan-500 text-slate-950 font-bold text-[9px] rounded font-mono shrink-0">
+                      <span className="px-1.5 py-0.5 bg-cyan-500 text-slate-950 font-bold text-[8px] rounded font-mono shrink-0">
                         {bidCtaType === 'whatsapp' ? 'WhatsApp' : 'Website'} ↗
                       </span>
                     )}
@@ -1445,7 +1446,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
 
               {/* Upload Dropzone / Change File */}
               {!bidImageUrl ? (
-                <label className="flex items-center justify-center gap-3 p-3 border-2 border-dashed border-cyan-500/40 hover:border-cyan-400 bg-slate-950/80 rounded-2xl cursor-pointer hover:bg-slate-900/60 transition group">
+                <label className="flex items-center justify-center gap-2.5 p-2 border border-dashed border-cyan-500/40 hover:border-cyan-400 bg-slate-950/80 rounded-xl cursor-pointer hover:bg-slate-900/60 transition group">
                   <input
                     type="file"
                     accept="image/png, image/jpeg, image/webp, video/mp4, video/webm"
@@ -1453,23 +1454,20 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                     className="hidden"
                     required
                   />
-                  <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
-                    <UploadCloud className="w-4 h-4" />
+                  <div className="w-6 h-6 rounded-full bg-cyan-950 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
+                    <UploadCloud className="w-3.5 h-3.5" />
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-white flex items-center gap-1">
-                      <span>Upload Custom File (Image / MP4)</span>
-                      <span className="text-cyan-400 text-[10px]">*Required</span>
-                    </p>
-                    <p className="text-[10px] text-slate-400">16:9 Billboard Format (15s rotation)</p>
-                  </div>
+                  <p className="text-[11px] font-bold text-white flex items-center gap-1">
+                    <span>Upload Custom Media (Image / MP4)</span>
+                    <span className="text-cyan-400 text-[9px]">*Required</span>
+                  </p>
                 </label>
               ) : (
-                <div className="flex items-center justify-between gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800">
-                  <div className="text-[11px] text-slate-300 truncate">
+                <div className="flex items-center justify-between gap-2 bg-slate-950 p-1.5 px-2.5 rounded-xl border border-slate-800">
+                  <div className="text-[10px] text-slate-300 truncate">
                     Asset: <strong className="text-cyan-400">{uploadedFileName || 'Billboard Asset'}</strong>
                   </div>
-                  <label className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer underline px-2 py-0.5 bg-cyan-950 rounded-lg border border-cyan-500/30 shrink-0">
+                  <label className="text-[9px] font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer underline px-2 py-0.5 bg-cyan-950 rounded-lg border border-cyan-500/30 shrink-0">
                     Change File
                     <input
                       type="file"

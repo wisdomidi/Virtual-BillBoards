@@ -334,7 +334,9 @@ export default function App() {
   // Toast Notification State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const tokensBalance = Math.round(walletBalanceCents * 10);
+  const safeWalletBalanceCents = Math.max(0, walletBalanceCents || 0);
+  const safeWalletBalanceDollars = (safeWalletBalanceCents / 100).toFixed(2);
+  const tokensBalance = Math.round(safeWalletBalanceCents * 10);
 
   // Firebase Auth State Listener (Honors Explicit Sign Out)
   useEffect(() => {
@@ -842,7 +844,7 @@ export default function App() {
         onOpenWalletModal={() => setIsWalletModalOpen(true)}
         onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
         onOpenClaimModal={() => setIsClaimModalOpen(true)}
-        walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
+        walletBalanceDollars={safeWalletBalanceDollars}
         tokensBalance={tokensBalance}
         currentUser={currentUser}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
@@ -946,7 +948,7 @@ export default function App() {
             onTriggerHeartbeat={sendHeartbeat}
             onPointsEarned={(pts) => setViewerPoints((p) => p + pts)}
             onOpenWalletModal={() => setIsWalletModalOpen(true)}
-            walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
+            walletBalanceDollars={safeWalletBalanceDollars}
           />
         )}
 
@@ -958,7 +960,7 @@ export default function App() {
             onCityChange={handleCityChange}
             userRole={userRole}
             onOpenWalletModal={() => setIsWalletModalOpen(true)}
-            walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
+            walletBalanceDollars={safeWalletBalanceDollars}
             onPlaceBidQuick={handlePlaceBidQuick}
           />
         )}
@@ -1000,7 +1002,7 @@ export default function App() {
               viewerPoints={viewerPoints}
               userRole={userRole}
               isPureViewerMode={userRole === 'viewer'}
-              walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
+              walletBalanceDollars={safeWalletBalanceDollars}
               hasClaimedStarter={hasClaimedStarter || (currentUser?.hasClaimedFreeSlot ?? false)}
               onOpenWalletModal={() => setIsWalletModalOpen(true)}
               onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
@@ -1071,7 +1073,7 @@ export default function App() {
           isOpen={isWalletModalOpen}
           onClose={() => setIsWalletModalOpen(false)}
           tokensBalance={tokensBalance}
-          balanceDollars={(walletBalanceCents / 100).toFixed(2)}
+          balanceDollars={safeWalletBalanceDollars}
           transactions={walletTransactions}
           userId={effectiveUid}
           hasClaimedStarter={hasClaimedStarter || (currentUser?.hasClaimedFreeSlot ?? false)}
@@ -1112,7 +1114,7 @@ export default function App() {
           isOpen={isAccountModalOpen}
           onClose={() => setIsAccountModalOpen(false)}
           currentUser={currentUser}
-          walletBalanceDollars={(walletBalanceCents / 100).toFixed(2)}
+          walletBalanceDollars={safeWalletBalanceDollars}
           tokensBalance={tokensBalance}
           transactions={walletTransactions}
           onOpenWalletModal={() => setIsWalletModalOpen(true)}

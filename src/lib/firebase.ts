@@ -100,7 +100,7 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
 
   try {
     if (!db || !db.type) {
-      return { ...baseProfile, walletBalanceCents: -1 }; // sentinel: caller must use server API
+      return { ...baseProfile, walletBalanceCents: 0 };
     }
     const userRef = doc(db, 'users', user.uid);
     const snap = await getDoc(userRef);
@@ -150,9 +150,7 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
     // Anonymous user: no starter grant
     return baseProfile;
   } catch (err: any) {
-    // Return sentinel -1 so App.tsx knows to call server fetchWallet()
-    // Do NOT return 1000 tokens here — that was the bug
-    return { ...baseProfile, walletBalanceCents: -1 };
+    return { ...baseProfile, walletBalanceCents: 0 };
   }
 }
 
