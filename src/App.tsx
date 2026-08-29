@@ -397,7 +397,7 @@ export default function App() {
   }, [effectiveUid]);
 
   // Open-by-default Access Guard: Public tabs are freely accessible to everyone
-  const adminOnlyTabs: TabType[] = ['admin', 'analytics', 'architecture', 'postgres', 'redis', 'cascade', 'ai_agents'];
+  const adminOnlyTabs: TabType[] = ['admin', 'architecture', 'postgres', 'redis', 'cascade'];
   useEffect(() => {
     if (adminOnlyTabs.includes(activeTab) && userRole !== 'admin') {
       setActiveTab('live');
@@ -1257,6 +1257,14 @@ export default function App() {
                   className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span>✨ Watcher Earn Hub</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => handleNavigateTab('analytics')}
+                  className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>📊 Regional Analytics & Telemetry</span>
                 </button>
               </li>
             </ul>
