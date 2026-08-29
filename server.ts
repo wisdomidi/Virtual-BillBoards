@@ -2146,11 +2146,36 @@ const handleBidSubmission = async (req: Request, res: Response) => {
     }
 
     const userId = (req.headers['x-user-uid'] as string) || req.body.userId || 'default_user';
+    const userEmail = (req.headers['x-user-email'] as string) || req.body.email || (req.query.email as string);
+    const isGuest = !userId || userId.startsWith('guest_') || userId === 'default_user' || userId === 'usr_anonymous';
 
     // Token Balance Check via Firestore & Memory Map
-    const userProfile = await getUserWalletFromFirestore(userId);
+    const userProfile = await getUserWalletFromFirestore(userId, userEmail);
+
+    // Auto-activate 1,000 Starter Tokens ($1.00 USD) if this is a registered user placing their first ad
+    if (!isGuest && userProfile.tokensBalance < tokens && (!userProfile.bidsPlacedCount || userProfile.bidsPlacedCount === 0)) {
+      userProfile.tokensBalance = 1000;
+      userProfile.walletBalanceCents = 100;
+      userWalletsMemoryMap.set(userId, {
+        tokensBalance: 1000,
+        walletBalanceCents: 100,
+        freeSlotClaimed: true,
+        bidsPlacedCount: 0
+      });
+      try {
+        const userRef = doc(db, 'users', userId);
+        setDoc(userRef, {
+          tokensBalance: 1000,
+          walletBalanceCents: 100,
+          starterGrantClaimed: true,
+          freeSlotClaimed: true,
+          bidsPlacedCount: 0,
+          email: userEmail || userProfile.email || 'user@example.com'
+        }, { merge: true }).catch(() => {});
+      } catch {}
+    }
+
     if (userProfile.tokensBalance < tokens) {
-      const isGuest = !userId || userId.startsWith('guest_') || userId === 'default_user';
       const errorMessage = isGuest
         ? `⚠️ Sign-In Required: Guest accounts start with 0 tokens. Please Sign In with Google or Email to claim your 1 Free 15s Slot (1,000 Tokens = $1.00 credit), or top up your wallet!`
         : `Insufficient Ad Tokens: Your balance is ${userProfile.tokensBalance.toLocaleString()} tokens ($${(userProfile.tokensBalance * 0.001).toFixed(2)} USD), but this bid requires ${tokens.toLocaleString()} tokens ($${dollarsStr} USD). Top up with Stripe to place this ad!`;

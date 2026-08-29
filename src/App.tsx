@@ -581,7 +581,8 @@ export default function App() {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          'x-user-uid': uid
+          'x-user-uid': uid,
+          'x-user-email': currentUser?.email || ''
         },
         body: JSON.stringify({
           title,
@@ -599,7 +600,8 @@ export default function App() {
           targetCityCode: cityCode,
           targetCountryCode: countryCode,
           advertiserName,
-          userId: uid
+          userId: uid,
+          email: currentUser?.email || ''
         })
       });
       clearTimeout(timeoutId);
