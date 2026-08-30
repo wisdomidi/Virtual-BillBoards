@@ -113,6 +113,9 @@ export interface ActiveBillboardSlot {
   remainingSeconds: number;
   currentBid: RealtimeBid;
   trafficTier?: 'standard' | 'tier1_staring_eyeballs';
+  rotationToken?: string;
+  dynamicQrUrl?: string;
+  proofReceiptId?: string;
   fallbackLevel: 'city' | 'country' | 'global' | 'house_default';
   fallbackChain: {
     cityChecked: string;
@@ -124,6 +127,33 @@ export interface ActiveBillboardSlot {
     houseAdFallbackUsed: boolean;
     latencyMs: number;
   };
+}
+
+export interface ProofOfPlayReceipt {
+  receiptId: string;
+  slotId: string;
+  rotationToken: string;
+  cityCode: string;
+  countryCode?: string;
+  advertiserName: string;
+  userId: string;
+  title: string;
+  imageUrl: string;
+  destinationUrl?: string;
+  creativeHash: string;
+  trafficTier: 'standard' | 'tier1_staring_eyeballs';
+  startTime: string;
+  endTime: string;
+  actualDurationSeconds: number;
+  activeSurfaces: string[];
+  verifiedQrScans: number;
+  uniqueDevices: number;
+  watcherPoAHits: number;
+  spendTokens: number;
+  spendDollars: string;
+  settlementMethod: 'solana_usdc' | 'ad_tokens' | 'stripe';
+  signature: string;
+  verifiedAt: string;
 }
 
 export interface ProofOfAttentionTicket {
