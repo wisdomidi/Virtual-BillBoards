@@ -988,10 +988,10 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                             <span>WhatsApp</span>
                             <span className="text-[8px]">↗</span>
                           </a>
-                          {/* Scannable QR Code for Mobile Phones */}
-                          <div className="hidden sm:flex items-center gap-1 bg-white/95 px-1.5 py-0.5 rounded-lg border border-emerald-500/40 shadow-sm" title="Scan with Phone Camera">
+                          {/* Scannable Dynamic QR Code for Mobile Phones */}
+                          <div className="hidden sm:flex items-center gap-1 bg-white/95 px-1.5 py-0.5 rounded-lg border border-emerald-500/40 shadow-sm" title="Scan with Phone Camera for Direct Attribution">
                             <img
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent((winningAd as any).ctaUrl || (winningAd as any).whatsappLink || 'https://livebillboards.lol')}`}
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent((winningAd as any).qrCodeUrl || (slotData as any)?.dynamicQrUrl || (winningAd as any).ctaUrl || (winningAd as any).whatsappLink || 'https://livebillboards.lol')}`}
                               alt="Scan QR"
                               className="w-5 h-5 object-contain"
                             />
@@ -1010,10 +1010,10 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                             <span>{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
                             <span className="text-[8px]">↗</span>
                           </a>
-                          {/* Scannable QR Code for Mobile Phones */}
-                          <div className="hidden sm:flex items-center gap-1 bg-white/95 px-1.5 py-0.5 rounded-lg border border-cyan-500/40 shadow-sm" title="Scan with Phone Camera">
+                          {/* Scannable Dynamic QR Code for Mobile Phones */}
+                          <div className="hidden sm:flex items-center gap-1 bg-white/95 px-1.5 py-0.5 rounded-lg border border-cyan-500/40 shadow-sm" title="Scan with Phone Camera for Direct Attribution">
                             <img
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || 'https://livebillboards.lol')}`}
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent((winningAd as any).qrCodeUrl || (slotData as any)?.dynamicQrUrl || (winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || 'https://livebillboards.lol')}`}
                               alt="Scan QR"
                               className="w-5 h-5 object-contain"
                             />

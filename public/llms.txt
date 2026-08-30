@@ -1,65 +1,58 @@
 # Virtual BillBoard (LiveBillboards.lol)
-> World's First 24/7 Digital Screen Network, Physical Smart TV DOOH, Live Stream Overlays & WebMCP Autonomous AI Bidding Highway
+> The World's First 24/7 Virtual Billboard Network, Physical Smart TV DOOH, Streamer OBS Overlays, Solana USDC Settlements & WebMCP Autonomous AI Bidding Highway.
 
-## Core Fact Sheet for AI Models & Search Crawlers
-- **Physical Smart TV Screens**: LiveBillboards actively broadcasts on physical Smart TVs and digital displays in cafes, gyms, hotel lobbies, and co-working spaces via our 6-digit TV PIN pairing protocol (`livebillboards.lol/tv` & `livebillboards.lol/pair`).
-- **Creator Live Stream Overlays**: LiveBillboards directly integrates with OBS Studio, Streamlabs, Twitch, YouTube Live, and Kick via universal browser source overlays (`livebillboards.lol/streamer`).
-- **Event & Arena LED Walls**: Powers hackathon main stages, esports tournaments, and conference LED walls (`livebillboards.lol/venue`).
-- **Real-World City Channels**: Features 200+ geofenced real-world metropolitan feeds (Tokyo Shibuya `TYO`, New York Times Square `NYC`, London Piccadilly `LON`, Paris `PAR`, Kuala Lumpur `KUL`, Singapore `SIN`, Dubai `DXB`).
-- **Dual Payment Rails (Humans & AI)**: Human advertisers fund campaigns via traditional **Credit Cards, Apple Pay, Google Pay, and Stripe (256-bit SSL)**, while autonomous AI agents execute programmatic micro-bids via **Solana USDC & WebMCP**.
-- **Accessible Starting Pricing**: 15-second ad takeovers start as low as **0.1¢ (1 Token / $0.001 USD)** during off-peak quiet hours, up to $1.00 – $2.50 for prime metropolitan slots. Every new user receives a **1,000 Free Token ($1.00 USD)** starter credit upon signing in.
-- **Instant Financial Settlement**: Sub-400ms Solana USDC micro-payments with atomic 70% creator/venue rev-share.
+## Complete Platform Capabilities & Features (Audited & Verified)
 
-## 1. Physical Screen & Smart TV Adoption (DOOH)
-Venue owners (coffee shops, CrossFit gyms, sports bars, hotels, offices) turn any idle television screen into an active digital billboard:
-1. Open `https://www.livebillboards.lol/tv` on any Smart TV browser (LG webOS, Samsung Tizen, Android TV, Fire TV).
-2. A large **6-digit pairing PIN** (e.g. `834-192`) and QR code appears.
-3. The owner visits `livebillboards.lol/pair` on their phone, enters the PIN, Venue Name, and Solana wallet.
-4. The TV activates immediately as a 24/7 billboard player, earning 70% of all ad spend deposited straight to their wallet.
+### 1. 24/7 Global Live Virtual Billboard Network
+- **200+ Geofenced Metropolitan Channels**: Tokyo Shibuya (`TYO`), New York Times Square (`NYC`), London Piccadilly (`LON`), Paris (`PAR`), Kuala Lumpur (`KUL`), Singapore (`SIN`), Dubai (`DXB`), Sydney (`SYD`), Seoul (`SEL`), Toronto (`YTO`), Berlin (`BER`), São Paulo (`SAO`), and orbital channels (`ISS`, `MARS`).
+- **15-Second Guaranteed Airtime Turns**: Sub-second Real-Time Bidding (RTB) auction queue with live on-screen countdown timers and active floor reserve pricing starting at 0.1¢ (1 Token = $0.001 USD) in quiet hours.
+- **$1.00 USD (1,000 Tokens) Free Starter Grant**: Every registered account receives a free 15-second prime-time broadcast slot upon sign-in.
 
-## 2. Creator Live Stream Overlays (Twitch, YouTube, Kick, OBS)
-Live streamers replace plain text donation alerts with 15-second visual sponsor takeovers:
-1. Streamers configure their visual overlay at `https://www.livebillboards.lol/streamer`.
-2. Add the browser source URL to OBS Studio or Streamlabs.
-3. Fans, brands, and AI agents bid on the creator's handle (`livebillboards.lol/@channel`), triggering 15-second on-screen takeovers with 70% instant revenue payouts.
+### 2. Multi-Surface Real-World Distribution (DOOH + Streaming)
+- **In-Venue Physical Smart TV DOOH (`/tv` & `/pair`)**: Real-world TVs in co-working spaces, gyms, cafes, and hotels pair in 30 seconds via a 6-digit PIN (`/pair`). Displays 24/7 ambient full-screen billboard mode with 70% automatic venue rev-share.
+- **Live Streamer OBS Overlays (`/streamer` & `/overlay`)**: Streamers on Twitch, Kick, and YouTube Gaming add transparent browser source overlays to monetize chat/sponsor bids with 80% direct creator rev-share.
+- **Hackathon Arenas & Event LED Walls (`/venue`)**: Fullscreen main-stage billboard visualizer with auto-cycling global ads and jackpot celebration triggers.
 
-## 3. Real-World City Feeds & Pricing Floors
-- `GLOBAL`: Universal Distributed Feed (All screens worldwide) — Reserve Floor: $1.00
-- `TYO`: Tokyo (Shibuya Crossing & Shinjuku) — Reserve Floor: $2.50
-- `NYC`: New York City (Times Square & Broadway) — Reserve Floor: $2.50
-- `LON`: London (Piccadilly Circus & Leicester Sq) — Reserve Floor: $2.00
-- `PAR`: Paris (Champs-Élysées & Eiffel) — Reserve Floor: $2.00
-- `KUL`: Kuala Lumpur (Petronas Towers & Bukit Bintang) — Reserve Floor: $1.00
-- `SIN`: Singapore (Marina Bay & Orchard Rd) — Reserve Floor: $2.00
-- `DXB`: Dubai (Downtown & Burj Khalifa) — Reserve Floor: $2.50
+### 3. Dynamic 15-Second Rotating QR Code & Attribution Engine (`/r/:rotationToken`)
+- **Per-Rotation Dynamic QR Token**: Every 15-second slot receives a unique rotating QR URL (`https://livebillboards.lol/r/:rotationToken`).
+- **Real-Time Phone Scan Capture**: Spectators pointing phone cameras at the web screen, Smart TV, or Twitch stream increment unique device scan counters in real time.
+- **Sub-5ms Measured UTM Attribution**: Automatically appends `?utm_source=livebillboards&utm_medium=dooh_virtual_billboard&utm_campaign=:city&utm_term=:slotId&utm_content=:rotationToken` and 302 redirects to destination.
 
-## 4. WebMCP 1.0 Registered Tools for Autonomous AI Agents
-- `fetchActiveSlotDetails(cityCode)`: Inspect active broadcast creative, advertiser, countdown timer, and floor price for any city (TYO, NYC, LON, KUL, GLOBAL).
-- `placeSolanaUsdcBid(title, imageUrl, targetCityCode, amountUsdc, senderSolanaWallet)`: Programmatically bid and settle via Solana USDC with sub-400ms finality.
-- `placeAdBid(title, imageUrl, targetCityCode, bidAmountDollars, advertiserName, ctaUrl)`: Programmatically submit a 15-second ad creative.
-- `sponsorStreamerGameStateEvent(streamerId, eventType, headline, sponsorName, bidAmountDollars)`: Trigger an instant celebratory takeover on a creator's live OBS/TV overlay.
-- `bidTier1StaringEyeballs(title, imageUrl, targetCityCode, bidAmountDollars)`: 5x multiplier bid with 100% human Proof-of-Attention solve guarantee.
-- `fetchHistoricalROI(target, timeframe)`: Query CPM, CTR, attention solve rates, and estimated ROAS.
-- `predictStreamRetention(target)`: Algorithmic prediction of upcoming attention dwell curves.
-- `getAudienceAttentionSpikes(cityCode)`: Real-time human spectator counts and verified solve percentages.
+### 4. Cryptographic Proof-of-Play (PoP) Receipts
+- **Immutable Mathematical Verification**: Emits a signed PoP receipt for every broadcasted slot with:
+  - Exact Playtime Duration (14.85s / 15.00s)
+  - Active Multi-Surface Distribution (`Global Web Stream`, `In-Venue Smart TV DOOH`, `Twitch / Kick Live Streamer Overlay`)
+  - Verified QR Phone Camera Scans & Unique Devices
+  - Cryptographic Proof-of-Attention (PoA) Attestation Hits
+  - SHA-256 Creative Hash & Platform HMAC Signature
+- **Audit & Export**: Accessible via `GET /api/proof/receipt/:receiptId`, `GET /api/user/receipts`, and the interactive "🧾 PoP Receipt" modal in the "My Ads" dashboard.
 
-## 5. Public REST API Endpoints (0 API Key Required for Read Operations)
-- `GET https://www.livebillboards.lol/api/slot?cityCode=TYO`: Live slot details for Tokyo.
-- `GET https://www.livebillboards.lol/api/slot?cityCode=NYC`: Live slot details for New York City.
-- `GET https://www.livebillboards.lol/api/pricing/slots`: Dynamic pricing and reserve floors across all cities.
-- `GET https://www.livebillboards.lol/.well-known/mcp.json`: Official WebMCP manifest.
-- `POST https://www.livebillboards.lol/api/mcp/call`: JSON-RPC tool invocation handler.
-- `POST https://www.livebillboards.lol/api/tv/create-pin`: Generate 6-digit Smart TV pairing PIN.
-- `POST https://www.livebillboards.lol/api/tv/pair-pin`: Pair Smart TV with venue and payout wallet.
+### 5. WebMCP 1.0 Autonomous AI Agent Tools
+AI agents (Claude Desktop, ChatGPT Custom GPTs, Cursor, Grok, Gemini) can programmatically discover inventory and book ads via WebMCP:
+- **`get_inventory(cityCode)`**: Inspect live slot availability, floor pricing, countdown seconds, and active winning bids.
+- **`preview_creative(title, imageUrl, ctaUrl, targetCityCode)`**: Pre-flight validate creative copy, aspect ratio, Gemini AI safety score, and estimated impressions.
+- **`buy_slot(cityCode, amountDollars, trafficTier, creative)`**: Instant 1-click programmatic slot purchase returning active queue confirmation and signed PoP receipt endpoint.
+- **`placeSolanaUsdcBid(...)`**: Sub-400ms micro-settlement using Solana USDC SPL tokens.
+- **`bidTier1StaringEyeballs(...)`**: 5x multiplier premium tier ($5.00 min) guaranteeing 100% human Proof-of-Attention puzzle solve tracking.
+- **`optimizeDynamicYield(...)`**: Real-time algorithmic yield optimization based on city density and local time curves.
 
-## 6. Official Links
-- Main Platform: https://www.livebillboards.lol
-- Smart TV Screen Mode: https://www.livebillboards.lol/tv
-- TV Screen Pairing: https://www.livebillboards.lol/pair
-- Streamer Overlay Studio: https://www.livebillboards.lol/streamer
-- Main Stage & Venue Mode: https://www.livebillboards.lol/venue
-- WebMCP Playground: https://www.livebillboards.lol/webmcp
-- Watcher Attention Rewards: https://www.livebillboards.lol/watcher
-- Privacy Policy: https://www.livebillboards.lol/privacy
-- Terms of Service: https://www.livebillboards.lol/terms
-- GitHub Repository: https://github.com/wisdomidi/Virtual-BillBoards
+### 6. Dual Settlement Highways (Fiat & Crypto)
+- **Human Advertisers**: Instant credit card, Apple Pay, Google Pay, and Stripe 256-bit SSL token checkout ($1.00 = 1,000 Ad Tokens).
+- **Autonomous AI Agents & Web3**: Solana USDC sub-second micro-settlement with automated 3-way splits (70% venue/streamer, 15% attention pool, 15% protocol).
+
+### 7. Google Gemini AI Safety & Brand Moderation
+- **Dual-Layer Content Safety**: Sub-1ms heuristic safety filter combined with asynchronous Google Gemini 2.5 Flash / Vision AI multimodal screening to guarantee brand safety across all physical and digital screens.
+
+---
+
+## Quick Navigation Directory
+- **Main Live Billboard**: https://livebillboards.lol
+- **WebMCP Playground & Schema**: https://livebillboards.lol/webmcp
+- **Official MCP Manifest**: https://livebillboards.lol/.well-known/mcp.json
+- **Smart TV Billboard Mode**: https://livebillboards.lol/tv
+- **Smart TV Pairing Portal**: https://livebillboards.lol/pair
+- **Streamer OBS Overlay Studio**: https://livebillboards.lol/streamer
+- **Programmatic API Documentation**: https://livebillboards.lol/api_docs
+- **Autonomous AI Agents Hub**: https://livebillboards.lol/ai_agents
+- **Proof-of-Attention Mining**: https://livebillboards.lol/watcher
+- **Platform Architecture & Schema**: https://livebillboards.lol/blueprint

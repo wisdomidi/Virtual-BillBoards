@@ -1,38 +1,50 @@
-# Virtual BillBoard (livebillboards.lol) — Full Agent & System Specification
+# Virtual BillBoard (LiveBillboards.lol) — Complete System & Agent Specification
 
-## System Architecture
-Virtual BillBoard operates on a high-throughput hybrid architecture:
-1. **Frontend**: Vite + React 18 with TailwindCSS and Lucide Icons, responsive across mobile, desktop, TV monitors, and OBS/streaming browser sources.
-2. **Backend**: Node.js + Express with WebSocket server (`ws`), managing real-time room dispatching (`room_JP_TYO`, `room_US_NYC`, `room_creator_{handle}`).
-3. **Database & Storage**: Google Cloud Firestore for persistent campaign records, user balances, and transactions; in-memory sorted priority queues for sub-20ms RTB bidding.
-4. **Payments & Ledger**: Stripe Checkout for instant fiat-to-token wallet top-up ($1.00 USD = 1,000 Arcade Tokens; 0.1¢ per RTB rotation).
-5. **AI Safety**: Sub-1ms heuristic safety filters combined with asynchronous Gemini Flash multimodal audit.
+## 1. Executive Summary
+Virtual BillBoard (https://livebillboards.lol) is a decentralized 24/7 Digital Out-of-Home (DOOH) and Live Stream advertising network built for humans and autonomous AI agents. It bridges physical venue TVs, creator live streams, and 200+ metropolitan web streams with real-time bidding (RTB), Solana USDC micro-settlements, and WebMCP 1.0 tool interfaces.
 
-## Locations & Feeds
-- **Global & Orbital**: `GLOBAL` (Global Network), `ISS` (International Space Station Orbit), `MARS` (Mars Colony Alpha).
-- **Major Metropolitan Networks**: `TYO` (Tokyo Shibuya), `NYC` (Times Square), `LON` (London), `PAR` (Paris), `KUL` (Kuala Lumpur), `SIN` (Singapore), `DXB` (Dubai), `SEL` (Seoul), `SYD` (Sydney), `YTO` (Toronto), `HKG` (Hong Kong), `LAX` (Los Angeles), `SHA` (Shanghai), `BER` (Berlin), `SAO` (São Paulo), `BKK` (Bangkok), `AMS` (Amsterdam), `MEX` (Mexico City), `TPE` (Taipei), `MUM` (Mumbai).
-- **Dynamic On-Demand Provisioning**: Any custom city or location can be created on-demand via `POST /api/cities/ensure`.
+## 2. Full Architecture & Components
 
-## Autonomous Bidding Payload Specification
-```json
-{
-  "title": "Campaign Headline (String, required)",
-  "imageUrl": "Image URL or Base64 data (String, required)",
-  "mediaType": "image | video",
-  "bidAmountDollars": 2.50,
-  "cityCode": "TYO",
-  "countryCode": "JP",
-  "creatorHandle": "optional_creator_handle",
-  "ctaType": "website | whatsapp | none",
-  "ctaUrl": "https://example.com"
-}
-```
+### 2.1 Web Model Context Protocol (WebMCP 1.0)
+- Exposes standardized tool definitions for AI models (Claude, ChatGPT, Cursor, Grok, Gemini).
+- Schema location: `https://livebillboards.lol/.well-known/mcp.json`
+- In-browser runtime: `window.webMCP` and `navigator.modelContext`
+- 3 Core Streamlined Tools:
+  1. `get_inventory`: `GET /api/billboard/active` & `GET /api/bid/floor`
+  2. `preview_creative`: validates creative, estimates reach (14,200 impressions), checks Gemini safety
+  3. `buy_slot`: `POST /api/bids/submit` with token burn & Proof-of-Play receipt generation
 
-## Creator & Celebrity Live Billboard Model
-- **Vanity URL**: `https://livebillboards.lol/@{handle}`
-- **Revenue Split**: 80% to Creator, 20% Protocol Fee.
-- **Overlay Embed**: `https://livebillboards.lol/overlay?creator={handle}&theme=neon`
+### 2.2 Proof-of-Play (PoP) Cryptographic Engine
+- For every 15-second rotation, the backend generates a signed JSON receipt:
+  - `actualDurationSeconds`: 14.85s guaranteed airtime
+  - `activeSurfaces`: `['Global Web Live Stream', 'In-Venue Smart TV DOOH Network', 'Twitch / Kick Live Streamer Overlay']`
+  - `verifiedQrScans`: real-time phone scans captured on dynamic redirect `/r/:rotationToken`
+  - `uniqueDevices`: unique device fingerprint count
+  - `creativeHash`: SHA-256 hash of title, image, and destination
+  - `signature`: cryptographic platform HMAC-SHA256 stamp
+- Accessible via `GET /api/proof/receipt/:receiptId` and `GET /api/user/receipts`
 
-## Contact & Support
-- Email: support@livebillboards.lol
-- Website: https://livebillboards.lol/
+### 2.3 Dynamic 15-Second Rotating QR Code Attribution
+- Dynamic URL: `https://livebillboards.lol/r/:rotationToken`
+- Automatically logs scan timestamps and unique device signatures.
+- Appends UTM attribution tags:
+  `?utm_source=livebillboards&utm_medium=dooh_virtual_billboard&utm_campaign={city}&utm_term={slotId}&utm_content={rotationToken}`
+- Sub-5ms `302 Redirect` to target destination.
+
+### 2.4 Physical Smart TV Pairing Protocol (`/tv` & `/pair`)
+- Accessible on any Smart TV browser (LG webOS, Samsung Tizen, Android TV, Fire TV, Apple TV).
+- Displays a 6-digit PIN (e.g. `834-192`).
+- Venue owners enter the PIN at `https://livebillboards.lol/pair` to bind their venue name and Solana wallet.
+- Pays 70% automatic rev-share to the venue on all ads shown.
+
+### 2.5 Live Streamer OBS Transparent Overlays (`/streamer` & `/overlay`)
+- Transparent 1080p browser source overlay for OBS Studio and Streamlabs.
+- Viewers bid on creator handles (`https://livebillboards.lol/@handle`).
+- 80% revenue split paid to the creator.
+
+### 2.6 Dual Settlement Highways
+- **Fiat / Stripe**: 256-bit encrypted card processing ($1.00 USD = 1,000 Ad Tokens).
+- **Solana USDC**: SPL token micro-settlements with sub-400ms finality and automated multi-party splits.
+
+### 2.7 AI Content Moderation
+- Instant regex heuristic filter + Google Gemini 2.5 Flash / Vision AI multimodal safety audit before screen display.

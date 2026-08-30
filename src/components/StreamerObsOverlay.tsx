@@ -438,9 +438,13 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
               </div>
 
               {showQr && (
-                <div className="bg-white p-1.5 rounded-xl shadow-2xl border border-white flex flex-col items-center gap-0.5">
-                  <QrCode className="w-7 h-7 text-slate-950" />
-                  <span className="text-[8px] font-mono font-black text-slate-900 uppercase">CLAIM PROMO</span>
+                <div className="bg-white p-1 rounded-xl shadow-2xl border border-white flex flex-col items-center gap-0.5">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(activeGameEvent.qrCodeUrl || `https://livebillboards.lol/r/stream_${streamerHandle || 'live'}`)}`}
+                    alt="Scan Promo QR"
+                    className="w-8 h-8 object-contain"
+                  />
+                  <span className="text-[7px] font-mono font-black text-slate-900 uppercase">CLAIM PROMO</span>
                 </div>
               )}
             </div>
@@ -592,7 +596,11 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
 
               {showQr && (
                 <div className="bg-white/95 p-1 rounded-lg shadow-xl border border-white flex flex-col items-center gap-0.5 shrink-0">
-                  <QrCode className="w-6 h-6 text-slate-950" />
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(ad.qrCodeUrl || `https://livebillboards.lol/r/stream_${streamerHandle || 'live'}`)}`}
+                    alt="Scan Ad QR"
+                    className="w-7 h-7 object-contain"
+                  />
                   <span className="text-[7px] font-mono font-black text-slate-900 uppercase">SCAN</span>
                 </div>
               )}
