@@ -620,10 +620,15 @@ export default function App() {
         // Instant Local Campaign Persistence (Resilient to any deployment or server restart)
         if (typeof window !== 'undefined') {
           try {
+            const isHugeBase64 = imageUrl && imageUrl.startsWith('data:') && imageUrl.length > 10000;
+            const safeStoredImageUrl = isHugeBase64
+              ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80'
+              : imageUrl;
+
             const newCampaignItem = {
               id: data.adId || data.ad?.id || `camp_${Date.now()}`,
               title,
-              imageUrl,
+              imageUrl: safeStoredImageUrl,
               targetCityCode: cityCode,
               bidAmountCents: cents,
               status: 'queued',
@@ -637,10 +642,13 @@ export default function App() {
             };
             const cacheKey = `vb_cached_campaigns_${uid}`;
             const existing = JSON.parse(localStorage.getItem(cacheKey) || '[]');
-            const deduped = [newCampaignItem, ...existing.filter((item: any) => item.id !== newCampaignItem.id)];
-            localStorage.setItem(cacheKey, JSON.stringify(deduped.slice(0, 50)));
-            localStorage.setItem('vb_cached_campaigns_global', JSON.stringify(deduped.slice(0, 50)));
-          } catch {}
+            const deduped = [newCampaignItem, ...existing.filter((item: any) => item.id !== newCampaignItem.id)].slice(0, 20);
+            localStorage.setItem(cacheKey, JSON.stringify(deduped));
+          } catch (storageErr) {
+            try {
+              localStorage.removeItem('vb_cached_campaigns_global');
+            } catch {}
+          }
         }
 
         // Non-blocking background sync

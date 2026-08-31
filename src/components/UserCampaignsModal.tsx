@@ -51,6 +51,25 @@ interface UserCampaignsModalProps {
   onSelectCity?: (city: string) => void;
 }
 
+function safeSaveCampaignsToStorage(key: string, campaigns: UserCampaignItem[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    // Keep only last 20 and sanitize huge base64 images to prevent QuotaExceededError
+    const sanitized = campaigns.slice(0, 20).map((c) => {
+      const isHugeBase64 = c.imageUrl && c.imageUrl.startsWith('data:') && c.imageUrl.length > 10000;
+      return {
+        ...c,
+        imageUrl: isHugeBase64 ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80' : c.imageUrl
+      };
+    });
+    localStorage.setItem(key, JSON.stringify(sanitized));
+  } catch (err) {
+    try {
+      localStorage.removeItem('vb_cached_campaigns_global');
+    } catch {}
+  }
+}
+
 export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
   isOpen,
   onClose,
@@ -97,10 +116,8 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
             const merged = Array.from(map.values()).sort((a, b) => 
               new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
             );
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(`vb_cached_campaigns_${userId}`, JSON.stringify(merged));
-              localStorage.setItem('vb_cached_campaigns_global', JSON.stringify(merged));
-            }
+            safeSaveCampaignsToStorage(`vb_cached_campaigns_${userId}`, merged);
+            safeSaveCampaignsToStorage('vb_cached_campaigns_global', merged);
             return merged;
           });
         }
