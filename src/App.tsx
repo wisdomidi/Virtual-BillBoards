@@ -349,10 +349,17 @@ export default function App() {
         const profile = await syncUserProfile(user, 'advertiser');
         setCurrentUser(profile);
         setUserRole(profile.role);
-        if (profile.tokensBalance && profile.tokensBalance > 0) {
-          setWalletBalanceCents(Math.round(profile.tokensBalance / 10));
-        } else if (profile.walletBalanceCents && profile.walletBalanceCents > 0) {
+        if (typeof profile.tokensBalance === 'number') {
+          const centsVal = Math.round(profile.tokensBalance / 10);
+          setWalletBalanceCents(centsVal);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('vb_cached_balance_cents', String(centsVal));
+          }
+        } else if (typeof profile.walletBalanceCents === 'number') {
           setWalletBalanceCents(profile.walletBalanceCents);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('vb_cached_balance_cents', String(profile.walletBalanceCents));
+          }
         }
         setHasClaimedStarter(Boolean(profile.hasClaimedFreeSlot && (!profile.tokensBalance || profile.tokensBalance <= 0)));
         // Server is always authoritative — non-blocking background sync
