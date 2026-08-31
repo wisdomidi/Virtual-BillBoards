@@ -61,10 +61,15 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
   onSelectCity
 }) => {
   const [campaigns, setCampaigns] = useState<UserCampaignItem[]>(() => {
-    if (typeof window !== 'undefined' && userId) {
+    if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem(`vb_cached_campaigns_${userId}`);
-        if (cached) return JSON.parse(cached);
+        const userSpecific = userId ? localStorage.getItem(`vb_cached_campaigns_${userId}`) : null;
+        const globalFallback = localStorage.getItem('vb_cached_campaigns_global');
+        const raw = userSpecific || globalFallback;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
       } catch {}
     }
     return [];
@@ -80,11 +85,24 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.campaigns) {
-          setCampaigns(data.campaigns);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(`vb_cached_campaigns_${userId}`, JSON.stringify(data.campaigns));
-          }
+        if (data.campaigns && Array.isArray(data.campaigns)) {
+          setCampaigns((prev) => {
+            const map = new Map<string, UserCampaignItem>();
+            // 1. Add server campaigns
+            data.campaigns.forEach((c: UserCampaignItem) => map.set(c.id, c));
+            // 2. Preserve any local campaign that server might have queued
+            prev.forEach((c) => {
+              if (!map.has(c.id)) map.set(c.id, c);
+            });
+            const merged = Array.from(map.values()).sort((a, b) => 
+              new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+            );
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`vb_cached_campaigns_${userId}`, JSON.stringify(merged));
+              localStorage.setItem('vb_cached_campaigns_global', JSON.stringify(merged));
+            }
+            return merged;
+          });
         }
       }
     } catch (err) {

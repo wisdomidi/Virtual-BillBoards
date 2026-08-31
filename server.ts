@@ -438,17 +438,16 @@ async function getUserWalletFromFirestore(userId: string, userEmail?: string) {
 
     if (snap && snap.exists && snap.exists()) {
       const data = snap.data();
-      const bidsCount = data.bidsPlacedCount || 0;
-      let hasClaimed = (data.starterGrantClaimed === true || data.freeSlotClaimed === true) && bidsCount > 0;
+      const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
+      const hasClaimed = Boolean(data.starterGrantClaimed === true || data.freeSlotClaimed === true || bidsCount > 0);
       
       let tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
-        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : 0);
+        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isGuest || hasClaimed ? 0 : 1000));
 
-      // Auto-grant 1,000 starter tokens ($1.00) if new registered user has 0 balance and 0 bids
-      if (!isGuest && tokensBalance === 0 && bidsCount === 0) {
+      // ONLY grant 1,000 starter tokens ($1.00) if new registered user NEVER claimed starter grant and tokensBalance is undefined
+      if (!isGuest && !hasClaimed && data.tokensBalance === undefined && bidsCount === 0) {
         tokensBalance = 1000;
-        hasClaimed = false;
         setDoc(userRef, { tokensBalance: 1000, walletBalanceCents: 100, starterGrantClaimed: true, freeSlotClaimed: true, bidsPlacedCount: 0, email: resolvedEmail }, { merge: true }).catch(() => {});
       }
 

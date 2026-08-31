@@ -325,12 +325,12 @@ export default function App() {
   const [walletBalanceCents, setWalletBalanceCents] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const cached = localStorage.getItem('vb_cached_balance_cents');
-      if (cached) {
+      if (cached !== null && cached !== undefined && cached !== '') {
         const parsed = parseInt(cached, 10);
-        if (!isNaN(parsed) && parsed > 0) return parsed;
+        if (!isNaN(parsed) && parsed >= 0) return parsed;
       }
     }
-    return 100; // Instant 0ms render ($1.00 / 1,000 Tokens)
+    return 100; // Instant 0ms render ($1.00 / 1,000 Tokens) for brand-new users
   });
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
   const [hasClaimedStarter, setHasClaimedStarter] = useState<boolean>(false);
@@ -616,6 +616,33 @@ export default function App() {
             localStorage.setItem('vb_cached_balance_cents', String(data.newWalletBalanceCents));
           }
         }
+
+        // Instant Local Campaign Persistence (Resilient to any deployment or server restart)
+        if (typeof window !== 'undefined') {
+          try {
+            const newCampaignItem = {
+              id: data.adId || data.ad?.id || `camp_${Date.now()}`,
+              title,
+              imageUrl,
+              targetCityCode: cityCode,
+              bidAmountCents: cents,
+              status: 'queued',
+              landingPageUrl: landingPageUrl || (ctaType === 'website' ? ctaUrl : undefined),
+              whatsappLink: whatsappLink || (ctaType === 'whatsapp' ? ctaUrl : undefined),
+              ctaType,
+              ctaUrl: ctaUrl || landingPageUrl || whatsappLink,
+              qrCodeUrl,
+              mediaType,
+              createdAt: new Date().toISOString()
+            };
+            const cacheKey = `vb_cached_campaigns_${uid}`;
+            const existing = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+            const deduped = [newCampaignItem, ...existing.filter((item: any) => item.id !== newCampaignItem.id)];
+            localStorage.setItem(cacheKey, JSON.stringify(deduped.slice(0, 50)));
+            localStorage.setItem('vb_cached_campaigns_global', JSON.stringify(deduped.slice(0, 50)));
+          } catch {}
+        }
+
         // Non-blocking background sync
         fetchWallet(uid);
         fetchActiveSlot(cityCode, countryCode);
