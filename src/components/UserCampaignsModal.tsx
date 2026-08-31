@@ -20,7 +20,10 @@ import {
   Hash,
   Activity,
   CheckCheck,
-  Copy
+  Copy,
+  Layers,
+  Share2,
+  Download
 } from 'lucide-react';
 import { UserRole, ProofOfPlayReceipt } from '../types';
 
@@ -152,10 +155,11 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const rawDest = ad.landingPageUrl || ad.whatsappLink || ad.ctaUrl || 'https://livebillboards.lol';
-      const cleanDest = rawDest.replace(/^https?:\/\//, '');
+      const targetWebsite = ad.landingPageUrl || ad.ctaUrl || ad.whatsappLink || (rawDest !== 'https://livebillboards.lol' ? rawDest : '');
+      const directQrTarget = targetWebsite ? (targetWebsite.startsWith('http') ? targetWebsite : `https://${targetWebsite}`) : 'https://www.livebillboards.lol';
+      const cleanDest = directQrTarget.replace(/^https?:\/\//, '').replace(/\/$/, '');
       const creativeHash = `sha256_${ad.id.replace(/[^a-zA-Z0-9]/g, '').slice(-12)}${ad.title.length * 8192}`;
-      const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(ad.qrCodeUrl || rawDest)}`;
+      const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(directQrTarget)}`;
 
       // 1. Dark Futuristic Cyberpunk Billboard Studio Background
       const bgGradient = ctx.createLinearGradient(0, 0, 1280, 720);
@@ -237,23 +241,23 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
 
       ctx.font = 'bold 18px sans-serif';
       ctx.fillStyle = '#ffffff';
-      const truncatedTitle = ad.title.length > 50 ? ad.title.substring(0, 48) + '...' : ad.title;
-      ctx.fillText(truncatedTitle, 75, 548);
+      const truncatedTitle = ad.title.length > 45 ? ad.title.substring(0, 43) + '...' : ad.title;
+      ctx.fillText(truncatedTitle, 75, 546);
 
       // Direct Clickable/Scannable Website CTA Badge
-      if (cleanDest && cleanDest !== 'livebillboards.lol') {
-        ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+      if (cleanDest && cleanDest !== 'livebillboards.lol' && cleanDest !== 'www.livebillboards.lol') {
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.2)';
         ctx.strokeStyle = '#06b6d4';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.roundRect(75, 558, 280, 22, 6);
+        ctx.roundRect(75, 555, 340, 24, 6);
         ctx.fill();
         ctx.stroke();
 
-        ctx.font = 'bold 11px monospace';
+        ctx.font = 'bold 12px monospace';
         ctx.fillStyle = '#38bdf8';
-        const displayUrl = cleanDest.length > 30 ? cleanDest.substring(0, 28) + '...' : cleanDest;
-        ctx.fillText(`🌐 ${displayUrl} ↗`, 85, 573);
+        const displayUrl = cleanDest.length > 36 ? cleanDest.substring(0, 34) + '...' : cleanDest;
+        ctx.fillText(`🌐 ${displayUrl} ↗`, 88, 571);
       }
 
       // 5. Scannable Dynamic QR Code Card (Bottom Right Overlay)
@@ -319,6 +323,16 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
     } finally {
       setIsGeneratingProof(false);
     }
+  };
+
+  const handleShareOnX = (ad: UserCampaignItem) => {
+    // 1. Download certificate PNG
+    generateWatermarkedProof(ad);
+    
+    // 2. Open Twitter Intent with copy encouraging attaching the PNG
+    const tweetText = `📸 (Attach your downloaded Proof Certificate)\n\nMy ad "${ad.title}" just broadcasted live on the 24/7 Global Virtual Billboard in ${ad.targetCityCode}! 🚀\n\nWatch live: https://www.livebillboards.lol/?city=${ad.targetCityCode}\n\n#LiveBillboard #VirtualBillboard #ProofOfPlay`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+    window.open(twitterUrl, '_blank', 'noopener,noreferrer');
   };
 
   if (!isOpen) return null;
@@ -553,15 +567,19 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                         </button>
 
                         {/* Share to X (Twitter) */}
-                        <a
-                          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My ad "${ad.title}" just broadcasted live on the 24/7 Global Virtual Billboard in ${ad.targetCityCode}! 🚀\n\nWatch live: https://www.livebillboards.lol/?city=${ad.targetCityCode}\n\n#LiveBillboard #VirtualBillboard #LiveTakeover`)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                          title="Share Broadcast Proof on X (Twitter)"
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleShareOnX(ad);
+                          }}
+                          className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                          title="Download Proof PNG and Share on X (Twitter)"
                         >
-                          <span>𝕏</span>
-                        </a>
+                          <Share2 className="w-3 h-3" />
+                          <span>𝕏 Share</span>
+                        </button>
                       </div>
                     </div>
                   </div>

@@ -109,14 +109,15 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
     if (snap.exists()) {
       const data = snap.data();
       const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
+      const hasClaimed = Boolean(data.starterGrantClaimed || data.freeSlotClaimed || bidsCount > 0);
       let tokensBalance = typeof data.tokensBalance === 'number'
         ? data.tokensBalance
-        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isAnon ? 0 : 1000));
+        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isAnon || hasClaimed ? 0 : 1000));
       let walletBalanceCents = typeof data.walletBalanceCents === 'number'
         ? data.walletBalanceCents
         : Math.round(tokensBalance / 10);
 
-      if (!isAnon && tokensBalance === 0 && bidsCount === 0 && !data.starterGrantClaimed) {
+      if (!isAnon && !hasClaimed && data.tokensBalance === undefined && bidsCount === 0) {
         tokensBalance = 1000;
         walletBalanceCents = 100;
       }
