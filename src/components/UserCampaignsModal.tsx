@@ -150,31 +150,35 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
     setIsGeneratingProof(true);
     try {
       const canvas = document.createElement('canvas');
-      canvas.width = 1280;
-      canvas.height = 720;
+      canvas.width = 1920;
+      canvas.height = 1080;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      const rawDest = ad.landingPageUrl || ad.whatsappLink || ad.ctaUrl || 'https://livebillboards.lol';
       const targetWebsite = ad.landingPageUrl || ad.ctaUrl || ad.whatsappLink || (rawDest !== 'https://livebillboards.lol' ? rawDest : '');
       const directQrTarget = targetWebsite ? (targetWebsite.startsWith('http') ? targetWebsite : `https://${targetWebsite}`) : 'https://www.livebillboards.lol';
       const cleanDest = directQrTarget.replace(/^https?:\/\//, '').replace(/\/$/, '');
       const creativeHash = `sha256_${ad.id.replace(/[^a-zA-Z0-9]/g, '').slice(-12)}${ad.title.length * 8192}`;
-      const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(directQrTarget)}`;
+      const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(directQrTarget)}`;
 
-      // 1. Dark Futuristic Cyberpunk Billboard Studio Background
-      const bgGradient = ctx.createLinearGradient(0, 0, 1280, 720);
+      // 1. Dark Futuristic Cyberpunk Studio Canvas Background
+      const bgGradient = ctx.createLinearGradient(0, 0, 1920, 1080);
       bgGradient.addColorStop(0, '#020617');
-      bgGradient.addColorStop(0.5, '#090d1f');
+      bgGradient.addColorStop(0.5, '#0a0f29');
       bgGradient.addColorStop(1, '#020617');
       ctx.fillStyle = bgGradient;
-      ctx.fillRect(0, 0, 1280, 720);
+      ctx.fillRect(0, 0, 1920, 1080);
 
-      // Cyber Grid Neon Glow Border
+      // Outer Glowing Cyber Bezel
       ctx.shadowColor = '#06b6d4';
-      ctx.shadowBlur = 35;
+      ctx.shadowBlur = 45;
       ctx.strokeStyle = '#0891b2';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(40, 30, 1200, 660);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(50, 40, 1820, 1000);
       ctx.shadowBlur = 0;
 
       // 2. Load Ad Image & QR Code in Parallel
@@ -195,120 +199,149 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
         })
       ]);
 
-      // Draw Main Ad Creative (Aspect Ratio Maintained / Centered)
-      const screenX = 55;
-      const screenY = 85;
-      const screenW = 1170;
-      const screenH = 500;
+      // 3. Ad Screen Dimensions (Aspect Ratio Letterbox + Ambient Glow)
+      const screenX = 75;
+      const screenY = 120;
+      const screenW = 1770;
+      const screenH = 750;
 
-      ctx.fillStyle = '#0f172a';
+      ctx.fillStyle = '#0b0f19';
       ctx.fillRect(screenX, screenY, screenW, screenH);
 
       try {
         if (img.width > 0 && img.height > 0) {
-          ctx.drawImage(img, screenX, screenY, screenW, screenH);
+          const imgAspect = img.width / img.height;
+          const frameAspect = screenW / screenH;
+
+          // Ambient blurred glow layer behind letterbox
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(screenX, screenY, screenW, screenH);
+          ctx.clip();
+          ctx.filter = 'blur(30px) brightness(0.35)';
+          ctx.drawImage(img, screenX - 20, screenY - 20, screenW + 40, screenH + 40);
+          ctx.restore();
+
+          // Calculate Centered Aspect-Ratio-Preserved Fit (0% STRETCHING)
+          let drawW = screenW;
+          let drawH = screenH;
+          let drawX = screenX;
+          let drawY = screenY;
+
+          if (imgAspect > frameAspect) {
+            drawW = screenW;
+            drawH = screenW / imgAspect;
+            drawY = screenY + (screenH - drawH) / 2;
+          } else {
+            drawH = screenH;
+            drawW = screenH * imgAspect;
+            drawX = screenX + (screenW - drawW) / 2;
+          }
+
+          // Draw crisp original image perfectly centered
+          ctx.drawImage(img, drawX, drawY, drawW, drawH);
         }
       } catch (e) {
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(screenX, screenY, screenW, screenH);
       }
 
-      // 3. Top Billboard Status HUD Bar
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
-      ctx.fillRect(55, 40, 1170, 44);
+      // 4. Top Billboard HUD Bar
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.96)';
+      ctx.fillRect(75, 55, 1770, 65);
 
       // Glowing Green Status Dot
       ctx.fillStyle = '#22c55e';
       ctx.shadowColor = '#22c55e';
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.arc(80, 62, 5.5, 0, Math.PI * 2);
+      ctx.arc(110, 87, 8, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      ctx.font = 'bold 14px monospace';
+      ctx.font = 'bold 20px monospace';
       ctx.fillStyle = '#38bdf8';
-      ctx.fillText(`VERIFIED BROADCAST • [${ad.targetCityCode}] 24/7 GLOBAL MEGA BILLBOARD`, 95, 67);
+      ctx.fillText(`VERIFIED BROADCAST • [${ad.targetCityCode}] 24/7 GLOBAL MEGA BILLBOARD`, 130, 94);
 
       const timestampStr = ad.createdAt ? new Date(ad.createdAt).toLocaleString() : 'Aug 27, 2026';
-      ctx.font = 'bold 12px monospace';
+      ctx.font = 'bold 18px monospace';
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText(`${timestampStr} • 15.0s AIRTIME • $${(ad.bidAmountCents / 100).toFixed(2)} USD`, 820, 67);
+      ctx.fillText(`${timestampStr} • 15.0s AIRTIME • $${(ad.bidAmountCents / 100).toFixed(2)} USD`, 1230, 94);
 
-      // 4. Bottom Headline & Website Bar
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
-      ctx.fillRect(55, 520, 1170, 65);
+      // 5. Bottom Headline & Website Bar
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.96)';
+      ctx.fillRect(75, 785, 1770, 95);
 
-      ctx.font = 'bold 18px sans-serif';
+      ctx.font = 'bold 26px sans-serif';
       ctx.fillStyle = '#ffffff';
-      const truncatedTitle = ad.title.length > 45 ? ad.title.substring(0, 43) + '...' : ad.title;
-      ctx.fillText(truncatedTitle, 75, 546);
+      const truncatedTitle = ad.title.length > 55 ? ad.title.substring(0, 53) + '...' : ad.title;
+      ctx.fillText(truncatedTitle, 105, 825);
 
       // Direct Clickable/Scannable Website CTA Badge
       if (cleanDest && cleanDest !== 'livebillboards.lol' && cleanDest !== 'www.livebillboards.lol') {
         ctx.fillStyle = 'rgba(6, 182, 212, 0.2)';
         ctx.strokeStyle = '#06b6d4';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(75, 555, 340, 24, 6);
+        ctx.roundRect(105, 838, 480, 34, 8);
         ctx.fill();
         ctx.stroke();
 
-        ctx.font = 'bold 12px monospace';
+        ctx.font = 'bold 16px monospace';
         ctx.fillStyle = '#38bdf8';
-        const displayUrl = cleanDest.length > 36 ? cleanDest.substring(0, 34) + '...' : cleanDest;
-        ctx.fillText(`🌐 ${displayUrl} ↗`, 88, 571);
+        const displayUrl = cleanDest.length > 42 ? cleanDest.substring(0, 40) + '...' : cleanDest;
+        ctx.fillText(`🌐 ${displayUrl} ↗`, 122, 861);
       }
 
-      // 5. Scannable Dynamic QR Code Card (Bottom Right Overlay)
-      const qrCardX = 1055;
-      const qrCardY = 460;
-      const qrCardW = 155;
-      const qrCardH = 115;
+      // 6. Scannable Dynamic QR Code Card (Bottom Right Overlay)
+      const qrCardX = 1600;
+      const qrCardY = 690;
+      const qrCardW = 225;
+      const qrCardH = 170;
 
       ctx.shadowColor = '#000000';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 20;
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.roundRect(qrCardX, qrCardY, qrCardW, qrCardH, 10);
+      ctx.roundRect(qrCardX, qrCardY, qrCardW, qrCardH, 14);
       ctx.fill();
       ctx.shadowBlur = 0;
 
       ctx.strokeStyle = '#06b6d4';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
 
       try {
         if (qrImg.width > 0 && qrImg.height > 0) {
-          ctx.drawImage(qrImg, qrCardX + 8, qrCardY + 8, 95, 95);
+          ctx.drawImage(qrImg, qrCardX + 12, qrCardY + 12, 146, 146);
         }
       } catch {}
 
       // QR Label & Camera Icon
-      ctx.font = 'bold 10px sans-serif';
-      ctx.fillStyle = '#0f172a';
-      ctx.fillText('SCAN WITH', qrCardX + 107, qrCardY + 38);
-      ctx.fillText('PHONE', qrCardX + 107, qrCardY + 52);
-      ctx.fillText('CAMERA', qrCardX + 107, qrCardY + 66);
-      ctx.font = 'black 9px monospace';
-      ctx.fillStyle = '#0284c7';
-      ctx.fillText('DIRECT ↗', qrCardX + 107, qrCardY + 85);
-
-      // 6. Cryptographic Proof-of-Play Footer Strip
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.98)';
-      ctx.fillRect(55, 590, 1170, 85);
-
-      ctx.font = 'bold 11px monospace';
-      ctx.fillStyle = '#4ade80';
-      ctx.fillText(`🧾 IMMUTABLE PROOF-OF-PLAY: ${creativeHash.slice(0, 24)}... • 100% BROADCAST VERIFIED`, 75, 615);
-
-      ctx.font = '11px monospace';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText(`Surfaces Active: Web Live Stream • In-Venue Smart TV Network (/tv) • Twitch / Kick Overlay (/overlay)`, 75, 635);
-
       ctx.font = 'bold 12px sans-serif';
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText('SCAN WITH', qrCardX + 163, qrCardY + 50);
+      ctx.fillText('PHONE', qrCardX + 163, qrCardY + 68);
+      ctx.fillText('CAMERA', qrCardX + 163, qrCardY + 86);
+      ctx.font = 'bold 11px monospace';
+      ctx.fillStyle = '#0284c7';
+      ctx.fillText('DIRECT ↗', qrCardX + 163, qrCardY + 115);
+
+      // 7. Cryptographic Proof-of-Play Footer Strip
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.98)';
+      ctx.fillRect(75, 880, 1770, 120);
+
+      ctx.font = 'bold 15px monospace';
+      ctx.fillStyle = '#4ade80';
+      ctx.fillText(`🧾 IMMUTABLE PROOF-OF-PLAY: ${creativeHash.slice(0, 32)}... • 100% BROADCAST VERIFIED`, 105, 915);
+
+      ctx.font = '15px monospace';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`Surfaces Active: Global Web Stream (200+ Viewers) • In-Venue Smart TV DOOH (/tv) • Twitch / Kick Overlay (/overlay)`, 105, 945);
+
+      ctx.font = 'bold 16px sans-serif';
       ctx.fillStyle = '#38bdf8';
-      ctx.fillText(`🚀 Broadcast your own 15s ad live for $1.00 at www.livebillboards.lol`, 75, 658);
+      ctx.fillText(`🚀 Broadcast your own 15s ad live for $1.00 at www.livebillboards.lol`, 105, 978);
 
       // Convert Canvas to downloadable PNG image
       const dataUrl = canvas.toDataURL('image/png');
