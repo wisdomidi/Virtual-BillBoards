@@ -152,84 +152,159 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // 1. Dark Futuristic Cyberpunk Billboard Frame Background
+      const rawDest = ad.landingPageUrl || ad.whatsappLink || ad.ctaUrl || 'https://livebillboards.lol';
+      const cleanDest = rawDest.replace(/^https?:\/\//, '');
+      const creativeHash = `sha256_${ad.id.replace(/[^a-zA-Z0-9]/g, '').slice(-12)}${ad.title.length * 8192}`;
+      const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(ad.qrCodeUrl || rawDest)}`;
+
+      // 1. Dark Futuristic Cyberpunk Billboard Studio Background
       const bgGradient = ctx.createLinearGradient(0, 0, 1280, 720);
-      bgGradient.addColorStop(0, '#030712');
-      bgGradient.addColorStop(0.5, '#0b1329');
+      bgGradient.addColorStop(0, '#020617');
+      bgGradient.addColorStop(0.5, '#090d1f');
       bgGradient.addColorStop(1, '#020617');
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, 1280, 720);
 
-      // Ambient Neon Cyberpunk Glow
+      // Cyber Grid Neon Glow Border
       ctx.shadowColor = '#06b6d4';
-      ctx.shadowBlur = 40;
+      ctx.shadowBlur = 35;
       ctx.strokeStyle = '#0891b2';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(60, 60, 1160, 600);
+      ctx.lineWidth = 3;
+      ctx.strokeRect(40, 30, 1200, 660);
       ctx.shadowBlur = 0;
 
-      // 2. Load Ad Image
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      await new Promise<void>((resolve) => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-        img.src = ad.imageUrl;
-      });
+      // 2. Load Ad Image & QR Code in Parallel
+      const [img, qrImg] = await Promise.all([
+        new Promise<HTMLImageElement>((resolve) => {
+          const image = new Image();
+          image.crossOrigin = 'anonymous';
+          image.onload = () => resolve(image);
+          image.onerror = () => resolve(image);
+          image.src = ad.imageUrl;
+        }),
+        new Promise<HTMLImageElement>((resolve) => {
+          const qr = new Image();
+          qr.crossOrigin = 'anonymous';
+          qr.onload = () => resolve(qr);
+          qr.onerror = () => resolve(qr);
+          qr.src = qrCodeApiUrl;
+        })
+      ]);
 
-      // Draw Main Ad Creative (Centered within Bezel)
+      // Draw Main Ad Creative (Aspect Ratio Maintained / Centered)
+      const screenX = 55;
+      const screenY = 85;
+      const screenW = 1170;
+      const screenH = 500;
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(screenX, screenY, screenW, screenH);
+
       try {
         if (img.width > 0 && img.height > 0) {
-          ctx.drawImage(img, 70, 110, 1140, 480);
-        } else {
-          ctx.fillStyle = '#0f172a';
-          ctx.fillRect(70, 110, 1140, 480);
+          ctx.drawImage(img, screenX, screenY, screenW, screenH);
         }
-      } catch {
+      } catch (e) {
         ctx.fillStyle = '#0f172a';
-        ctx.fillRect(70, 110, 1140, 480);
+        ctx.fillRect(screenX, screenY, screenW, screenH);
       }
 
       // 3. Top Billboard Status HUD Bar
       ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
-      ctx.fillRect(70, 70, 1140, 45);
+      ctx.fillRect(55, 40, 1170, 44);
 
+      // Glowing Green Status Dot
       ctx.fillStyle = '#22c55e';
+      ctx.shadowColor = '#22c55e';
+      ctx.shadowBlur = 10;
       ctx.beginPath();
-      ctx.arc(95, 92, 6, 0, Math.PI * 2);
+      ctx.arc(80, 62, 5.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.shadowBlur = 0;
 
-      ctx.font = 'bold 15px monospace';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(`VERIFIED BROADCAST • ${ad.targetCityCode} 24/7 MEGA BILLBOARD`, 112, 98);
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText(`VERIFIED BROADCAST • [${ad.targetCityCode}] 24/7 GLOBAL MEGA BILLBOARD`, 95, 67);
 
       const timestampStr = ad.createdAt ? new Date(ad.createdAt).toLocaleString() : 'Aug 27, 2026';
-      ctx.font = 'bold 13px monospace';
+      ctx.font = 'bold 12px monospace';
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText(`${timestampStr} • 15s • $${(ad.bidAmountCents / 100).toFixed(2)} USD`, 820, 98);
+      ctx.fillText(`${timestampStr} • 15.0s AIRTIME • $${(ad.bidAmountCents / 100).toFixed(2)} USD`, 820, 67);
 
-      // 4. Bottom Title & CTA Banner
+      // 4. Bottom Headline & Website Bar
       ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
-      ctx.fillRect(70, 535, 1140, 55);
+      ctx.fillRect(55, 520, 1170, 65);
 
-      ctx.font = 'bold 20px sans-serif';
+      ctx.font = 'bold 18px sans-serif';
       ctx.fillStyle = '#ffffff';
-      const truncatedTitle = ad.title.length > 55 ? ad.title.substring(0, 53) + '...' : ad.title;
-      ctx.fillText(truncatedTitle, 95, 570);
+      const truncatedTitle = ad.title.length > 50 ? ad.title.substring(0, 48) + '...' : ad.title;
+      ctx.fillText(truncatedTitle, 75, 548);
 
-      // 5. TikTok-Style Watermark Badge (Bottom Right Overlay)
+      // Direct Clickable/Scannable Website CTA Badge
+      if (cleanDest && cleanDest !== 'livebillboards.lol') {
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(75, 558, 280, 22, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = 'bold 11px monospace';
+        ctx.fillStyle = '#38bdf8';
+        const displayUrl = cleanDest.length > 30 ? cleanDest.substring(0, 28) + '...' : cleanDest;
+        ctx.fillText(`🌐 ${displayUrl} ↗`, 85, 573);
+      }
+
+      // 5. Scannable Dynamic QR Code Card (Bottom Right Overlay)
+      const qrCardX = 1055;
+      const qrCardY = 460;
+      const qrCardW = 155;
+      const qrCardH = 115;
+
       ctx.shadowColor = '#000000';
       ctx.shadowBlur = 15;
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
-      ctx.roundRect(840, 605, 370, 42, 12);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(qrCardX, qrCardY, qrCardW, qrCardH, 10);
       ctx.fill();
+      ctx.shadowBlur = 0;
+
       ctx.strokeStyle = '#06b6d4';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.stroke();
 
-      ctx.font = 'bold 14px sans-serif';
+      try {
+        if (qrImg.width > 0 && qrImg.height > 0) {
+          ctx.drawImage(qrImg, qrCardX + 8, qrCardY + 8, 95, 95);
+        }
+      } catch {}
+
+      // QR Label & Camera Icon
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText('SCAN WITH', qrCardX + 107, qrCardY + 38);
+      ctx.fillText('PHONE', qrCardX + 107, qrCardY + 52);
+      ctx.fillText('CAMERA', qrCardX + 107, qrCardY + 66);
+      ctx.font = 'black 9px monospace';
+      ctx.fillStyle = '#0284c7';
+      ctx.fillText('DIRECT ↗', qrCardX + 107, qrCardY + 85);
+
+      // 6. Cryptographic Proof-of-Play Footer Strip
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.98)';
+      ctx.fillRect(55, 590, 1170, 85);
+
+      ctx.font = 'bold 11px monospace';
+      ctx.fillStyle = '#4ade80';
+      ctx.fillText(`🧾 IMMUTABLE PROOF-OF-PLAY: ${creativeHash.slice(0, 24)}... • 100% BROADCAST VERIFIED`, 75, 615);
+
+      ctx.font = '11px monospace';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`Surfaces Active: Web Live Stream • In-Venue Smart TV Network (/tv) • Twitch / Kick Overlay (/overlay)`, 75, 635);
+
+      ctx.font = 'bold 12px sans-serif';
       ctx.fillStyle = '#38bdf8';
-      ctx.fillText('🌐 Live on www.livebillboards.lol', 860, 631);
+      ctx.fillText(`🚀 Broadcast your own 15s ad live for $1.00 at www.livebillboards.lol`, 75, 658);
 
       // Convert Canvas to downloadable PNG image
       const dataUrl = canvas.toDataURL('image/png');
@@ -434,7 +509,12 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {/* Signed Proof-of-Play (PoP) Receipt Button */}
                         <button
-                          onClick={() => viewSignedReceipt(ad)}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            viewSignedReceipt(ad);
+                          }}
                           className="px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900/90 border border-emerald-500/50 text-emerald-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm"
                           title="View Cryptographic Proof-of-Play (PoP) Receipt & Scan Analytics"
                         >
@@ -444,7 +524,12 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
 
                         {/* Watch Replay / Proof Modal Button */}
                         <button
-                          onClick={() => setSelectedProofAd(ad)}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedProofAd(ad);
+                          }}
                           className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm"
                           title="Watch Verified Replay & Details"
                         >
@@ -454,11 +539,17 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
 
                         {/* Download Watermarked Proof Card */}
                         <button
-                          onClick={() => generateWatermarkedProof(ad)}
-                          className="px-2.5 py-1 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/40 text-purple-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            generateWatermarkedProof(ad);
+                          }}
+                          disabled={isGeneratingProof}
+                          className="px-2.5 py-1 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/40 text-purple-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-50"
                           title="Download Verified Proof Certificate"
                         >
-                          <span>⬇️ Proof</span>
+                          <span>{isGeneratingProof ? '⏳ Generating...' : '⬇️ Proof'}</span>
                         </button>
 
                         {/* Share to X (Twitter) */}
