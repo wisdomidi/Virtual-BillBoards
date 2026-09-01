@@ -108,19 +108,21 @@ export const StreamerOverlayStudio: React.FC<StreamerOverlayStudioProps> = ({
   useEffect(() => {
     const fetchSlotForPreview = async () => {
       try {
-        const res = await fetch(`/api/slot?cityCode=${cityCode}&countryCode=GLOBAL`);
+        const res = await fetch(`/api/billboard/active?cityCode=${cityCode}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.winningAd) {
+          if (data && data.activeAd) {
             setPreviewAd({
-              title: data.winningAd.title,
-              imageUrl: data.winningAd.imageUrl,
-              advertiser: data.winningAd.advertiserName || 'Sponsor Ad',
-              bidDollars: ((data.winningAd.bidAmountCents || 100) / 100).toFixed(2)
+              title: data.activeAd.title,
+              imageUrl: data.activeAd.imageUrl,
+              advertiser: data.activeAd.advertiserName || 'Sponsor Ad',
+              bidDollars: ((data.activeAd.bidAmountCents || 100) / 100).toFixed(2)
             });
           }
         }
-      } catch {}
+      } catch (e) {
+        console.warn('Preview slot fetch note:', e);
+      }
     };
     fetchSlotForPreview();
   }, [cityCode]);
