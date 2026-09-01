@@ -19,12 +19,12 @@ export class BillboardVideoRecorder {
   /**
    * Start recording the billboard canvas
    * @param canvas HTMLCanvasElement (The Three.js rendering canvas or ad preview)
-   * @param durationMs Duration to record (default 15,000ms / 15 seconds)
+   * @param durationMs Duration to record (default 18,000ms / 18 seconds for full takeover intro, broadcast & departure)
    * @param onProgress Callback receiving percentage progress (0 to 100)
    */
   public async recordCanvas(
     canvas: HTMLCanvasElement,
-    durationMs: number = 15000,
+    durationMs: number = 18000,
     onProgress?: (progressPct: number) => void
   ): Promise<VideoRecordingResult> {
     return new Promise((resolve, reject) => {

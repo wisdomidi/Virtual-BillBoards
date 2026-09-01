@@ -409,10 +409,10 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
         return;
       }
 
-      const res = await billboardRecorder.recordCanvas(canvas, 10000, (pct) => setVideoProgress(pct));
+      const res = await billboardRecorder.recordCanvas(canvas, 18000, (pct) => setVideoProgress(pct));
       const a = document.createElement('a');
       a.href = res.url;
-      a.download = `LiveBillboard-${ad.targetCityCode}-${ad.id}.webm`;
+      a.download = `LiveBillboard-Takeover-${ad.targetCityCode}-${ad.id}.webm`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -913,7 +913,7 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                   className="flex-1 min-w-[130px] py-2.5 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Video className="w-3.5 h-3.5" />
-                  <span>{isRecordingVideo ? `Recording ${videoProgress}%...` : '🎬 15s Video Clip'}</span>
+                  <span>{isRecordingVideo ? `Recording ${videoProgress}%...` : '🎬 18s Video Takeover'}</span>
                 </button>
 
                 <a
