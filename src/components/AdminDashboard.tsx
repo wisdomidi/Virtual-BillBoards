@@ -46,9 +46,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   selectedCity,
   selectedCountry
 }) => {
-  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
+  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
   const [techTool, setTechTool] = useState<'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger'>('architecture');
   const [creatorFilter, setCreatorFilter] = useState('');
+
+  // User & Wallet Oversight State
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [adjustingUser, setAdjustingUser] = useState<string | null>(null);
+  const [adjustTokensAmount, setAdjustTokensAmount] = useState<number>(1000);
 
   // Flagged & Rejected Ads Moderation State
   const [flaggedAds, setFlaggedAds] = useState<any[]>([]);
@@ -62,6 +69,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     globalReserveFloorCents: 100,
     geminiSafetyThreshold: 70,
     streamerRevSharePercent: 70,
+    creatorRevSharePercent: 80,
+    venueRevSharePercent: 70,
     maintenanceMode: false,
     emergencyAlertBanner: '',
     houseAdTitle: 'Public Service: Plant 10,000 Trees in Southeast Asia',
@@ -177,10 +186,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch('/api/admin/users');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.users) setUsersList(data.users);
+      }
+    } catch (e) {
+      console.warn('Failed to load admin users:', e);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleAdjustBalance = async (targetUserId: string, addTokens: number, newRole?: string) => {
+    try {
+      const res = await fetch('/api/admin/user/adjust-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId, addTokens, newRole, reason: 'Admin manual adjustment' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addToast('success', 'Balance Updated', `User ${targetUserId.slice(-6)} updated: ${data.newTokensBalance.toLocaleString()} tokens`);
+        fetchUsers();
+        setAdjustingUser(null);
+      }
+    } catch (e: any) {
+      addToast('error', 'Update Failed', e.message);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
     fetchCities();
     fetchFlaggedAds();
+    fetchUsers();
   }, []);
 
   const handleSaveSettings = async () => {
@@ -316,10 +359,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
 
-        {/* Admin Sub-Tabs */}
-        <div className="flex space-x-2 border-t border-slate-800/80 pt-4 mt-6 overflow-x-auto scrollbar-none">
+        {/* Admin Sub-Tabs — Responsive Multi-Row Pill Grid with Zero Clipping */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-800/80 pt-4 mt-6">
           {[
             { id: 'settings', label: '⚙️ Platform Settings & Safety', icon: Settings },
+            { id: 'users', label: `👥 Users & Wallets (${usersList.length})`, icon: Users },
             { id: 'moderation', label: `🛡️ Moderation & Flagged Ads (${flaggedAds.length})`, icon: ShieldCheck },
             { id: 'creators', label: '👑 Creator Handles & Verification', icon: Crown },
             { id: 'overrides', label: '⚡ Emergency Ad Injector & Ejector', icon: Zap },
@@ -332,13 +376,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveAdminSubTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${
                   isActive
-                    ? 'bg-cyan-500 text-slate-950 shadow-md font-extrabold'
-                    : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 shadow-cyan-500/20 font-extrabold scale-[1.02]'
+                    : 'bg-slate-900/90 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{tab.label}</span>
               </button>
             );
@@ -430,6 +474,145 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
+      {/* SUB-TAB: REGISTERED USERS & WALLET OVERSIGHT */}
+      {activeAdminSubTab === 'users' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-2xl border border-blue-500/40">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-base font-black text-white uppercase tracking-tight">
+                  Registered Users & Wallet Management
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Inspect user accounts, manage roles, view token balances, and issue direct credit adjustments.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Search email, UID or role..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-52"
+              />
+              <button
+                onClick={fetchUsers}
+                disabled={loadingUsers}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingUsers ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          {loadingUsers ? (
+            <div className="py-12 text-center text-slate-400 text-xs font-mono">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto text-cyan-400 mb-2" />
+              Loading registered user directory...
+            </div>
+          ) : usersList.length === 0 ? (
+            <div className="py-12 text-center space-y-2 bg-slate-950/60 rounded-2xl border border-slate-800/80">
+              <Users className="w-10 h-10 text-slate-600 mx-auto" />
+              <div className="text-sm font-bold text-white uppercase">No Users Found</div>
+              <p className="text-xs text-slate-400">No registered accounts in database yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px] uppercase">
+                    <th className="pb-3 px-3">User</th>
+                    <th className="pb-3 px-3">Role</th>
+                    <th className="pb-3 px-3">Ad Tokens</th>
+                    <th className="pb-3 px-3">Balance ($)</th>
+                    <th className="pb-3 px-3">Bids Placed</th>
+                    <th className="pb-3 px-3 text-right">Admin Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {usersList
+                    .filter((u) => {
+                      if (!userSearch) return true;
+                      const q = userSearch.toLowerCase();
+                      return (
+                        u.email?.toLowerCase().includes(q) ||
+                        u.uid?.toLowerCase().includes(q) ||
+                        u.role?.toLowerCase().includes(q) ||
+                        u.displayName?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((u) => (
+                      <tr key={u.uid} className="hover:bg-slate-950/50 transition-colors">
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-white">{u.displayName || u.email?.split('@')[0]}</div>
+                          <div className="text-[10px] text-slate-400 font-mono truncate max-w-[180px]">{u.email}</div>
+                          <div className="text-[9px] text-slate-600 font-mono">{u.uid}</div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${
+                            u.role === 'admin'
+                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                              : u.role === 'creator' || u.role === 'streamer'
+                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
+                              : u.role === 'venue' || u.role === 'venue_host'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                              : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                          }`}>
+                            {u.role || 'advertiser'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-bold text-amber-400">
+                          {(u.tokensBalance || 0).toLocaleString()}
+                        </td>
+                        <td className="py-3 px-3 text-emerald-400 font-bold">
+                          ${((u.walletBalanceCents || 0) / 100).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 text-slate-300">
+                          {u.bidsPlacedCount || 0}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleAdjustBalance(u.uid, 1000)}
+                              className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/40 border border-amber-500/40 text-amber-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                              title="Add 1,000 Free Starter Tokens ($1.00)"
+                            >
+                              +1k ($1)
+                            </button>
+                            <button
+                              onClick={() => handleAdjustBalance(u.uid, 5000)}
+                              className="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/40 text-emerald-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                              title="Add 5,000 Ad Tokens ($5.00)"
+                            >
+                              +5k ($5)
+                            </button>
+                            <select
+                              value={u.role || 'advertiser'}
+                              onChange={(e) => handleAdjustBalance(u.uid, 0, e.target.value)}
+                              className="bg-slate-950 border border-slate-800 rounded-lg px-1.5 py-0.5 text-[10px] text-slate-300 font-bold focus:outline-none"
+                            >
+                              <option value="advertiser">Advertiser</option>
+                              <option value="creator">Creator (80%)</option>
+                              <option value="venue_host">Venue Host (70%)</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* SUB-TAB 1: DYNAMIC PLATFORM SETTINGS */}
       {activeAdminSubTab === 'settings' && (
@@ -499,25 +682,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-300 mb-1 font-semibold">
-                  Streamer Revenue Share Split (%)
-                </label>
-                <div className="flex items-center gap-3">
+              {/* Dual Rev-Share Sliders */}
+              <div className="p-3.5 bg-slate-950 border border-slate-800/80 rounded-xl space-y-3">
+                <div>
+                  <div className="flex items-center justify-between text-slate-300 font-semibold mb-1">
+                    <span>👑 Creator Vanity Billboards Rev-Share (/@handle)</span>
+                    <span className="text-purple-400 font-bold font-mono">{settings.creatorRevSharePercent || 80}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="50"
+                    max="95"
+                    step="5"
+                    value={settings.creatorRevSharePercent || 80}
+                    onChange={(e) => setSettings({ ...settings, creatorRevSharePercent: parseInt(e.target.value) })}
+                    className="w-full accent-purple-400 bg-slate-800 h-2 rounded-lg cursor-pointer"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-0.5">Applied when fans/brands bid on a creator's personal vanity URL (e.g. /@streamer).</p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800">
+                  <div className="flex items-center justify-between text-slate-300 font-semibold mb-1">
+                    <span>📺 Physical Smart TVs (/tv) & Streamer Overlays (/overlay)</span>
+                    <span className="text-emerald-400 font-bold font-mono">{settings.streamerRevSharePercent || 70}%</span>
+                  </div>
                   <input
                     type="range"
                     min="50"
                     max="90"
                     step="5"
-                    value={settings.streamerRevSharePercent}
+                    value={settings.streamerRevSharePercent || 70}
                     onChange={(e) => setSettings({ ...settings, streamerRevSharePercent: parseInt(e.target.value) })}
                     className="w-full accent-emerald-400 bg-slate-800 h-2 rounded-lg cursor-pointer"
                   />
-                  <span className="text-emerald-400 font-bold w-12 text-center text-sm">
-                    {settings.streamerRevSharePercent}%
-                  </span>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Applied to physical venues (cafes, lounges, co-working) and generic screen streamers.</p>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">Percentage of winning CPM bid paid out to streamer broadcasters.</p>
               </div>
 
               <div>

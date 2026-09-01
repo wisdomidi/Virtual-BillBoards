@@ -310,6 +310,8 @@ export interface PlatformSettings {
   globalReserveFloorCents: number;
   geminiSafetyThreshold: number;
   streamerRevSharePercent: number;
+  creatorRevSharePercent?: number;
+  venueRevSharePercent?: number;
   maintenanceMode: boolean;
   emergencyAlertBanner: string;
   houseAdTitle: string;

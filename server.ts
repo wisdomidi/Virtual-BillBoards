@@ -3293,6 +3293,12 @@ app.post('/api/admin/settings', (req, res) => {
   if (typeof newSettings.streamerRevSharePercent === 'number') {
     platformSettings.streamerRevSharePercent = newSettings.streamerRevSharePercent;
   }
+  if (typeof newSettings.creatorRevSharePercent === 'number') {
+    platformSettings.creatorRevSharePercent = newSettings.creatorRevSharePercent;
+  }
+  if (typeof newSettings.venueRevSharePercent === 'number') {
+    platformSettings.venueRevSharePercent = newSettings.venueRevSharePercent;
+  }
   if (typeof newSettings.maintenanceMode === 'boolean') {
     platformSettings.maintenanceMode = newSettings.maintenanceMode;
   }
@@ -3313,6 +3319,113 @@ app.post('/api/admin/settings', (req, res) => {
   broadcastToAll({ type: 'SETTINGS_UPDATED', payload: platformSettings });
 
   res.json({ success: true, settings: platformSettings, message: 'Settings saved and broadcasted successfully.' });
+});
+
+// GET /api/admin/users - Comprehensive registered user and wallet oversight
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const usersMap = new Map<string, any>();
+
+    // 1. Fetch from Firestore
+    try {
+      const usersCol = collection(db, 'users');
+      const snap = await getDocs(query(usersCol, limit(50)));
+      snap.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        usersMap.set(docSnap.id, {
+          uid: docSnap.id,
+          email: data.email || 'user@example.com',
+          displayName: data.displayName || data.email?.split('@')[0] || 'User',
+          role: data.role || 'advertiser',
+          tokensBalance: typeof data.tokensBalance === 'number' ? data.tokensBalance : 1000,
+          walletBalanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : 100,
+          bidsPlacedCount: data.bidsPlacedCount || 0,
+          createdAt: data.createdAt || new Date().toISOString()
+        });
+      });
+    } catch (fsErr) {
+      console.warn('Firestore admin users fetch warning:', fsErr);
+    }
+
+    // 2. Merge with in-memory map
+    userWalletsMemoryMap.forEach((wallet, uid) => {
+      const existing = usersMap.get(uid) || {
+        uid,
+        email: 'user@example.com',
+        displayName: `User_${uid.slice(-4)}`,
+        role: 'advertiser',
+        createdAt: new Date().toISOString()
+      };
+      usersMap.set(uid, {
+        ...existing,
+        tokensBalance: wallet.tokensBalance,
+        walletBalanceCents: wallet.walletBalanceCents,
+        bidsPlacedCount: wallet.bidsPlacedCount || existing.bidsPlacedCount || 0
+      });
+    });
+
+    const usersList = Array.from(usersMap.values());
+    res.json({ success: true, totalUsers: usersList.length, users: usersList });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to fetch users' });
+  }
+});
+
+// POST /api/admin/user/adjust-balance - Adjust user tokens/balance or change role
+app.post('/api/admin/user/adjust-balance', async (req, res) => {
+  const { targetUserId, addTokens, newRole, reason } = req.body;
+  if (!targetUserId) {
+    return res.status(400).json({ success: false, error: 'targetUserId is required' });
+  }
+
+  try {
+    const profile = await getUserWalletFromFirestore(targetUserId);
+    const updatedTokens = Math.max(0, profile.tokensBalance + (parseInt(addTokens) || 0));
+    const updatedCents = Math.round(updatedTokens / 10);
+    const updatedRole = newRole || profile.role || 'advertiser';
+
+    // Update memory
+    userWalletsMemoryMap.set(targetUserId, {
+      tokensBalance: updatedTokens,
+      walletBalanceCents: updatedCents,
+      freeSlotClaimed: true,
+      bidsPlacedCount: (profile as any).bidsPlacedCount || 0
+    });
+
+    // Update Firestore
+    try {
+      const userRef = doc(db, 'users', targetUserId);
+      await setDoc(userRef, {
+        tokensBalance: updatedTokens,
+        walletBalanceCents: updatedCents,
+        role: updatedRole
+      }, { merge: true });
+
+      const txnsCol = collection(db, 'users', targetUserId, 'transactions');
+      await addDoc(txnsCol, {
+        id: `tx_admin_${Date.now()}`,
+        type: 'admin_adjustment',
+        tokens: addTokens || 0,
+        amountCents: Math.round((addTokens || 0) / 10),
+        amountDollars: ((addTokens || 0) * 0.001).toFixed(3),
+        description: reason || 'Admin balance grant / adjustment',
+        timestamp: new Date().toISOString()
+      });
+    } catch (fsErr) {
+      console.warn('Admin balance Firestore update warning:', fsErr);
+    }
+
+    logTelemetry('ADMIN_USER_BALANCE_ADJUSTED', `Admin adjusted balance for ${targetUserId}: +${addTokens} tokens (New total: ${updatedTokens})`);
+    res.json({
+      success: true,
+      userId: targetUserId,
+      newTokensBalance: updatedTokens,
+      newWalletBalanceCents: updatedCents,
+      newRole: updatedRole
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to adjust user balance' });
+  }
 });
 
 // Get active billboard cities

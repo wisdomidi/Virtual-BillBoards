@@ -104,9 +104,11 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
       return { ...baseProfile, walletBalanceCents: 0 };
     }
     const userRef = doc(db, 'users', user.uid);
-    const snap = await getDoc(userRef);
+    // Strict 1200ms timeout for instant snappy sign in
+    const timeoutPromise = new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Firestore read timeout')), 1200));
+    const snap: any = await Promise.race([getDoc(userRef), timeoutPromise]);
 
-    if (snap.exists()) {
+    if (snap && snap.exists && snap.exists()) {
       const data = snap.data();
       const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
       const hasClaimed = Boolean(data.starterGrantClaimed || data.freeSlotClaimed || bidsCount > 0);
@@ -155,15 +157,21 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
         cleanDoc.photoURL = user.photoURL;
       }
 
-      await setDoc(userRef, cleanDoc, { merge: true });
+      // Non-blocking write to avoid blocking UI return
+      setDoc(userRef, cleanDoc, { merge: true }).catch((err) => console.warn('Background setDoc warning:', err));
       return cleanDoc as UserProfile;
     }
 
     // Anonymous user: no starter grant
     return baseProfile;
   } catch (err: any) {
-    console.error('syncUserProfile Firestore write error:', err);
-    return { ...baseProfile, walletBalanceCents: isAnon ? 0 : 100, tokensBalance: isAnon ? 0 : 1000 };
+    // Optimistic instant return on timeout or offline
+    return {
+      ...baseProfile,
+      walletBalanceCents: isAnon ? 0 : 100,
+      tokensBalance: isAnon ? 0 : 1000,
+      displayName: user.displayName || (isAnon ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User')
+    };
   }
 }
 

@@ -189,18 +189,17 @@ function detectCreatorHandleFromUrl(): string | null {
 function detectInitialTabFromUrl(): TabType {
   if (typeof window === 'undefined') return 'live';
   const path = window.location.pathname.toLowerCase().replace(/^\//, '');
-  if (path === 'webmcp') return 'webmcp';
-  if (path === 'leaderboard') return 'leaderboard';
-  if (path === 'streamer') return 'streamer';
-  if (path === 'watcher') return 'watcher';
-  if (path === 'ad_library') return 'ad_library';
-  if (path === 'ai_agents') return 'ai_agents';
-  if (path === 'api_docs') return 'api_docs';
-  if (path === 'blog') return 'blog';
-  if (path === 'analytics') return 'analytics';
-  if (path === 'admin') return 'admin';
-  if (path === 'privacy') return 'privacy';
-  if (path === 'terms') return 'terms';
+  const searchTab = new URLSearchParams(window.location.search).get('tab')?.toLowerCase() as TabType | null;
+  const hashTab = window.location.hash.replace(/^#/, '').toLowerCase() as TabType;
+
+  const validTabs: Set<TabType> = new Set([
+    'live', 'streamer', 'leaderboard', 'ad_library', 'watcher', 
+    'ai_agents', 'api_docs', 'blog', 'analytics', 'admin', 'webmcp', 'privacy', 'terms'
+  ]);
+
+  if (searchTab && validTabs.has(searchTab)) return searchTab;
+  if (hashTab && validTabs.has(hashTab)) return hashTab;
+  if (validTabs.has(path as TabType)) return path as TabType;
   return 'live';
 }
 
