@@ -140,11 +140,18 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
 
       const isAdmin = isUserAdmin(user.email || data.email, data.role);
       const finalRole: UserRole = isAdmin ? 'admin' : ((data.role as UserRole) || defaultRole);
+      const resolvedEmail = user.email || data.email || '';
+      const resolvedName = user.displayName || data.displayName || (isAnon ? 'Guest Advertiser' : resolvedEmail.split('@')[0] || 'User');
+
+      // If document was previously saved without email or name, backfill it
+      if (!isAnon && resolvedEmail && (!data.email || !data.displayName)) {
+        setDoc(userRef, { email: resolvedEmail, displayName: resolvedName }, { merge: true }).catch(() => {});
+      }
 
       return {
         uid: user.uid,
-        email: user.email || data.email || '',
-        displayName: user.displayName || data.displayName || (isAnon ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
+        email: resolvedEmail,
+        displayName: resolvedName,
         photoURL: user.photoURL || data.photoURL || undefined,
         role: finalRole,
         walletBalanceCents,

@@ -36,7 +36,12 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Filter
+  Filter,
+  Tv,
+  Image,
+  Monitor,
+  Upload,
+  Plus
 } from 'lucide-react';
 import { ArchitectureDiagram } from './ArchitectureDiagram';
 import { PostgresSchemaViewer } from './PostgresSchemaViewer';
@@ -57,9 +62,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   selectedCity,
   selectedCountry
 }) => {
-  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'vouchers' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
+  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'vouchers' | 'creators' | 'screens' | 'house_ads' | 'overrides' | 'cities' | 'tech_tools'>('settings');
   const [techTool, setTechTool] = useState<'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger'>('architecture');
   const [creatorFilter, setCreatorFilter] = useState('');
+
+  // Smart TVs & Hardware Screens State
+  const [screensList, setScreensList] = useState<any[]>([]);
+  const [loadingScreens, setLoadingScreens] = useState(false);
+
+  // House Ads & Fallback Assets State
+  const [houseAdsList, setHouseAdsList] = useState<any[]>([]);
+  const [loadingHouseAds, setLoadingHouseAds] = useState(false);
+  const [newHouseAdTitle, setNewHouseAdTitle] = useState('');
+  const [newHouseAdUrl, setNewHouseAdUrl] = useState('');
+  const [newHouseAdCity, setNewHouseAdCity] = useState('GLOBAL');
+  const [newHouseAdCategory, setNewHouseAdCategory] = useState('brand');
+  const [creatingHouseAd, setCreatingHouseAd] = useState(false);
 
   // User & Wallet Oversight State
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -390,6 +408,111 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setCopiedVoucherCode(null), 2500);
   };
 
+  const fetchScreens = async () => {
+    setLoadingScreens(true);
+    try {
+      const res = await fetch('/api/admin/screens');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.screens) setScreensList(data.screens);
+      }
+    } catch (err) {
+      console.error('Failed to fetch screens:', err);
+    } finally {
+      setLoadingScreens(false);
+    }
+  };
+
+  const handleEjectScreen = async (pin: string) => {
+    try {
+      const res = await fetch(`/api/admin/screens/${pin}/eject`, { method: 'POST' });
+      if (res.ok) {
+        addToast('info', 'Screen Unpaired', `Screen ${pin} has been disconnected and reset.`);
+        fetchScreens();
+      }
+    } catch (err: any) {
+      addToast('error', 'Screen Eject Error', err.message);
+    }
+  };
+
+  const fetchHouseAds = async () => {
+    setLoadingHouseAds(true);
+    try {
+      const res = await fetch('/api/admin/house-ads');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.houseAds) setHouseAdsList(data.houseAds);
+      }
+    } catch (err) {
+      console.error('Failed to fetch house ads:', err);
+    } finally {
+      setLoadingHouseAds(false);
+    }
+  };
+
+  const handleCreateHouseAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHouseAdTitle.trim() || !newHouseAdUrl.trim()) {
+      addToast('warning', 'Missing Fields', 'Please enter a title and image/video URL.');
+      return;
+    }
+    setCreatingHouseAd(true);
+    try {
+      const res = await fetch('/api/admin/house-ads/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newHouseAdTitle.trim(),
+          imageUrl: newHouseAdUrl.trim(),
+          targetCityCode: newHouseAdCity,
+          category: newHouseAdCategory
+        })
+      });
+      if (res.ok) {
+        addToast('success', 'House Ad Added & Set Active', `"${newHouseAdTitle}" is now live as fallback ad.`);
+        setNewHouseAdTitle('');
+        setNewHouseAdUrl('');
+        fetchHouseAds();
+        fetchSettings();
+      }
+    } catch (err: any) {
+      addToast('error', 'Failed to create house ad', err.message);
+    } finally {
+      setCreatingHouseAd(false);
+    }
+  };
+
+  const handleDeleteHouseAd = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/house-ads/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        addToast('info', 'House Ad Deleted', 'Asset removed from library.');
+        fetchHouseAds();
+      }
+    } catch (err: any) {
+      addToast('error', 'Delete Error', err.message);
+    }
+  };
+
+  const handleSetLiveHouseAd = async (ad: any) => {
+    const updatedSettings = {
+      ...settings,
+      houseAdTitle: ad.title,
+      houseAdImageUrl: ad.imageUrl
+    };
+    setSettings(updatedSettings);
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSettings)
+      });
+      addToast('success', 'Active House Ad Set', `"${ad.title}" set as global fallback billboard.`);
+    } catch (err: any) {
+      addToast('error', 'Setting Update Error', err.message);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
     fetchCities();
@@ -398,6 +521,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchUsers();
     fetchVouchers();
     fetchPayouts();
+    fetchScreens();
+    fetchHouseAds();
   }, []);
 
   const handleSaveSettings = async () => {
@@ -540,6 +665,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             { id: 'users', label: `👥 Users & Wallets (${usersList.length})`, icon: Users },
             { id: 'vouchers', label: `🎟️ Social Vouchers (${vouchersList.length}) & Payouts (${payoutsList.length})`, icon: Gift },
             { id: 'moderation', label: `🛡️ Moderation & Flagged Ads (${flaggedAds.length})`, icon: ShieldCheck },
+            { id: 'screens', label: `📺 Smart TVs & Hardware Screens (${screensList.length})`, icon: Tv },
+            { id: 'house_ads', label: `🖼️ Fallback House Ads (${houseAdsList.length})`, icon: Image },
             { id: 'creators', label: '👑 Creator Handles & Verification', icon: Crown },
             { id: 'overrides', label: '⚡ Emergency Ad Injector & Ejector', icon: Zap },
             { id: 'cities', label: '🌍 Geofenced Billboard Cities', icon: Globe },
@@ -1564,6 +1691,307 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span>{savingSettings ? 'Updating System...' : 'Apply & Save Settings'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: SMART TVS & HARDWARE DISPLAY FLEET */}
+      {activeAdminSubTab === 'screens' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-cyan-500/20 text-cyan-400 rounded-2xl border border-cyan-500/40">
+                    <Tv className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-white text-lg">Smart TVs & Physical Screen Fleet</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Real-time monitor of connected 4K Smart TVs (Samsung Tizen, LG webOS, FireTV), stage displays, and OBS geofenced billboard feeds.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchScreens}
+                  disabled={loadingScreens}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-700 flex items-center gap-2 cursor-pointer"
+                >
+                  <Monitor className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>{loadingScreens ? 'Scanning Fleet...' : 'Refresh Screen Fleet'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Fleet Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">TOTAL ACTIVE DISPLAYS</div>
+                <div className="text-2xl font-black text-white">{screensList.length}</div>
+                <div className="text-[10px] text-slate-500 mt-1">Smart TVs & Geofenced Feeds</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">ONLINE & STREAMING</div>
+                <div className="text-2xl font-black text-emerald-400">
+                  {screensList.filter(s => s.status === 'online').length}
+                </div>
+                <div className="text-[10px] text-emerald-500/80 mt-1">Receiving live WS auction frames</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">DEFAULT RESOLUTION</div>
+                <div className="text-2xl font-black text-cyan-400">4K Ultra-HD</div>
+                <div className="text-[10px] text-cyan-500/80 mt-1">3840x2160 / 60 FPS HDR Ready</div>
+              </div>
+            </div>
+
+            {/* Display Fleet Table */}
+            {screensList.length === 0 ? (
+              <div className="bg-slate-950/60 border border-slate-800/60 rounded-2xl p-12 text-center">
+                <Tv className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <h4 className="text-sm font-bold text-slate-300">No Physical Displays Paired Yet</h4>
+                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                  Launch the Smart TV app or open a venue screen URL at <code className="text-cyan-400 bg-cyan-950/50 px-1.5 py-0.5 rounded font-mono">/screen</code> to generate an instant 6-digit PIN and pair physical screens.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-800/80">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead>
+                    <tr className="bg-slate-950 border-b border-slate-800 text-slate-400">
+                      <th className="py-3 px-4 font-bold">DEVICE / PIN</th>
+                      <th className="py-3 px-4 font-bold">VENUE NAME</th>
+                      <th className="py-3 px-4 font-bold">CITY GEOFENCE</th>
+                      <th className="py-3 px-4 font-bold">STATUS</th>
+                      <th className="py-3 px-4 font-bold">LIVE AD STREAMING</th>
+                      <th className="py-3 px-4 font-bold">SOLANA PAYOUT</th>
+                      <th className="py-3 px-4 font-bold text-right">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
+                    {screensList.map((screen) => (
+                      <tr key={screen.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3.5 px-4 font-bold">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-cyan-950 text-cyan-400 border border-cyan-800 rounded font-black text-sm">
+                              {screen.formattedPin || 'LIVE'}
+                            </span>
+                            <span className="text-[11px] text-slate-400 font-sans">{screen.deviceType}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-white font-bold font-sans">{screen.venueName}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded font-bold">
+                            {screen.cityCode}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            screen.status === 'online'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${screen.status === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                            {screen.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-300 font-sans max-w-[200px] truncate" title={screen.activeAd}>
+                          {screen.activeAd || 'Fallback House Ad'}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
+                          {screen.solanaWallet ? `${screen.solanaWallet.slice(0, 4)}...${screen.solanaWallet.slice(-4)}` : '70% Rev-Share'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {screen.pin ? (
+                            <button
+                              onClick={() => handleEjectScreen(screen.pin)}
+                              className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg font-bold text-[11px] transition-all cursor-pointer"
+                            >
+                              Unpair / Eject
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-500 font-sans">Geofenced Room</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: FALLBACK HOUSE ADS & BRAND ASSETS */}
+      {activeAdminSubTab === 'house_ads' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl border border-fuchsia-500/40">
+                    <Image className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-white text-lg">Fallback House Ads & Brand Assets Catalog</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Upload and manage default fallback media rendered whenever a billboard slot has no competing real-time advertiser bids.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Upload New Fallback House Ad Form */}
+            <form onSubmit={handleCreateHouseAd} className="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-cyan-400">
+                <Upload className="w-4 h-4" />
+                <span>Upload & Register New Fallback Billboard Media</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="lg:col-span-2">
+                  <label className="block text-[11px] text-slate-400 font-mono mb-1">CAMPAIGN / BRAND TITLE</label>
+                  <input
+                    type="text"
+                    value={newHouseAdTitle}
+                    onChange={(e) => setNewHouseAdTitle(e.target.value)}
+                    placeholder="e.g. Save The Rainforest: 10,000 Trees"
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-sans"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-slate-400 font-mono mb-1">TARGET CITY</label>
+                  <select
+                    value={newHouseAdCity}
+                    onChange={(e) => setNewHouseAdCity(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
+                  >
+                    <option value="GLOBAL">🌐 GLOBAL (All Cities)</option>
+                    <option value="TYO">Tokyo (TYO)</option>
+                    <option value="NYC">New York (NYC)</option>
+                    <option value="LON">London (LON)</option>
+                    <option value="SIN">Singapore (SIN)</option>
+                    <option value="KUL">Kuala Lumpur (KUL)</option>
+                    <option value="SYD">Sydney (SYD)</option>
+                    <option value="BER">Berlin (BER)</option>
+                    <option value="DXB">Dubai (DXB)</option>
+                    <option value="PAR">Paris (PAR)</option>
+                    <option value="SEO">Seoul (SEO)</option>
+                    <option value="SFO">San Francisco (SFO)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-slate-400 font-mono mb-1">CATEGORY</label>
+                  <select
+                    value={newHouseAdCategory}
+                    onChange={(e) => setNewHouseAdCategory(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
+                  >
+                    <option value="brand">Brand Announcement</option>
+                    <option value="public_service">Public Service</option>
+                    <option value="gaming">Gaming & Esports</option>
+                    <option value="crypto">Web3 & Crypto</option>
+                    <option value="event">Live Event / Concert</option>
+                  </select>
+                </div>
+
+                <div className="lg:col-span-3">
+                  <label className="block text-[11px] text-slate-400 font-mono mb-1">IMAGE OR 4K VIDEO URL</label>
+                  <input
+                    type="url"
+                    value={newHouseAdUrl}
+                    onChange={(e) => setNewHouseAdUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/... or direct video link"
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                    required
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    disabled={creatingHouseAd}
+                    className="w-full py-2 bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:from-fuchsia-400 hover:to-cyan-400 text-slate-950 font-extrabold rounded-xl transition-all shadow-md text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{creatingHouseAd ? 'Adding...' : 'Add & Make Active'}</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* House Ads Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {houseAdsList.map((ad) => {
+                const isCurrentGlobal = settings.houseAdTitle === ad.title;
+                return (
+                  <div key={ad.id} className={`bg-slate-950 border rounded-2xl overflow-hidden flex flex-col transition-all ${
+                    isCurrentGlobal ? 'border-cyan-500 shadow-lg shadow-cyan-500/10' : 'border-slate-800 hover:border-slate-700'
+                  }`}>
+                    <div className="relative h-44 bg-slate-900 overflow-hidden group">
+                      <img
+                        src={ad.imageUrl}
+                        alt={ad.title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent" />
+                      
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 bg-slate-900/90 text-cyan-400 border border-cyan-800/80 rounded text-[10px] font-mono font-bold">
+                          {ad.targetCityCode || 'GLOBAL'}
+                        </span>
+                        <span className="px-2 py-0.5 bg-slate-900/90 text-slate-300 border border-slate-700 rounded text-[10px] font-sans">
+                          {ad.category || 'brand'}
+                        </span>
+                      </div>
+
+                      {isCurrentGlobal && (
+                        <div className="absolute top-2.5 right-2.5 px-2 py-0.5 bg-cyan-500 text-slate-950 font-black text-[10px] rounded-full shadow">
+                          LIVE FALLBACK
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <h4 className="font-bold text-white text-xs leading-snug line-clamp-2">{ad.title}</h4>
+                        <p className="text-[10px] text-slate-500 font-mono mt-1">ID: {ad.id}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-900">
+                        <button
+                          type="button"
+                          onClick={() => handleSetLiveHouseAd(ad)}
+                          className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            isCurrentGlobal
+                              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 pointer-events-none'
+                              : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold'
+                          }`}
+                        >
+                          {isCurrentGlobal ? 'Active Fallback' : 'Set As Live Fallback'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteHouseAd(ad.id)}
+                          className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                          title="Delete Asset"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

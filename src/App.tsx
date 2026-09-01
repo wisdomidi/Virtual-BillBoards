@@ -406,6 +406,19 @@ export default function App() {
           }
         }
         setHasClaimedStarter(Boolean(profile.hasClaimedFreeSlot && (!profile.tokensBalance || profile.tokensBalance <= 0)));
+        // Sync verified session to backend server
+        fetch('/api/auth/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: profile.uid,
+            email: profile.email || user.email,
+            displayName: profile.displayName || user.displayName,
+            photoURL: profile.photoURL || user.photoURL,
+            role: resolvedRole
+          })
+        }).catch(() => {});
+
         // Server is always authoritative — non-blocking background sync
         setTimeout(() => fetchWallet(profile.uid), 200);
       } else {

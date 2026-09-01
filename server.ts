@@ -3322,6 +3322,55 @@ app.post('/api/admin/settings', (req, res) => {
   res.json({ success: true, settings: platformSettings, message: 'Settings saved and broadcasted successfully.' });
 });
 
+// POST /api/auth/sync - Sync client Firebase Auth session to backend memory & Firestore
+app.post('/api/auth/sync', async (req, res) => {
+  try {
+    const { uid, email, displayName, photoURL, role } = req.body;
+    if (!uid) return res.status(400).json({ success: false, error: 'Missing UID' });
+
+    const isGuest = uid.startsWith('guest_') || !email || email.includes('example.com');
+    const isAdmin = isUserAdmin(email, role);
+    const resolvedRole = isAdmin ? 'admin' : (role || 'advertiser');
+
+    // 1. Update In-Memory Wallets Map
+    const existingWallet = userWalletsMemoryMap.get(uid) || {
+      tokensBalance: 1000,
+      walletBalanceCents: 100,
+      bidsPlacedCount: 0
+    };
+
+    userWalletsMemoryMap.set(uid, {
+      ...existingWallet,
+      email: email || (isGuest ? `Guest Visitor (${uid.slice(0, 8)})` : `User_${uid.slice(-4)}`),
+      displayName: displayName || email?.split('@')[0] || (isGuest ? 'Guest Visitor' : 'User'),
+      photoURL: photoURL || null,
+      role: resolvedRole,
+      isGuest,
+      isVerified: !isGuest
+    });
+
+    // 2. Persist to Firestore
+    try {
+      const userRef = doc(db, 'users', uid);
+      await setDoc(userRef, {
+        uid,
+        email: email || '',
+        displayName: displayName || email?.split('@')[0] || 'User',
+        photoURL: photoURL || null,
+        role: resolvedRole,
+        isAnonymous: isGuest,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (fsErr) {
+      console.warn('Firestore auth sync notice:', fsErr);
+    }
+
+    return res.json({ success: true, uid, email, role: resolvedRole });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/admin/users - Comprehensive registered user and wallet oversight
 app.get('/api/admin/users', async (req, res) => {
   try {
@@ -3334,18 +3383,19 @@ app.get('/api/admin/users', async (req, res) => {
       snap.docs.forEach(docSnap => {
         const data = docSnap.data();
         const isGuestUser = docSnap.id.startsWith('guest_') || data.isAnonymous === true;
-        const realEmail = data.email && data.email.trim() !== '' && !data.email.includes('example.com')
+        const hasRealEmail = data.email && typeof data.email === 'string' && data.email.trim() !== '' && !data.email.includes('example.com');
+        const realEmail = hasRealEmail
           ? data.email
           : (isGuestUser ? `Guest Visitor (${docSnap.id.slice(0, 8)})` : (data.email || 'Registered User'));
 
         usersMap.set(docSnap.id, {
           uid: docSnap.id,
           email: realEmail,
-          displayName: data.displayName || (isGuestUser ? 'Guest Session' : (data.email?.split('@')[0] || 'User')),
+          displayName: data.displayName || (hasRealEmail ? data.email.split('@')[0] : (isGuestUser ? 'Guest Session' : 'User')),
           photoURL: data.photoURL || null,
           role: data.role || (isUserAdmin(data.email, data.role) ? 'admin' : 'advertiser'),
           isGuest: isGuestUser,
-          isVerified: !isGuestUser && Boolean(data.email && !data.email.includes('example.com')),
+          isVerified: hasRealEmail,
           tokensBalance: typeof data.tokensBalance === 'number' ? data.tokensBalance : 1000,
           walletBalanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : 100,
           bidsPlacedCount: data.bidsPlacedCount || 0,
@@ -3357,13 +3407,16 @@ app.get('/api/admin/users', async (req, res) => {
     }
 
     // 2. Merge with in-memory map
-    userWalletsMemoryMap.forEach((wallet, uid) => {
+    userWalletsMemoryMap.forEach((wallet: any, uid) => {
       const isGuest = uid.startsWith('guest_');
       const existing = usersMap.get(uid);
+      const hasEmail = wallet.email && !wallet.email.includes('example.com') && !wallet.email.startsWith('Guest');
 
       if (existing) {
         usersMap.set(uid, {
           ...existing,
+          email: (existing.isVerified ? existing.email : (hasEmail ? wallet.email : existing.email)),
+          displayName: existing.displayName || wallet.displayName,
           tokensBalance: wallet.tokensBalance,
           walletBalanceCents: wallet.walletBalanceCents,
           bidsPlacedCount: wallet.bidsPlacedCount || existing.bidsPlacedCount || 0
@@ -3371,11 +3424,11 @@ app.get('/api/admin/users', async (req, res) => {
       } else {
         usersMap.set(uid, {
           uid,
-          email: isGuest ? `Guest Session (${uid.slice(0, 8)})` : `User_${uid.slice(-4)}`,
-          displayName: isGuest ? 'Guest Visitor' : `User_${uid.slice(-4)}`,
-          role: 'advertiser',
+          email: hasEmail ? wallet.email : (isGuest ? `Guest Session (${uid.slice(0, 8)})` : `User_${uid.slice(-4)}`),
+          displayName: wallet.displayName || (isGuest ? 'Guest Visitor' : `User_${uid.slice(-4)}`),
+          role: wallet.role || 'advertiser',
           isGuest,
-          isVerified: false,
+          isVerified: hasEmail,
           tokensBalance: wallet.tokensBalance,
           walletBalanceCents: wallet.walletBalanceCents,
           bidsPlacedCount: wallet.bidsPlacedCount || 0,
@@ -3390,7 +3443,7 @@ app.get('/api/admin/users', async (req, res) => {
       return (b.tokensBalance || 0) - (a.tokensBalance || 0);
     });
 
-    const realUsersCount = usersList.filter(u => !u.isGuest).length;
+    const realUsersCount = usersList.filter(u => u.isVerified).length;
     const totalTokensInCirculation = usersList.reduce((sum, u) => sum + (u.tokensBalance || 0), 0);
 
     res.json({
@@ -7310,6 +7363,163 @@ app.get('/api/tv/poll-status/:pin', (req, res) => {
     paired: session.status === 'paired',
     session: session.status === 'paired' ? session : undefined
   });
+});
+
+// -----------------------------------------------------------------------------
+// ADMIN CONNECTED SCREENS & SMART TV MANAGEMENT ENDPOINTS
+// -----------------------------------------------------------------------------
+
+// GET /api/admin/screens - List all paired and connected physical terminals
+app.get('/api/admin/screens', (req, res) => {
+  const screens: any[] = [];
+
+  // 1. Paired and Pending Smart TV PIN Sessions
+  tvPairingSessions.forEach((session, pin) => {
+    screens.push({
+      id: `tv_${pin}`,
+      pin,
+      formattedPin: `${pin.substring(0, 3)}-${pin.substring(3)}`,
+      venueName: session.venueName || 'Unassigned Smart TV',
+      deviceType: 'Smart TV (WebOS/Tizen/FireTV)',
+      cityCode: session.city || 'GLOBAL',
+      status: session.status === 'paired' ? 'online' : 'pending_pairing',
+      solanaWallet: session.solanaWallet || null,
+      connectedAt: session.pairedAt || new Date(session.createdAt).toISOString(),
+      resolution: '4K Ultra-HD (3840x2160)',
+      activeAd: platformSettings.houseAdTitle || 'Public Service Billboard'
+    });
+  });
+
+  // 2. Active Geofenced Broadcast Rooms (Connected Screens / Venue Feeds)
+  Object.entries(rooms).forEach(([roomId, clientSet]) => {
+    if (clientSet.size > 0) {
+      const cityCode = roomId.replace(/^room_[A-Z]{2}_/, '').toUpperCase();
+      const currentActive = redisActiveSlots[cityCode]?.winningAd;
+      screens.push({
+        id: `room_${roomId}`,
+        pin: null,
+        formattedPin: 'AUTO-SYNC',
+        venueName: `Live Billboard Display (${cityCode})`,
+        deviceType: 'Venue / Stage Screen (OBS/Browser)',
+        cityCode,
+        status: 'online',
+        connectedClientsCount: clientSet.size,
+        connectedAt: new Date().toISOString(),
+        resolution: '1080p FHD (1920x1080)',
+        activeAd: currentActive?.title || 'System Fallback Ad'
+      });
+    }
+  });
+
+  res.json({
+    success: true,
+    totalScreens: screens.length,
+    onlineCount: screens.filter(s => s.status === 'online').length,
+    screens
+  });
+});
+
+// POST /api/admin/screens/:pin/eject - Force disconnect/unpair a TV or physical screen
+app.post('/api/admin/screens/:pin/eject', (req, res) => {
+  const { pin } = req.params;
+  const cleanPin = (pin || '').replace(/\D/g, '');
+
+  if (tvPairingSessions.has(cleanPin)) {
+    tvPairingSessions.delete(cleanPin);
+    broadcastToAll({ type: 'TV_SCREEN_EJECTED', payload: { pin: cleanPin } });
+    logTelemetry('SCREEN_EJECTED', `Admin unpaired Smart TV screen [${cleanPin}]`);
+    return res.json({ success: true, message: `Screen [${cleanPin}] successfully unpaired and reset.` });
+  }
+
+  return res.json({ success: true, message: 'Screen session terminated.' });
+});
+
+// -----------------------------------------------------------------------------
+// ADMIN HOUSE ADS & FALLBACK BRAND ASSETS CATALOG
+// -----------------------------------------------------------------------------
+interface HouseAdAsset {
+  id: string;
+  title: string;
+  imageUrl: string;
+  mediaType: 'image' | 'video';
+  targetCityCode: string;
+  category: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+const houseAdsStore = new Map<string, HouseAdAsset>();
+
+// Seed default house ads
+const defaultHouseBanners: HouseAdAsset[] = [
+  {
+    id: 'house_global_tree',
+    title: 'Public Service: Plant 10,000 Trees in Southeast Asia',
+    imageUrl: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=1200&q=80',
+    mediaType: 'image',
+    targetCityCode: 'GLOBAL',
+    category: 'public_service',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'house_esports_wc',
+    title: 'Cyberpunk Esports World Cup Live 2026',
+    imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    mediaType: 'image',
+    targetCityCode: 'GLOBAL',
+    category: 'gaming',
+    isActive: false,
+    createdAt: new Date().toISOString()
+  }
+];
+defaultHouseBanners.forEach(h => houseAdsStore.set(h.id, h));
+
+// GET /api/admin/house-ads
+app.get('/api/admin/house-ads', (req, res) => {
+  const list = Array.from(houseAdsStore.values());
+  res.json({ success: true, count: list.length, houseAds: list });
+});
+
+// POST /api/admin/house-ads/create
+app.post('/api/admin/house-ads/create', async (req, res) => {
+  const { title, imageUrl, mediaType = 'image', targetCityCode = 'GLOBAL', category = 'brand' } = req.body;
+  if (!title || !imageUrl) {
+    return res.status(400).json({ success: false, error: 'Title and image/video URL are required.' });
+  }
+
+  const id = `house_${Date.now()}`;
+  const newAsset: HouseAdAsset = {
+    id,
+    title,
+    imageUrl,
+    mediaType,
+    targetCityCode: targetCityCode.toUpperCase(),
+    category,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  };
+
+  houseAdsStore.set(id, newAsset);
+
+  // If set active, update platform default house ad
+  platformSettings.houseAdTitle = title;
+  platformSettings.houseAdImageUrl = imageUrl;
+  broadcastToAll({ type: 'SETTINGS_UPDATED', payload: platformSettings });
+  logTelemetry('HOUSE_AD_UPLOADED', `Admin uploaded new fallback house ad "${title}" for [${targetCityCode}]`);
+
+  res.json({ success: true, message: 'House ad uploaded and set active!', houseAd: newAsset });
+});
+
+// DELETE /api/admin/house-ads/:id
+app.delete('/api/admin/house-ads/:id', (req, res) => {
+  const { id } = req.params;
+  if (houseAdsStore.has(id)) {
+    houseAdsStore.delete(id);
+    logTelemetry('HOUSE_AD_DELETED', `Admin deleted house ad [${id}]`);
+    return res.json({ success: true, message: 'House ad asset removed.' });
+  }
+  return res.status(404).json({ success: false, error: 'House ad not found' });
 });
 
 
