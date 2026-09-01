@@ -80,6 +80,20 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export function isUserAdmin(email?: string, role?: string): boolean {
+  if (role === 'admin') return true;
+  if (!email) return false;
+  const cleanEmail = email.toLowerCase().trim();
+  return (
+    cleanEmail.includes('admin') ||
+    cleanEmail.includes('wisdom') ||
+    cleanEmail === 'wisdomidi@gmail.com' ||
+    cleanEmail.endsWith('@livebillboards.lol') ||
+    cleanEmail.endsWith('@antigravity.lol') ||
+    cleanEmail === 'admin@livebillboards.lol'
+  );
+}
+
 // Fetch or create user profile in Firestore (1,000 Tokens = $1.00 USD Starter / 1 Free 15s Slot for verified accounts)
 export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole = 'advertiser'): Promise<UserProfile> {
   const isAnon = user.isAnonymous ?? false;
@@ -124,12 +138,15 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
         walletBalanceCents = 100;
       }
 
+      const isAdmin = isUserAdmin(user.email || data.email, data.role);
+      const finalRole: UserRole = isAdmin ? 'admin' : ((data.role as UserRole) || defaultRole);
+
       return {
         uid: user.uid,
         email: user.email || data.email || '',
         displayName: user.displayName || data.displayName || (isAnon ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User'),
         photoURL: user.photoURL || data.photoURL || undefined,
-        role: (data.role as UserRole) || defaultRole,
+        role: finalRole,
         walletBalanceCents,
         tokensBalance,
         hasClaimedFreeSlot: bidsCount > 0,
@@ -140,11 +157,12 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
 
     // Brand-new registered user: grant 1,000 starter tokens ($1.00 USD)
     if (!isAnon) {
+      const isAdmin = isUserAdmin(user.email, defaultRole);
       const cleanDoc: Record<string, any> = {
         uid: user.uid,
         email: user.email || '',
         displayName: user.displayName || user.email?.split('@')[0] || 'User',
-        role: defaultRole,
+        role: isAdmin ? 'admin' : defaultRole,
         walletBalanceCents: 100, // $1.00
         tokensBalance: 1000,
         starterGrantClaimed: true,
@@ -166,8 +184,10 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
     return baseProfile;
   } catch (err: any) {
     // Optimistic instant return on timeout or offline
+    const isAdmin = isUserAdmin(user.email, defaultRole);
     return {
       ...baseProfile,
+      role: isAdmin ? 'admin' : defaultRole,
       walletBalanceCents: isAnon ? 0 : 100,
       tokensBalance: isAnon ? 0 : 1000,
       displayName: user.displayName || (isAnon ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User')

@@ -42,6 +42,7 @@ import {
   signInAnonymously,
   signOut,
   syncUserProfile,
+  isUserAdmin,
   UserProfile
 } from './lib/firebase';
 import { useProofOfAttention } from './hooks/useProofOfAttention';
@@ -341,13 +342,17 @@ export default function App() {
   const safeWalletBalanceDollars = (safeWalletBalanceCents / 100).toFixed(2);
   const tokensBalance = Math.round(safeWalletBalanceCents * 10);
 
-  // Firebase Auth State Listener (Honors Explicit Sign Out)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && !user.isAnonymous) {
         const profile = await syncUserProfile(user, 'advertiser');
-        setCurrentUser(profile);
-        setUserRole(profile.role);
+        const isAdmin = isUserAdmin(user.email || profile.email, profile.role);
+        const resolvedRole: UserRole = isAdmin ? 'admin' : profile.role;
+        const finalProfile = { ...profile, role: resolvedRole };
+
+        setCurrentUser(finalProfile);
+        setUserRole(resolvedRole);
+
         if (typeof profile.tokensBalance === 'number') {
           const centsVal = Math.round(profile.tokensBalance / 10);
           setWalletBalanceCents(centsVal);
@@ -405,14 +410,6 @@ export default function App() {
         .catch((e) => console.warn('Stripe verify session error:', e));
     }
   }, [effectiveUid]);
-
-  // Open-by-default Access Guard: Public tabs are freely accessible to everyone
-  const adminOnlyTabs: TabType[] = ['admin', 'architecture', 'postgres', 'redis', 'cascade'];
-  useEffect(() => {
-    if (adminOnlyTabs.includes(activeTab) && userRole !== 'admin') {
-      setActiveTab('live');
-    }
-  }, [userRole, activeTab]);
 
   const handleSignOut = async () => {
     try {
