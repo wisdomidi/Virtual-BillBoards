@@ -7769,7 +7769,12 @@ defaultStreamers.forEach(s => liveStreamersRegistry.set(s.handle, s));
 
 // GET /api/admin/streamers/live
 app.get('/api/admin/streamers/live', (req, res) => {
-  const streamers = Array.from(liveStreamersRegistry.values());
+  const isPure = req.query.pureProduction === 'true';
+  const allStreamers = Array.from(liveStreamersRegistry.values());
+  const streamers = isPure
+    ? allStreamers.filter(s => s.id.startsWith('conn_') || (s as any).isLiveConnected)
+    : allStreamers;
+
   const totalConnected = streamers.length;
   const totalConcurrentViewers = streamers.reduce((sum, s) => sum + s.viewersCount, 0);
   const totalRevShareDollars = streamers.reduce((sum, s) => sum + s.accruedRevShareDollars, 0);
@@ -7831,6 +7836,19 @@ app.post('/api/admin/streamers/fire-celebration', async (req, res) => {
 // 2. PROOF OF ATTENTION (PoA) & QR SCAN CONVERSIONS TELEMETRY
 // -----------------------------------------------------------------------------
 app.get('/api/admin/attention-telemetry', (req, res) => {
+  const isPure = req.query.pureProduction === 'true';
+  if (isPure) {
+    return res.json({
+      success: true,
+      totalVerifiedImpressions: 0,
+      totalStaringSeconds: 0,
+      totalQrConversions: 0,
+      sybilFraudBlockRate: '0.0%',
+      activeMiningEyeballs: 0,
+      recentScans: []
+    });
+  }
+
   const scans = [
     {
       id: 'poa_98231',
@@ -7909,6 +7927,19 @@ app.get('/api/admin/attention-telemetry', (req, res) => {
 // 3. SOLANA ON-CHAIN SETTLEMENT LEDGER & TREASURY MONITOR
 // -----------------------------------------------------------------------------
 app.get('/api/admin/solana/ledger', (req, res) => {
+  const isPure = req.query.pureProduction === 'true';
+  if (isPure) {
+    return res.json({
+      success: true,
+      treasurySol: 0.00,
+      treasuryUsdc: 0.00,
+      totalEscrowVolumeUsdc: 0.00,
+      totalSlotsSettledOnChain: 0,
+      solanaCluster: 'mainnet-beta',
+      transactions: []
+    });
+  }
+
   const transactions = [
     {
       txSignature: '5JvN8aKq2...p9WxR7tY',
@@ -7969,6 +8000,18 @@ app.get('/api/admin/solana/ledger', (req, res) => {
 // 4. AFFILIATE & AMBASSADOR REFERRAL NETWORK
 // -----------------------------------------------------------------------------
 app.get('/api/admin/affiliates', (req, res) => {
+  const isPure = req.query.pureProduction === 'true';
+  if (isPure) {
+    return res.json({
+      success: true,
+      totalAmbassadors: 0,
+      totalReferredUsers: 0,
+      totalReferredVolumeDollars: 0,
+      totalCommissionsPaidDollars: 0,
+      ambassadors: []
+    });
+  }
+
   const ambassadors = [
     {
       id: 'aff_1',

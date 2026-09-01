@@ -644,7 +644,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchLiveStreamers = async () => {
     setLoadingStreamers(true);
     try {
-      const res = await fetch('/api/admin/streamers/live');
+      const res = await fetch(`/api/admin/streamers/live?pureProduction=${productionDataOnly}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) setStreamersData(data);
@@ -678,7 +678,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchAttentionTelemetry = async () => {
     setLoadingAttention(true);
     try {
-      const res = await fetch('/api/admin/attention-telemetry');
+      const res = await fetch(`/api/admin/attention-telemetry?pureProduction=${productionDataOnly}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) setAttentionData(data);
@@ -693,7 +693,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchSolanaLedger = async () => {
     setLoadingSolana(true);
     try {
-      const res = await fetch('/api/admin/solana/ledger');
+      const res = await fetch(`/api/admin/solana/ledger?pureProduction=${productionDataOnly}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) setSolanaData(data);
@@ -708,7 +708,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchAffiliates = async () => {
     setLoadingAffiliates(true);
     try {
-      const res = await fetch('/api/admin/affiliates');
+      const res = await fetch(`/api/admin/affiliates?pureProduction=${productionDataOnly}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) setAffiliatesData(data);
@@ -734,7 +734,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchAttentionTelemetry();
     fetchSolanaLedger();
     fetchAffiliates();
-  }, []);
+  }, [productionDataOnly]);
 
   // Real-time Firestore users listener
   useEffect(() => {
@@ -970,10 +970,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             { id: 'settings', label: '⚙️ Platform Settings & Safety', icon: Settings },
             { id: 'users', label: `👥 Users & Wallets (${usersList.length})`, icon: Users },
             { id: 'vouchers', label: `🎟️ Social Vouchers (${vouchersList.length}) & Payouts (${payoutsList.length})`, icon: Gift },
-            { id: 'streamers', label: `🎙️ Live Streamers (${streamersData?.totalConnected || 5})`, icon: Radio },
+            { id: 'streamers', label: `🎙️ Live Streamers (${streamersData?.totalConnected ?? 0})`, icon: Radio },
             { id: 'attention', label: `👁️ Proof of Attention & Scans`, icon: Eye },
             { id: 'solana', label: `⛓️ Solana Settlement & Treasury`, icon: Coins },
-            { id: 'affiliates', label: `🤝 Affiliate Network (${affiliatesData?.totalAmbassadors || 3})`, icon: Award },
+            { id: 'affiliates', label: `🤝 Affiliate Network (${affiliatesData?.totalAmbassadors ?? 0})`, icon: Award },
             { id: 'moderation', label: `🛡️ Moderation & Flagged Ads (${flaggedAds.length})`, icon: ShieldCheck },
             { id: 'screens', label: `📺 Smart TVs & Displays (${screensList.length})`, icon: Tv },
             { id: 'house_ads', label: `🖼️ Fallback House Ads (${houseAdsList.length})`, icon: Image },
@@ -2140,27 +2140,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">CONNECTED STREAMERS</div>
-                <div className="text-2xl font-black text-white">{streamersData?.totalConnected || 5} Live</div>
+                <div className="text-2xl font-black text-white">{streamersData?.totalConnected ?? 0} Live</div>
                 <div className="text-[10px] text-purple-400 mt-1">Twitch, Kick & YouTube OBS</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">CONCURRENT AUDIENCE</div>
                 <div className="text-2xl font-black text-emerald-400">
-                  {(streamersData?.totalConcurrentViewers || 218500).toLocaleString()}
+                  {(streamersData?.totalConcurrentViewers ?? 0).toLocaleString()}
                 </div>
                 <div className="text-[10px] text-emerald-500/80 mt-1">Active broadcast viewers</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">ACCRUED 80% REV-SHARE</div>
                 <div className="text-2xl font-black text-cyan-400">
-                  ${(streamersData?.totalRevShareDollars || 4505.00).toFixed(2)}
+                  ${(streamersData?.totalRevShareDollars ?? 0).toFixed(2)}
                 </div>
                 <div className="text-[10px] text-cyan-500/80 mt-1">Direct to streamer wallets</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">CELEBRATIONS FIRED</div>
                 <div className="text-2xl font-black text-amber-400">
-                  {streamersData?.totalCelebrations || 128}
+                  {streamersData?.totalCelebrations ?? 0}
                 </div>
                 <div className="text-[10px] text-amber-500/80 mt-1">Game-state vfx takeovers</div>
               </div>
@@ -2312,27 +2312,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">VERIFIED IMPRESSIONS</div>
-                <div className="text-2xl font-black text-white">{(attentionData?.totalVerifiedImpressions || 148920).toLocaleString()}</div>
+                <div className="text-2xl font-black text-white">{(attentionData?.totalVerifiedImpressions ?? 0).toLocaleString()}</div>
                 <div className="text-[10px] text-emerald-400 mt-1">100% On-screen Dwell</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">TOTAL STARING SECONDS</div>
                 <div className="text-2xl font-black text-emerald-400">
-                  {((attentionData?.totalStaringSeconds || 2233800) / 3600).toFixed(1)}k Hours
+                  {((attentionData?.totalStaringSeconds ?? 0) / 3600).toFixed(1)}k Hours
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">Cumulative human engagement</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">QR SCAN CONVERSIONS</div>
                 <div className="text-2xl font-black text-cyan-400">
-                  {(attentionData?.totalQrConversions || 8420).toLocaleString()}
+                  {(attentionData?.totalQrConversions ?? 0).toLocaleString()}
                 </div>
                 <div className="text-[10px] text-cyan-500/80 mt-1">Mobile CTA scans tracked</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">SYBIL FRAUD BLOCK RATE</div>
                 <div className="text-2xl font-black text-rose-400">
-                  {attentionData?.sybilFraudBlockRate || '2.4%'}
+                  {attentionData?.sybilFraudBlockRate ?? '0.0%'}
                 </div>
                 <div className="text-[10px] text-rose-500/80 mt-1">Bot / Tab-switch filtered</div>
               </div>
@@ -2353,35 +2353,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
-                  {(attentionData?.recentScans || []).map((scan: any) => (
-                    <tr key={scan.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4 font-bold text-slate-300">{scan.id}</td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 bg-slate-800 text-cyan-400 rounded font-bold">
-                          {scan.cityCode} • {scan.slotId}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-white font-bold font-sans">{scan.advertiser}</td>
-                      <td className="py-3 px-4 font-bold text-emerald-400">{scan.dwellSeconds}s</td>
-                      <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">{scan.uniqueDeviceHash}</td>
-                      <td className="py-3 px-4 font-bold">
-                        <span className={scan.sybilScore > 90 ? 'text-emerald-400' : 'text-rose-400'}>
-                          {scan.sybilScore}%
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {scan.status === 'verified_eyeball' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                            +15 TOKENS MINTED
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                            SYBIL REJECTED
-                          </span>
-                        )}
+                  {(attentionData?.recentScans || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                        <Eye className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                        <div className="font-bold text-white uppercase">Pure Production: No PoA Scans Recorded Yet</div>
+                        <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
+                          Proof of Attention eyeball telemetry registers in real-time as users watch billboards and mine PoA reward tokens.
+                        </p>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    (attentionData?.recentScans || []).map((scan: any) => (
+                      <tr key={scan.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-300">{scan.id}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 bg-slate-800 text-cyan-400 rounded font-bold">
+                            {scan.cityCode} • {scan.slotId}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-white font-bold font-sans">{scan.advertiser}</td>
+                        <td className="py-3 px-4 font-bold text-emerald-400">{scan.dwellSeconds}s</td>
+                        <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">{scan.uniqueDeviceHash}</td>
+                        <td className="py-3 px-4 font-bold">
+                          <span className={scan.sybilScore > 90 ? 'text-emerald-400' : 'text-rose-400'}>
+                            {scan.sybilScore}%
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {scan.status === 'verified_eyeball' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                              +15 TOKENS MINTED
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                              SYBIL REJECTED
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2424,29 +2436,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">TREASURY SOL BALANCE</div>
-                <div className="text-2xl font-black text-cyan-400">{solanaData?.treasurySol || 48.72} SOL</div>
+                <div className="text-2xl font-black text-cyan-400">{(solanaData?.treasurySol ?? 0).toFixed(2)} SOL</div>
                 <div className="text-[10px] text-slate-500 mt-1">Cluster: {solanaData?.solanaCluster || 'mainnet-beta'}</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">TREASURY USDC LIQUIDITY</div>
                 <div className="text-2xl font-black text-emerald-400">
-                  ${(solanaData?.treasuryUsdc || 7350.00).toLocaleString()} USDC
+                  ${(solanaData?.treasuryUsdc ?? 0).toLocaleString()} USDC
                 </div>
                 <div className="text-[10px] text-emerald-500/80 mt-1">Instant withdrawal escrow</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">TOTAL ESCROW VOLUME</div>
                 <div className="text-2xl font-black text-purple-400">
-                  ${(solanaData?.totalEscrowVolumeUsdc || 142900.00).toLocaleString()}
+                  ${(solanaData?.totalEscrowVolumeUsdc ?? 0).toLocaleString()}
                 </div>
                 <div className="text-[10px] text-purple-500/80 mt-1">Lifetime slot settlements</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">SLOTS SETTLED ON-CHAIN</div>
                 <div className="text-2xl font-black text-white">
-                  {(solanaData?.totalSlotsSettledOnChain || 8420).toLocaleString()}
+                  {(solanaData?.totalSlotsSettledOnChain ?? 0).toLocaleString()}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-1">Zero failed txs</div>
+                <div className="text-[10px] text-slate-500 mt-1">Verified on-chain</div>
               </div>
             </div>
 
@@ -2465,39 +2477,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
-                  {(solanaData?.transactions || []).map((tx: any) => (
-                    <tr key={tx.txSignature} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4 font-bold text-cyan-400 select-all">{tx.txSignature}</td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 bg-slate-800 text-slate-200 rounded font-bold">
-                          {tx.cityCode}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-white font-bold font-sans">{tx.advertiser}</td>
-                      <td className="py-3 px-4 font-bold text-emerald-400">
-                        {tx.amountSol} SOL (${tx.amountUsdc.toFixed(2)})
-                      </td>
-                      <td className="py-3 px-4 text-slate-400 select-all text-[11px]">
-                        {tx.creatorPayoutWallet ? `${tx.creatorPayoutWallet.slice(0, 4)}...${tx.creatorPayoutWallet.slice(-4)}` : '-'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                          CONFIRMED
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <a
-                          href={tx.solscanUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded text-[10px] font-bold transition-all inline-flex items-center gap-1"
-                        >
-                          <span>Explorer</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
+                  {(solanaData?.transactions || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                        <Coins className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                        <div className="font-bold text-white uppercase">Pure Production: No On-Chain Settlements Recorded Yet</div>
+                        <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
+                          Solana smart contract escrows execute and log on-chain when winning advertiser bids settle for broadcast rotations.
+                        </p>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    (solanaData?.transactions || []).map((tx: any) => (
+                      <tr key={tx.txSignature} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4 font-bold text-cyan-400 select-all">{tx.txSignature}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 bg-slate-800 text-slate-200 rounded font-bold">
+                            {tx.cityCode}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-white font-bold font-sans">{tx.advertiser}</td>
+                        <td className="py-3 px-4 font-bold text-emerald-400">
+                          {tx.amountSol} SOL (${tx.amountUsdc.toFixed(2)})
+                        </td>
+                        <td className="py-3 px-4 text-slate-400 select-all text-[11px]">
+                          {tx.creatorPayoutWallet ? `${tx.creatorPayoutWallet.slice(0, 4)}...${tx.creatorPayoutWallet.slice(-4)}` : '-'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                            CONFIRMED
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <a
+                            href={tx.solscanUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded text-[10px] font-bold transition-all inline-flex items-center gap-1"
+                          >
+                            <span>Explorer</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2540,27 +2564,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">TOTAL AMBASSADORS</div>
-                <div className="text-2xl font-black text-white">{affiliatesData?.totalAmbassadors || 3} VIPs</div>
+                <div className="text-2xl font-black text-white">{affiliatesData?.totalAmbassadors ?? 0} VIPs</div>
                 <div className="text-[10px] text-amber-400 mt-1">Tier 1 Crypto & Esports Creators</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">REFERRED ADVERTISERS</div>
                 <div className="text-2xl font-black text-emerald-400">
-                  {(affiliatesData?.totalReferredUsers || 1217).toLocaleString()}
+                  {(affiliatesData?.totalReferredUsers ?? 0).toLocaleString()}
                 </div>
                 <div className="text-[10px] text-emerald-500/80 mt-1">Active verified accounts</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">REFERRED DEPOSIT VOLUME</div>
                 <div className="text-2xl font-black text-cyan-400">
-                  ${(affiliatesData?.totalReferredVolumeDollars || 70550.00).toLocaleString()}
+                  ${(affiliatesData?.totalReferredVolumeDollars ?? 0).toLocaleString()}
                 </div>
                 <div className="text-[10px] text-cyan-500/80 mt-1">Token recharges generated</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">COMMISSIONS DISTRIBUTED</div>
                 <div className="text-2xl font-black text-purple-400">
-                  ${(affiliatesData?.totalCommissionsPaidDollars || 11015.00).toLocaleString()}
+                  ${(affiliatesData?.totalCommissionsPaidDollars ?? 0).toLocaleString()}
                 </div>
                 <div className="text-[10px] text-purple-500/80 mt-1">Paid via Solana smart contract</div>
               </div>
@@ -2581,34 +2605,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
-                  {(affiliatesData?.ambassadors || []).map((a: any) => (
-                    <tr key={a.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3.5 px-4 font-bold">
-                        <div className="text-white font-sans text-sm">{a.name}</div>
-                        <div className="text-slate-400 text-[11px] font-mono">{a.handle}</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-bold">
-                        <span className="px-2.5 py-1 bg-amber-950 text-amber-300 border border-amber-700/80 rounded-lg text-xs font-black select-all">
-                          {a.code}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-purple-300 font-bold">{a.tier}</td>
-                      <td className="py-3.5 px-4 font-black text-emerald-400 text-sm">
-                        {a.referredUsers.toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-200">
-                        ${a.totalDepositsDollars.toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 font-black text-cyan-400 text-sm">
-                        ${a.commissionEarnedDollars.toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                          AUTO-SOLANA PAID
-                        </span>
+                  {(affiliatesData?.ambassadors || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                        <Award className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                        <div className="font-bold text-white uppercase">Pure Production: No Ambassadors Registered Yet</div>
+                        <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
+                          Influencers and community creators can claim unique promo codes to start earning automated revenue share commissions.
+                        </p>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    (affiliatesData?.ambassadors || []).map((a: any) => (
+                      <tr key={a.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3.5 px-4 font-bold">
+                          <div className="text-white font-sans text-sm">{a.name}</div>
+                          <div className="text-slate-400 text-[11px] font-mono">{a.handle}</div>
+                        </td>
+                        <td className="py-3.5 px-4 font-bold">
+                          <span className="px-2.5 py-1 bg-amber-950 text-amber-300 border border-amber-700/80 rounded-lg text-xs font-black select-all">
+                            {a.code}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-purple-300 font-bold">{a.tier}</td>
+                        <td className="py-3.5 px-4 font-black text-emerald-400 text-sm">
+                          {a.referredUsers.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-200">
+                          ${a.totalDepositsDollars.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 font-black text-cyan-400 text-sm">
+                          ${a.commissionEarnedDollars.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                            AUTO-SOLANA PAID
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
