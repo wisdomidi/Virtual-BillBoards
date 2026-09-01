@@ -373,13 +373,25 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && !user.isAnonymous) {
-        const profile = await syncUserProfile(user, 'advertiser');
-        const isAdmin = isUserAdmin(user.email || profile.email, profile.role);
+        const isAdminUser = isUserAdmin(user.email || '');
+        const profile = await syncUserProfile(user, isAdminUser ? 'admin' : 'advertiser');
+        const isAdmin = isAdminUser || profile.role === 'admin' || isUserAdmin(profile.email, profile.role);
         const resolvedRole: UserRole = isAdmin ? 'admin' : profile.role;
         const finalProfile = { ...profile, role: resolvedRole };
 
         setCurrentUser(finalProfile);
         setUserRole(resolvedRole);
+
+        if (isAdmin) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('vb_active_role', 'admin');
+          }
+          // Default admin users directly to the Admin Dashboard view
+          const currentPath = window.location.pathname.toLowerCase().replace(/^\//, '');
+          if (!currentPath || currentPath === 'live') {
+            handleNavigateTab('admin');
+          }
+        }
 
         if (typeof profile.tokensBalance === 'number') {
           const centsVal = Math.round(profile.tokensBalance / 10);
@@ -1222,13 +1234,16 @@ export default function App() {
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
           onAuthSuccess={(profile) => {
-            const isAdmin = isUserAdmin(profile.email, profile.role);
+            const isAdmin = isUserAdmin(profile.email, profile.role) || profile.role === 'admin';
             const resolvedRole: UserRole = isAdmin ? 'admin' : (profile.role || 'advertiser');
             const updatedProfile = { ...profile, role: resolvedRole };
             setCurrentUser(updatedProfile);
             setUserRole(resolvedRole);
             if (typeof window !== 'undefined') {
               localStorage.setItem('vb_active_role', resolvedRole);
+            }
+            if (isAdmin) {
+              handleNavigateTab('admin');
             }
             const tokens = profile.tokensBalance || (typeof profile.walletBalanceCents === 'number' ? profile.walletBalanceCents * 10 : 1000);
             if (typeof profile.walletBalanceCents === 'number') {

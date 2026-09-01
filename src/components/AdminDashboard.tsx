@@ -30,7 +30,9 @@ import {
   Ticket,
   Copy,
   Check,
-  CreditCard
+  CreditCard,
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { ArchitectureDiagram } from './ArchitectureDiagram';
 import { PostgresSchemaViewer } from './PostgresSchemaViewer';
