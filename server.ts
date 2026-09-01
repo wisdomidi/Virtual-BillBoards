@@ -7021,18 +7021,24 @@ app.get('/api/admin/ads/all', async (req, res) => {
   const seenIds = new Set<string>();
 
   // 1. Active Live Ads across all cities
-  Object.entries(redisActiveSlots).forEach(([cityCode, slot]) => {
+  Object.entries(redisActiveSlots).forEach(([cityKey, slot]) => {
     if (slot && slot.winningAd) {
       const ad = slot.winningAd;
+      const cleanCity = (ad.targetCityCode || cityKey)
+        .replace(/^billboard:active:/i, '')
+        .replace(/^billboard:queue:/i, '')
+        .replace(/^room_[A-Z]{2}_/i, '')
+        .toUpperCase();
+
       const isHouse = Boolean(ad.isHouseAd || ad.id?.startsWith('demo_') || ad.id?.startsWith('seed_') || ad.id?.startsWith('house_') || ad.advertiserName?.includes('SYSTEM') || ad.advertiserName?.includes('AEGIS'));
-      const adId = ad.id || `act_${cityCode}`;
+      const adId = ad.id || `act_${cleanCity}`;
       seenIds.add(adId);
       allAds.push({
         id: adId,
         title: ad.title,
         imageUrl: ad.imageUrl,
         advertiserName: ad.advertiserName || 'Active Sponsor',
-        targetCityCode: cityCode,
+        targetCityCode: cleanCity,
         bidAmountDollars: ((ad.bidAmountCents || 100) / 100).toFixed(2),
         bidAmountCents: ad.bidAmountCents || 100,
         status: 'live',
@@ -7045,7 +7051,7 @@ app.get('/api/admin/ads/all', async (req, res) => {
 
   // 2. Queued Ads across all cities
   Object.entries(redisQueues).forEach(([queueKey, queue]) => {
-    const cityCode = queueKey.replace('billboard:queue:', '');
+    const cleanCity = queueKey.replace(/^billboard:queue:/i, '').replace(/^queue:/i, '').toUpperCase();
     (queue || []).forEach((adItem) => {
       const isHouse = Boolean(adItem.isHouseAd || adItem.id?.startsWith('demo_') || adItem.id?.startsWith('seed_') || adItem.id?.startsWith('house_') || adItem.advertiserName?.includes('SYSTEM') || adItem.advertiserName?.includes('AEGIS'));
       const adId = adItem.id;
@@ -7056,7 +7062,7 @@ app.get('/api/admin/ads/all', async (req, res) => {
           title: adItem.title,
           imageUrl: adItem.imageUrl,
           advertiserName: adItem.advertiserName || 'Advertiser',
-          targetCityCode: cityCode,
+          targetCityCode: adItem.targetCityCode || cleanCity,
           bidAmountDollars: ((adItem.bidAmountCents || 100) / 100).toFixed(2),
           bidAmountCents: adItem.bidAmountCents || 100,
           status: 'queued',
@@ -7068,11 +7074,31 @@ app.get('/api/admin/ads/all', async (req, res) => {
     });
   });
 
-  // 3. User Campaigns from Firestore Database (Past, Scheduled & Historical Placements)
+  // 3. Historical In-Memory Real User Bids (from globalBidHistoryStore)
+  for (const item of globalBidHistoryStore) {
+    if (!seenIds.has(item.id)) {
+      seenIds.add(item.id);
+      const cents = item.bidAmountCents || 100;
+      allAds.push({
+        id: item.id,
+        title: item.title,
+        imageUrl: item.imageUrl,
+        advertiserName: item.advertiserName || 'Real Advertiser',
+        targetCityCode: item.cityCode || 'GLOBAL',
+        bidAmountDollars: (cents / 100).toFixed(2),
+        bidAmountCents: cents,
+        status: item.status || 'completed',
+        isHouseAd: false,
+        impressions: 18400,
+        createdAt: item.createdAt || new Date().toISOString()
+      });
+    }
+  }
+
+  // 4. User Campaigns from Firestore Database (Safe index-free query)
   try {
     const campaignsCol = collection(db, 'campaigns');
-    const q = query(campaignsCol, orderBy('createdAt', 'desc'), limit(100));
-    const snap = await getDocs(q);
+    const snap = await getDocs(query(campaignsCol, limit(100)));
     snap.docs.forEach(docSnap => {
       const data = docSnap.data();
       const adId = docSnap.id;
@@ -7084,7 +7110,7 @@ app.get('/api/admin/ads/all', async (req, res) => {
           title: data.title || 'User Campaign',
           imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
           advertiserName: data.advertiserName || data.displayName || 'Verified Advertiser',
-          targetCityCode: data.targetCityCode || 'GLOBAL',
+          targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
           bidAmountDollars: (cents / 100).toFixed(2),
           bidAmountCents: cents,
           status: data.status || 'approved',
@@ -7098,7 +7124,36 @@ app.get('/api/admin/ads/all', async (req, res) => {
     console.warn('Firestore admin campaigns fetch notice:', fsErr);
   }
 
-  // 4. Flagged Ads
+  // 5. Scheduled User Bids from Firestore
+  try {
+    const schedCol = collection(db, 'scheduled_bids');
+    const snap = await getDocs(query(schedCol, limit(50)));
+    snap.docs.forEach(docSnap => {
+      const data = docSnap.data();
+      const adId = docSnap.id;
+      if (!seenIds.has(adId) && !seenIds.has(data.id)) {
+        seenIds.add(adId);
+        const cents = data.bidAmountCents || 100;
+        allAds.push({
+          id: adId,
+          title: data.title || 'Scheduled Billboard Ad',
+          imageUrl: data.imageUrl,
+          advertiserName: data.advertiserName || 'Scheduled Sponsor',
+          targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
+          bidAmountDollars: (cents / 100).toFixed(2),
+          bidAmountCents: cents,
+          status: data.status || 'scheduled',
+          isHouseAd: false,
+          impressions: 0,
+          createdAt: data.createdAt || new Date().toISOString()
+        });
+      }
+    });
+  } catch (fsErr) {
+    console.warn('Firestore admin scheduled bids fetch notice:', fsErr);
+  }
+
+  // 6. Flagged Ads
   Array.from(flaggedAdsStore.values()).forEach((flagged) => {
     if (!seenIds.has(flagged.id)) {
       seenIds.add(flagged.id);
@@ -7107,7 +7162,7 @@ app.get('/api/admin/ads/all', async (req, res) => {
         title: flagged.title,
         imageUrl: flagged.imageUrl,
         advertiserName: flagged.advertiserName,
-        targetCityCode: flagged.targetCityCode || 'GLOBAL',
+        targetCityCode: (flagged.targetCityCode || 'GLOBAL').toUpperCase(),
         bidAmountDollars: flagged.bidAmountDollars,
         status: 'flagged',
         isHouseAd: false,
