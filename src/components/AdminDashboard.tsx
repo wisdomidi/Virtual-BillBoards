@@ -135,7 +135,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [allAdminAds, setAllAdminAds] = useState<any[]>([]);
   const [loadingAllAds, setLoadingAllAds] = useState(false);
   const [moderationSubTab, setModerationSubTab] = useState<'approved' | 'queued' | 'flagged' | 'all'>('approved');
-  const [adSourceFilter, setAdSourceFilter] = useState<'all' | 'user' | 'house'>('all');
+  const [adSourceFilter, setAdSourceFilter] = useState<'all' | 'user' | 'house'>('user');
   const [adCityFilter, setAdCityFilter] = useState<string>('ALL');
   const [adSearchQuery, setAdSearchQuery] = useState<string>('');
   const [adPage, setAdPage] = useState<number>(1);
@@ -143,21 +143,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [flaggedAds, setFlaggedAds] = useState<any[]>([]);
   const [loadingFlaggedAds, setLoadingFlaggedAds] = useState(false);
 
+  // Pure Production Mode (Real Data Only vs Benchmark & Demo Data)
+  const [productionDataOnly, setProductionDataOnly] = useState<boolean>(true);
+
+  // Transactional Email Testing State
+  const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+
   // Platform Settings State
   const [settings, setSettings] = useState<PlatformSettings>({
     slotDurationSeconds: 15,
-    cityReserveFloorCents: 1000,
-    countryReserveFloorCents: 500,
-    globalReserveFloorCents: 100,
+    cityReserveFloorCents: 100,
+    countryReserveFloorCents: 250,
+    globalReserveFloorCents: 500,
     geminiSafetyThreshold: 70,
+    starterGrantTokens: 1000,
+    minPayoutThresholdUsd: 5.00,
     streamerRevSharePercent: 70,
     creatorRevSharePercent: 80,
     venueRevSharePercent: 70,
     maintenanceMode: false,
     emergencyAlertBanner: '',
-    houseAdTitle: 'Public Service: Plant 10,000 Trees in Southeast Asia',
+    houseAdTitle: 'Public Service: Plant 10,000 Trees Worldwide',
     houseAdImageUrl: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=1200&q=80',
-    activeEnvironment: 'night_city'
+    activeEnvironment: 'night_city',
+    surgeMultiplier: 1.0,
+    autoSurgeEnabled: true,
+    peakConcurrencyThreshold: 500,
+    emailNotificationsEnabled: true
   });
 
   const [savingSettings, setSavingSettings] = useState(false);
@@ -802,6 +815,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleSendTestEmail = async () => {
+    if (!testEmailAddress.trim()) {
+      addToast('warning', 'Missing Email', 'Please enter an email address to send test.');
+      return;
+    }
+    setSendingTestEmail(true);
+    try {
+      const res = await fetch('/api/admin/email/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetEmail: testEmailAddress })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addToast('success', 'Test Email Dispatched', `Transactional notification sent to ${testEmailAddress}`);
+      } else {
+        addToast('info', 'Delivery Notice', 'Email simulated in server logs (Configure RESEND_API_KEY in .env for live SMTP delivery).');
+      }
+    } catch (e: any) {
+      addToast('error', 'Email Test Failed', e.message);
+    } finally {
+      setSendingTestEmail(false);
+    }
+  };
+
   const handleClearQueue = async (cityCode: string) => {
     try {
       const res = await fetch('/api/admin/clear-queue', {
@@ -884,9 +922,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Pure Production vs Benchmark Mode Switcher */}
+            <button
+              onClick={() => {
+                const nextMode = !productionDataOnly;
+                setProductionDataOnly(nextMode);
+                if (nextMode) setAdSourceFilter('user');
+                addToast(
+                  'info',
+                  nextMode ? '🟢 Pure Production Mode' : '🧪 Benchmark & Seed Mode',
+                  nextMode
+                    ? 'Filtering out demo test feeds. Displaying 100% verified real user campaigns & live streams only.'
+                    : 'Showing seeded benchmark creators and fallback ads alongside real data.'
+                );
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer border ${
+                productionDataOnly
+                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 shadow-emerald-950/50 shadow-lg'
+                  : 'bg-amber-950/80 text-amber-300 border-amber-500/50 shadow-amber-950/50 shadow-lg'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${productionDataOnly ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span>{productionDataOnly ? 'Live Real Data Only' : 'Benchmark Feeds Included'}</span>
+            </button>
+
             <button
               onClick={handleForceEjectSlot}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all shadow-md text-xs flex items-center gap-1.5"
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all shadow-md text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <Zap className="w-4 h-4 fill-current" />
               <span>Force Eject Active Slot</span>
@@ -1955,6 +2017,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 />
               </div>
 
+              {/* Dynamic Starter Grant & Minimum Payout Floor */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950 border border-slate-800/80 rounded-xl">
+                <div>
+                  <label className="block text-slate-300 mb-1 text-[11px] font-semibold">🎁 Starter Grant (Tokens)</label>
+                  <input
+                    type="number"
+                    step="100"
+                    min="0"
+                    value={settings.starterGrantTokens ?? 1000}
+                    onChange={(e) => setSettings({ ...settings, starterGrantTokens: parseInt(e.target.value || '0') })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-bold text-xs focus:outline-none focus:border-cyan-500"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">{((settings.starterGrantTokens ?? 1000) / 1000).toFixed(2)} USD value</span>
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1 text-[11px] font-semibold">💸 Min Payout Floor ($)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    value={settings.minPayoutThresholdUsd ?? 5.00}
+                    onChange={(e) => setSettings({ ...settings, minPayoutThresholdUsd: parseFloat(e.target.value || '5.00') })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-bold text-xs focus:outline-none focus:border-cyan-500"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Solana / Bank withdrawal floor</span>
+                </div>
+              </div>
+
+              {/* Transactional Email Dispatcher Module */}
+              <div className="p-3.5 bg-slate-950 border border-blue-500/30 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-blue-400" />
+                    <span className="font-bold text-white text-xs">Transactional Email Delivery Engine</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/30 font-bold">
+                    {settings.emailProvider || 'Resend API'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    placeholder="Enter email to test dispatch..."
+                    value={testEmailAddress}
+                    onChange={(e) => setTestEmailAddress(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendTestEmail}
+                    disabled={sendingTestEmail}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <Send className={`w-3.5 h-3.5 ${sendingTestEmail ? 'animate-pulse' : ''}`} />
+                    <span>{sendingTestEmail ? 'Sending...' : 'Test'}</span>
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-slate-300 mb-1 font-semibold">
                   Emergency Maintenance Banner Alert (Optional)
@@ -1973,10 +2094,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   type="button"
                   onClick={handleSaveSettings}
                   disabled={savingSettings}
-                  className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl transition-all shadow-lg text-xs flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl transition-all shadow-lg text-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4 fill-current" />
-                  <span>{savingSettings ? 'Updating System...' : 'Apply & Save Settings'}</span>
+                  <span>{savingSettings ? 'Updating System...' : 'Apply & Save Settings to Firestore'}</span>
                 </button>
               </div>
             </div>
@@ -2060,76 +2181,95 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
-                  {(streamersData?.streamers || []).map((s: any) => (
-                    <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3.5 px-4 font-bold">
-                        <div>
-                          <div className="text-white font-sans text-sm font-bold flex items-center gap-1.5">
-                            <span>@{s.handle}</span>
-                            <span className="text-[10px] px-1.5 py-0.2 bg-purple-950 text-purple-300 border border-purple-800 rounded font-mono">
-                              {s.cityCode}
-                            </span>
+                  {(() => {
+                    const rawStreamers = streamersData?.streamers || [];
+                    const filteredStreamers = rawStreamers.filter((s: any) => !productionDataOnly || s.id?.startsWith('conn_') || s.isLiveConnected);
+
+                    if (filteredStreamers.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
+                            <Radio className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                            <div className="font-bold text-white uppercase">No Active Streamer OBS Overlays Connected</div>
+                            <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
+                              Streamers add the billboard overlay browser source into OBS via <code className="text-cyan-400 font-mono">/overlay?creator=handle</code> to broadcast live.
+                            </p>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filteredStreamers.map((s: any) => (
+                      <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3.5 px-4 font-bold">
+                          <div>
+                            <div className="text-white font-sans text-sm font-bold flex items-center gap-1.5">
+                              <span>@{s.handle}</span>
+                              <span className="text-[10px] px-1.5 py-0.2 bg-purple-950 text-purple-300 border border-purple-800 rounded font-mono">
+                                {s.cityCode}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-sans">{s.displayName}</div>
                           </div>
-                          <div className="text-[11px] text-slate-400 font-sans">{s.displayName}</div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
-                          s.platform === 'twitch' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
-                          s.platform === 'kick' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
-                          s.platform === 'youtube' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' :
-                          'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                        }`}>
-                          {s.platform}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="text-emerald-400 font-bold">{s.viewersCount.toLocaleString()} viewers</div>
-                        <div className="text-[10px] text-slate-400">{s.uptimeMinutes} mins live</div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {s.activeTakeover ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
-                            <PartyPopper className="w-3 h-3" />
-                            {s.activeTakeover}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+                            s.platform === 'twitch' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
+                            s.platform === 'kick' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
+                            s.platform === 'youtube' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' :
+                            'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                          }`}>
+                            {s.platform}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            STREAMING BILLBOARDS
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-cyan-400 font-black">
-                        ${s.accruedRevShareDollars.toFixed(2)} USD
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-400 text-[11px] font-mono select-all">
-                        {s.solanaWallet ? `${s.solanaWallet.slice(0, 4)}...${s.solanaWallet.slice(-4)}` : 'Auto-Solana'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleFireCelebration(s.handle, 'victory_royale')}
-                            disabled={firingCelebration === s.handle}
-                            className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
-                            title="Fire Victory Royale Takeover"
-                          >
-                            <PartyPopper className="w-3 h-3" />
-                            <span>Victory</span>
-                          </button>
-                          <button
-                            onClick={() => handleFireCelebration(s.handle, 'kill_streak')}
-                            disabled={firingCelebration === s.handle}
-                            className="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
-                            title="Fire 5x Killstreak Takeover"
-                          >
-                            <Flame className="w-3 h-3" />
-                            <span>5x Streak</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="text-emerald-400 font-bold">{s.viewersCount.toLocaleString()} viewers</div>
+                          <div className="text-[10px] text-slate-400">{s.uptimeMinutes} mins live</div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {s.activeTakeover ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                              <PartyPopper className="w-3 h-3" />
+                              {s.activeTakeover}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              STREAMING BILLBOARDS
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-cyan-400 font-black">
+                          ${s.accruedRevShareDollars.toFixed(2)} USD
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-400 text-[11px] font-mono select-all">
+                          {s.solanaWallet ? `${s.solanaWallet.slice(0, 4)}...${s.solanaWallet.slice(-4)}` : 'Auto-Solana'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleFireCelebration(s.handle, 'victory_royale')}
+                              disabled={firingCelebration === s.handle}
+                              className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                              title="Fire Victory Royale Takeover"
+                            >
+                              <PartyPopper className="w-3 h-3" />
+                              <span>Victory</span>
+                            </button>
+                            <button
+                              onClick={() => handleFireCelebration(s.handle, 'kill_streak')}
+                              disabled={firingCelebration === s.handle}
+                              className="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                              title="Fire 5x Killstreak Takeover"
+                            >
+                              <Flame className="w-3 h-3" />
+                              <span>5x Streak</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>

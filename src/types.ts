@@ -320,6 +320,10 @@ export interface PlatformSettings {
   surgeMultiplier?: number;
   autoSurgeEnabled?: boolean;
   peakConcurrencyThreshold?: number;
+  starterGrantTokens?: number;
+  minPayoutThresholdUsd?: number;
+  emailNotificationsEnabled?: boolean;
+  emailProvider?: string;
 }
 
 export interface CityConfig {

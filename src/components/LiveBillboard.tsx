@@ -201,6 +201,37 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // 1-Click AI Smart Ad Fill State (Ultra-low token cost)
+  const [aiPromptInput, setAiPromptInput] = useState('');
+  const [isGeneratingAiAd, setIsGeneratingAiAd] = useState(false);
+  const [showAiPromptBox, setShowAiPromptBox] = useState(false);
+
+  const handleGenerateAiAd = async () => {
+    if (!aiPromptInput.trim()) return;
+    setIsGeneratingAiAd(true);
+    try {
+      const res = await fetch('/api/ai/quick-ad-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPromptInput, cityCode: selectedCity })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setBidTitle(data.title);
+          if (data.imageUrl) setBidImageUrl(data.imageUrl);
+          setUploadedFileName(`AI Generated (${aiPromptInput.slice(0, 15)})`);
+          setShowAiPromptBox(false);
+        }
+      }
+    } catch (e) {
+      console.warn('AI ad fill error:', e);
+    } finally {
+      setIsGeneratingAiAd(false);
+    }
+  };
+
   const [biddingTab, setBiddingTab] = useState<'instant' | 'future'>('instant');
   const [selectedTrafficTier, setSelectedTrafficTier] = useState<'standard' | 'tier1_staring_eyeballs'>('standard');
   const [selectedFutureDate, setSelectedFutureDate] = useState<string>(() => {
@@ -1305,11 +1336,50 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
               </div>
             )}
 
-            {/* 4 One-Click Ad Creative Templates */}
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                ⚡ 1-Click Creative Templates (Instant Test):
-              </span>
+            {/* 1-Click Creative Templates & AI Smart Fill */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  ⚡ Instant Creative Presets:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAiPromptBox(!showAiPromptBox)}
+                  className="px-2 py-0.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/40 text-indigo-300 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                >
+                  <Sparkles className="w-3 h-3 text-indigo-400" />
+                  <span>{showAiPromptBox ? 'Close AI' : '✨ AI 1-Prompt Fill'}</span>
+                </button>
+              </div>
+
+              {/* Collapsible AI Smart Fill Input (Ultra-efficient 0-cost / micro-token generator) */}
+              {showAiPromptBox && (
+                <div className="p-2.5 bg-gradient-to-r from-indigo-950/90 to-purple-950/90 border border-indigo-500/50 rounded-xl space-y-2 animate-fadeIn">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={aiPromptInput}
+                      onChange={(e) => setAiPromptInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleGenerateAiAd(); } }}
+                      placeholder="e.g. Cyberpunk ramen shop in Shibuya or Solana mobile app"
+                      className="flex-1 bg-slate-950 border border-indigo-500/50 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-sans"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateAiAd}
+                      disabled={isGeneratingAiAd || !aiPromptInput.trim()}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1 disabled:opacity-50 cursor-pointer shrink-0"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${isGeneratingAiAd ? 'animate-spin' : ''}`} />
+                      <span>{isGeneratingAiAd ? 'Generating...' : 'Auto-Fill'}</span>
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-indigo-300/80 font-mono">
+                    💡 Instantly generates headline, aesthetic theme, and creative visual at zero/minimal compute.
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-1.5">
                 {AD_TEMPLATES.map((tpl) => (
                   <button
@@ -1545,10 +1615,50 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                             : 'bg-slate-800 text-slate-400 border-slate-700'
                         }`}
                       >
-                        ${preset}
+                        +${preset}
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* 1-Click Strategic Bidding Presets */}
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setBidAmountDollars(5.00)}
+                    className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      bidAmountDollars === 5.00
+                        ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-md shadow-cyan-950'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="font-extrabold text-white">⚡ $5.00</span>
+                    <span className="text-[8px] text-slate-400">Quick Blast</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBidAmountDollars(10.00)}
+                    className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      bidAmountDollars === 10.00
+                        ? 'bg-purple-950/80 border-purple-400 text-purple-300 shadow-md shadow-purple-950'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="font-extrabold text-white">🚀 $10.00</span>
+                    <span className="text-[8px] text-slate-400">Front-Runner</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBidAmountDollars(25.00)}
+                    className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      bidAmountDollars === 25.00
+                        ? 'bg-amber-950/80 border-amber-400 text-amber-300 shadow-md shadow-amber-950'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="font-extrabold text-white">👑 $25.00</span>
+                    <span className="text-[8px] text-slate-400">Takeover</span>
+                  </button>
                 </div>
 
                 {/* Multi-Slot Counter — bid for 1-10 rotation slots */}
