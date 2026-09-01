@@ -23,9 +23,11 @@ import {
   Copy,
   Layers,
   Share2,
-  Download
+  Download,
+  Video
 } from 'lucide-react';
 import { UserRole, ProofOfPlayReceipt } from '../types';
+import { billboardRecorder } from '../lib/canvasVideoRecorder';
 
 export interface UserCampaignItem {
   id: string;
@@ -390,6 +392,34 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
       console.error('Failed to generate proof image:', e);
     } finally {
       setIsGeneratingProof(false);
+    }
+  };
+
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+
+  const handleCaptureVideoClip = async (ad: UserCampaignItem) => {
+    setIsRecordingVideo(true);
+    setVideoProgress(0);
+    try {
+      const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+      if (!canvas) {
+        alert('Live billboard 3D canvas is not active. Switch to the live view to capture high-definition video clips.');
+        setIsRecordingVideo(false);
+        return;
+      }
+
+      const res = await billboardRecorder.recordCanvas(canvas, 10000, (pct) => setVideoProgress(pct));
+      const a = document.createElement('a');
+      a.href = res.url;
+      a.download = `LiveBillboard-${ad.targetCityCode}-${ad.id}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e: any) {
+      alert(`Video clip export note: ${e.message}`);
+    } finally {
+      setIsRecordingVideo(false);
     }
   };
 
@@ -867,40 +897,58 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <button
-                onClick={() => generateWatermarkedProof(selectedProofAd)}
-                className="flex-1 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>⬇️ Download Proof PNG</span>
-              </button>
-
-              <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My ad "${selectedProofAd.title}" just broadcasted live on the 24/7 Global Virtual Billboard in ${selectedProofAd.targetCityCode}! 🚀\n\nWatch live: https://www.livebillboards.lol/?city=${selectedProofAd.targetCityCode}\n\n#LiveBillboard #VirtualBillboard #LiveTakeover`)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer"
-              >
-                <span>𝕏 Share</span>
-              </a>
-
-              {onSelectCity && (
+            <div className="space-y-2 pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <button
-                  onClick={() => {
-                    onSelectCity(selectedProofAd.targetCityCode);
-                    setSelectedProofAd(null);
-                    onClose();
-                    // Scroll billboard into view after city change
-                    setTimeout(() => {
-                      const billboard = document.getElementById('live-billboard-screen');
-                      if (billboard) billboard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 400);
-                  }}
-                  className="py-2.5 px-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer"
+                  onClick={() => generateWatermarkedProof(selectedProofAd)}
+                  className="flex-1 min-w-[120px] py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Watch Live Screen</span>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Proof PNG</span>
                 </button>
+
+                <button
+                  onClick={() => handleCaptureVideoClip(selectedProofAd)}
+                  disabled={isRecordingVideo}
+                  className="flex-1 min-w-[130px] py-2.5 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>{isRecordingVideo ? `Recording ${videoProgress}%...` : '🎬 15s Video Clip'}</span>
+                </button>
+
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My ad "${selectedProofAd.title}" just broadcasted live on the 24/7 Global Virtual Billboard in ${selectedProofAd.targetCityCode}! 🚀\n\nWatch live: https://www.livebillboards.lol/?city=${selectedProofAd.targetCityCode}\n\n#LiveBillboard #VirtualBillboard #LiveTakeover`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer"
+                >
+                  <span>𝕏 Tweet</span>
+                </a>
+
+                {onSelectCity && (
+                  <button
+                    onClick={() => {
+                      onSelectCity(selectedProofAd.targetCityCode);
+                      setSelectedProofAd(null);
+                      onClose();
+                      // Scroll billboard into view after city change
+                      setTimeout(() => {
+                        const billboard = document.getElementById('live-billboard-screen');
+                        if (billboard) billboard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }, 400);
+                    }}
+                    className="py-2.5 px-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Watch Live</span>
+                  </button>
+                )}
+              </div>
+
+              {isRecordingVideo && (
+                <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                  <div className="bg-pink-500 h-full rounded-full transition-all duration-200" style={{ width: `${videoProgress}%` }} />
+                </div>
               )}
             </div>
           </div>

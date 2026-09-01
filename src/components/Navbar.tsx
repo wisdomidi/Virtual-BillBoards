@@ -16,7 +16,8 @@ import {
   Bot,
   Menu,
   X,
-  User
+  User,
+  Trophy
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -31,6 +32,7 @@ interface NavbarProps {
   onOpenWalletModal?: () => void;
   onOpenMyAdsModal?: () => void;
   onOpenClaimModal?: () => void;
+  onOpenHallOfFame?: () => void;
   walletBalanceDollars?: string;
   tokensBalance?: number;
   currentUser?: { uid: string; email: string; displayName: string; role: UserRole } | null;
@@ -125,6 +127,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <Megaphone className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                   <span>My Ads</span>
+                </button>
+              )}
+
+              {/* Hall of Fame Button */}
+              {onOpenHallOfFame && (
+                <button
+                  id="navbar-hall-of-fame-btn"
+                  onClick={onOpenHallOfFame}
+                  className="hidden sm:flex px-2.5 py-1.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:from-amber-500/30 hover:to-yellow-500/30 border border-amber-500/40 rounded-xl text-xs font-bold text-amber-300 transition-all items-center gap-1.5 cursor-pointer hover:scale-105"
+                  title="Hall of Fame Takeovers"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Hall of Fame</span>
                 </button>
               )}
 

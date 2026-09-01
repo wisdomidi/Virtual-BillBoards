@@ -35,6 +35,7 @@ interface AccountModalProps {
   onOpenWalletModal: () => void;
   onOpenMyAdsModal: () => void;
   onOpenClaimModal: () => void;
+  onOpenInvoice?: (txn?: any) => void;
   onSignOut: () => void;
   onNavigateToAdmin?: () => void;
   onUpdateRole?: (newRole: UserRole) => void;
@@ -50,6 +51,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   onOpenWalletModal,
   onOpenMyAdsModal,
   onOpenClaimModal,
+  onOpenInvoice,
   onSignOut,
   onNavigateToAdmin,
   onUpdateRole
@@ -313,10 +315,19 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                         <div className="font-bold text-white text-[11px]">{tx.description || tx.type || 'Transaction'}</div>
                         <div className="text-[9px] text-slate-500 font-mono">{tx.timestamp ? new Date(tx.timestamp).toLocaleString() : 'Recent'}</div>
                       </div>
-                      <div className="text-right">
-                        <span className={`font-mono font-bold ${tx.type === 'pack_purchase' || tx.type === 'deposit' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                          {tx.type === 'pack_purchase' || tx.type === 'deposit' ? '+' : '-'}${tx.amountDollars || (tx.amountCents ? (tx.amountCents / 100).toFixed(2) : '0.00')}
+                      <div className="text-right flex items-center gap-2">
+                        <span className={`font-mono font-bold ${tx.type === 'pack_purchase' || tx.type === 'deposit' || tx.type === 'stripe_topup' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {tx.type === 'pack_purchase' || tx.type === 'deposit' || tx.type === 'stripe_topup' ? '+' : '-'}${tx.amountDollars || (tx.amountCents ? (tx.amountCents / 100).toFixed(2) : '0.00')}
                         </span>
+                        {onOpenInvoice && (
+                          <button
+                            onClick={() => onOpenInvoice(tx)}
+                            className="p-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 hover:text-white rounded-lg text-[10px] transition-all cursor-pointer"
+                            title="Download Official Tax Invoice PDF"
+                          >
+                            <FileText className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

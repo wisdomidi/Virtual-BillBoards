@@ -35,6 +35,9 @@ import { TvPairingModal } from './components/TvPairingModal';
 import { VenuePitchDeckModal } from './components/VenuePitchDeckModal';
 import { PrivacyPolicyView } from './components/PrivacyPolicyView';
 import { TermsOfServiceView } from './components/TermsOfServiceView';
+import { HallOfFameModal } from './components/HallOfFameModal';
+import { InvoiceModal } from './components/InvoiceModal';
+import { browserNotifications } from './lib/browserNotifications';
 import { Sparkles, Globe, Radio, Tv, FileText } from 'lucide-react';
 import {
   auth,
@@ -287,6 +290,9 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [isHallOfFameOpen, setIsHallOfFameOpen] = useState(false);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceTxn, setSelectedInvoiceTxn] = useState<any>(null);
 
   const effectiveUid = currentUser?.uid || getOrCreateGuestId();
 
@@ -727,7 +733,14 @@ export default function App() {
   const addToast = useCallback((type: ToastMessage['type'], title: string, message: string) => {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     setToasts((prev) => [...prev, { id, type, title, message }].slice(-3));
-  }, []);
+
+    // Send Browser Push / Desktop Notification
+    if (type === 'outbid' || title.toLowerCase().includes('outbid')) {
+      browserNotifications.notifyOutbid(title, selectedCity, '0.50');
+    } else if (title.toLowerCase().includes('live') || message.toLowerCase().includes('broadcasting')) {
+      browserNotifications.notifyLiveBroadcast(title, selectedCity);
+    }
+  }, [selectedCity]);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -927,6 +940,7 @@ export default function App() {
         onOpenWalletModal={() => setIsWalletModalOpen(true)}
         onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
         onOpenClaimModal={() => setIsClaimModalOpen(true)}
+        onOpenHallOfFame={() => setIsHallOfFameOpen(true)}
         walletBalanceDollars={safeWalletBalanceDollars}
         tokensBalance={tokensBalance}
         currentUser={currentUser}
@@ -1223,6 +1237,10 @@ export default function App() {
           onOpenWalletModal={() => setIsWalletModalOpen(true)}
           onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
           onOpenClaimModal={() => setIsClaimModalOpen(true)}
+          onOpenInvoice={(txn) => {
+            setSelectedInvoiceTxn(txn);
+            setIsInvoiceModalOpen(true);
+          }}
           onSignOut={handleSignOut}
           onNavigateToAdmin={() => handleNavigateTab('admin')}
           onUpdateRole={(newRole) => {
@@ -1235,6 +1253,24 @@ export default function App() {
             }
             addToast('info', 'Role Updated', `Switched active platform role to: ${newRole.toUpperCase()}`);
           }}
+        />
+
+        {/* Public Hall of Fame Modal */}
+        <HallOfFameModal
+          isOpen={isHallOfFameOpen}
+          onClose={() => setIsHallOfFameOpen(false)}
+          onSelectLaunchSimilar={() => {
+            setActiveTab('live');
+          }}
+        />
+
+        {/* B2B Official Corporate Tax Invoice Modal */}
+        <InvoiceModal
+          isOpen={isInvoiceModalOpen}
+          onClose={() => setIsInvoiceModalOpen(false)}
+          transaction={selectedInvoiceTxn}
+          userEmail={currentUser?.email}
+          defaultCompanyName={currentUser?.companyName}
         />
 
         {/* Trending Creator Billboards Carousel & Social Discovery (Desktop/Tablet only) */}
