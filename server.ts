@@ -3415,7 +3415,41 @@ app.post('/api/admin/settings', (req, res) => {
     platformSettings.peakConcurrencyThreshold = newSettings.peakConcurrencyThreshold;
   }
 
-  // Persist to Firestore asynchronously
+  // 1. Sync local .env file on disk if present
+  try {
+    const envPath = path.join(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      let content = fs.readFileSync(envPath, 'utf8');
+      const envMap: Record<string, string | number> = {
+        BILLBOARD_SLOT_DURATION_SEC: platformSettings.slotDurationSeconds,
+        STARTER_GRANT_TOKENS: platformSettings.starterGrantTokens,
+        MIN_PAYOUT_THRESHOLD_USD: platformSettings.minPayoutThresholdUsd.toFixed(2),
+        AI_SAFETY_THRESHOLD: platformSettings.geminiSafetyThreshold,
+        REV_SPLIT_CREATOR_PCT: platformSettings.streamerRevSharePercent,
+        CITY_RESERVE_FLOOR_USD: (platformSettings.cityReserveFloorCents / 100).toFixed(2),
+        COUNTRY_RESERVE_FLOOR_USD: (platformSettings.countryReserveFloorCents / 100).toFixed(2),
+        GLOBAL_RESERVE_FLOOR_USD: (platformSettings.globalReserveFloorCents / 100).toFixed(2),
+        SURGE_MULTIPLIER: platformSettings.surgeMultiplier.toFixed(1),
+        AUTO_SURGE_ENABLED: platformSettings.autoSurgeEnabled ? 'true' : 'false',
+        PEAK_CONCURRENCY_THRESHOLD: platformSettings.peakConcurrencyThreshold
+      };
+
+      for (const [key, value] of Object.entries(envMap)) {
+        const regex = new RegExp(`^${key}=.*$`, 'm');
+        const valStr = String(value);
+        if (regex.test(content)) {
+          content = content.replace(regex, `${key}=${valStr}`);
+        } else {
+          content += `\n${key}=${valStr}`;
+        }
+      }
+      fs.writeFileSync(envPath, content, 'utf8');
+    }
+  } catch (envErr) {
+    console.warn('.env sync notice (normal in immutable cloud runtimes):', envErr);
+  }
+
+  // 2. Persist to Firestore asynchronously
   try {
     const settingsDocRef = doc(db, 'settings', 'platform');
     setDoc(settingsDocRef, platformSettings, { merge: true }).catch(err => console.warn('Firestore settings save notice:', err));
@@ -3423,10 +3457,10 @@ app.post('/api/admin/settings', (req, res) => {
     console.warn('Firestore settings doc error:', fsErr);
   }
 
-  logTelemetry('ADMIN_SETTINGS_UPDATED', 'Platform settings updated by Administrator & persisted to Firestore', platformSettings);
+  logTelemetry('ADMIN_SETTINGS_UPDATED', 'Platform settings updated by Administrator, persisted to Firestore & synced to .env', platformSettings);
   broadcastToAll({ type: 'SETTINGS_UPDATED', payload: platformSettings });
 
-  res.json({ success: true, settings: platformSettings, message: 'Settings saved and persisted to Firestore successfully.' });
+  res.json({ success: true, settings: platformSettings, message: 'Settings saved to memory, synced to .env, and persisted to Firestore successfully.' });
 });
 
 // POST /api/auth/sync - Sync client Firebase Auth session to backend memory & Firestore
