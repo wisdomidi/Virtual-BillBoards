@@ -328,7 +328,23 @@ export default function App() {
         console.warn('Geo detection error:', e);
       }
     };
+
+    const fetchInitialTelemetry = async () => {
+      try {
+        const res = await fetch('/api/telemetry/recent');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.logs && Array.isArray(data.logs)) {
+            setTelemetryLogs(data.logs);
+          }
+        }
+      } catch (e) {
+        console.warn('Initial telemetry fetch note:', e);
+      }
+    };
+
     fetchServerGeo();
+    fetchInitialTelemetry();
   }, []);
 
   // Secure Wallet State (1,000 Starter Tokens = $1.00 USD / 1 Free 15s Slot Credit)

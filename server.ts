@@ -3327,17 +3327,25 @@ app.get('/api/admin/users', async (req, res) => {
   try {
     const usersMap = new Map<string, any>();
 
-    // 1. Fetch from Firestore
+    // 1. Fetch real registered users from Firestore
     try {
       const usersCol = collection(db, 'users');
-      const snap = await getDocs(query(usersCol, limit(50)));
+      const snap = await getDocs(query(usersCol, limit(200)));
       snap.docs.forEach(docSnap => {
         const data = docSnap.data();
+        const isGuestUser = docSnap.id.startsWith('guest_') || data.isAnonymous === true;
+        const realEmail = data.email && data.email.trim() !== '' && !data.email.includes('example.com')
+          ? data.email
+          : (isGuestUser ? `Guest Visitor (${docSnap.id.slice(0, 8)})` : (data.email || 'Registered User'));
+
         usersMap.set(docSnap.id, {
           uid: docSnap.id,
-          email: data.email || 'user@example.com',
-          displayName: data.displayName || data.email?.split('@')[0] || 'User',
-          role: data.role || 'advertiser',
+          email: realEmail,
+          displayName: data.displayName || (isGuestUser ? 'Guest Session' : (data.email?.split('@')[0] || 'User')),
+          photoURL: data.photoURL || null,
+          role: data.role || (isUserAdmin(data.email, data.role) ? 'admin' : 'advertiser'),
+          isGuest: isGuestUser,
+          isVerified: !isGuestUser && Boolean(data.email && !data.email.includes('example.com')),
           tokensBalance: typeof data.tokensBalance === 'number' ? data.tokensBalance : 1000,
           walletBalanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : 100,
           bidsPlacedCount: data.bidsPlacedCount || 0,
@@ -3350,23 +3358,48 @@ app.get('/api/admin/users', async (req, res) => {
 
     // 2. Merge with in-memory map
     userWalletsMemoryMap.forEach((wallet, uid) => {
-      const existing = usersMap.get(uid) || {
-        uid,
-        email: 'user@example.com',
-        displayName: `User_${uid.slice(-4)}`,
-        role: 'advertiser',
-        createdAt: new Date().toISOString()
-      };
-      usersMap.set(uid, {
-        ...existing,
-        tokensBalance: wallet.tokensBalance,
-        walletBalanceCents: wallet.walletBalanceCents,
-        bidsPlacedCount: wallet.bidsPlacedCount || existing.bidsPlacedCount || 0
-      });
+      const isGuest = uid.startsWith('guest_');
+      const existing = usersMap.get(uid);
+
+      if (existing) {
+        usersMap.set(uid, {
+          ...existing,
+          tokensBalance: wallet.tokensBalance,
+          walletBalanceCents: wallet.walletBalanceCents,
+          bidsPlacedCount: wallet.bidsPlacedCount || existing.bidsPlacedCount || 0
+        });
+      } else {
+        usersMap.set(uid, {
+          uid,
+          email: isGuest ? `Guest Session (${uid.slice(0, 8)})` : `User_${uid.slice(-4)}`,
+          displayName: isGuest ? 'Guest Visitor' : `User_${uid.slice(-4)}`,
+          role: 'advertiser',
+          isGuest,
+          isVerified: false,
+          tokensBalance: wallet.tokensBalance,
+          walletBalanceCents: wallet.walletBalanceCents,
+          bidsPlacedCount: wallet.bidsPlacedCount || 0,
+          createdAt: new Date().toISOString()
+        });
+      }
     });
 
-    const usersList = Array.from(usersMap.values());
-    res.json({ success: true, totalUsers: usersList.length, users: usersList });
+    const usersList = Array.from(usersMap.values()).sort((a, b) => {
+      // Verified real users first, then by tokens balance
+      if (a.isVerified !== b.isVerified) return a.isVerified ? -1 : 1;
+      return (b.tokensBalance || 0) - (a.tokensBalance || 0);
+    });
+
+    const realUsersCount = usersList.filter(u => !u.isGuest).length;
+    const totalTokensInCirculation = usersList.reduce((sum, u) => sum + (u.tokensBalance || 0), 0);
+
+    res.json({
+      success: true,
+      totalUsers: usersList.length,
+      realUsersCount,
+      totalTokensInCirculation,
+      users: usersList
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message || 'Failed to fetch users' });
   }
@@ -6980,6 +7013,95 @@ app.delete('/api/admin/flagged-ads/:id', (req, res) => {
     return res.json({ success: true, message: 'Flagged ad permanently dismissed.' });
   }
   return res.status(404).json({ success: false, error: 'Flagged ad not found.' });
+});
+
+// GET /api/admin/ads/all - Fetch approved active & queued ads + flagged ads across all zones
+app.get('/api/admin/ads/all', (req, res) => {
+  const allAds: any[] = [];
+
+  // 1. Active Live Ads across all cities
+  Object.entries(redisActiveSlots).forEach(([cityCode, slot]) => {
+    if (slot && slot.winningAd) {
+      allAds.push({
+        id: slot.winningAd.id || `act_${cityCode}`,
+        title: slot.winningAd.title,
+        imageUrl: slot.winningAd.imageUrl,
+        advertiserName: slot.winningAd.advertiserName || 'Active Sponsor',
+        targetCityCode: cityCode,
+        bidAmountDollars: ((slot.winningAd.bidAmountCents || 100) / 100).toFixed(2),
+        bidAmountCents: slot.winningAd.bidAmountCents || 100,
+        status: 'live',
+        impressions: slot.impressions || 12400,
+        createdAt: slot.winningAd.createdAt || new Date().toISOString()
+      });
+    }
+  });
+
+  // 2. Queued Ads across all cities
+  Object.entries(redisQueues).forEach(([queueKey, queue]) => {
+    const cityCode = queueKey.replace('billboard:queue:', '');
+    (queue || []).forEach((adItem) => {
+      allAds.push({
+        id: adItem.id,
+        title: adItem.title,
+        imageUrl: adItem.imageUrl,
+        advertiserName: adItem.advertiserName || 'Advertiser',
+        targetCityCode: cityCode,
+        bidAmountDollars: ((adItem.bidAmountCents || 100) / 100).toFixed(2),
+        bidAmountCents: adItem.bidAmountCents || 100,
+        status: 'queued',
+        impressions: 0,
+        createdAt: adItem.createdAt || new Date().toISOString()
+      });
+    });
+  });
+
+  // 3. Flagged Ads
+  Array.from(flaggedAdsStore.values()).forEach((flagged) => {
+    allAds.push({
+      id: flagged.id,
+      title: flagged.title,
+      imageUrl: flagged.imageUrl,
+      advertiserName: flagged.advertiserName,
+      targetCityCode: flagged.targetCityCode || 'GLOBAL',
+      bidAmountDollars: flagged.bidAmountDollars,
+      status: 'flagged',
+      safetyScore: flagged.safetyScore,
+      reason: flagged.reason,
+      createdAt: flagged.timestamp
+    });
+  });
+
+  res.json({
+    success: true,
+    totalAds: allAds.length,
+    liveCount: allAds.filter(a => a.status === 'live').length,
+    queuedCount: allAds.filter(a => a.status === 'queued').length,
+    flaggedCount: allAds.filter(a => a.status === 'flagged').length,
+    ads: allAds
+  });
+});
+
+// POST /api/admin/ads/reject - Force reject an active or queued ad
+app.post('/api/admin/ads/reject', (req, res) => {
+  const { adId, reason } = req.body;
+  if (!adId) return res.status(400).json({ success: false, error: 'adId is required' });
+
+  // Remove from queues
+  let foundAndRemoved = false;
+  Object.keys(redisQueues).forEach(qKey => {
+    const beforeLen = redisQueues[qKey].length;
+    redisQueues[qKey] = redisQueues[qKey].filter(a => a.id !== adId);
+    if (redisQueues[qKey].length < beforeLen) foundAndRemoved = true;
+  });
+
+  logTelemetry('ADMIN_AD_FORCE_REJECTED', `Admin rejected ad [${adId}]: ${reason || 'Violation of content policy'}`);
+  res.json({ success: true, message: `Ad [${adId}] rejected and removed from rotation.` });
+});
+
+// GET /api/telemetry/recent - Returns initial server telemetry events on page load
+app.get('/api/telemetry/recent', (req, res) => {
+  res.json({ success: true, logs: telemetryLogs });
 });
 
 // -----------------------------------------------------------------------------

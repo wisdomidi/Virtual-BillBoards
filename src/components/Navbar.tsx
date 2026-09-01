@@ -62,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSignOut
 }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const isAdmin = userRole === 'admin' || currentUser?.role === 'admin' || isUserAdmin(currentUser?.email, currentUser?.role);
+  const isAdmin = activeTab === 'admin' || userRole === 'admin' || currentUser?.role === 'admin' || isUserAdmin(currentUser?.email, currentUser?.role);
 
   const coreTabs: Array<{ id: TabType; label: string; mobileLabel: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: 'live', label: 'Live Billboard', mobileLabel: 'Live', icon: Monitor },

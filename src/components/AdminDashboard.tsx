@@ -76,7 +76,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [payoutsList, setPayoutsList] = useState<any[]>([]);
   const [loadingPayouts, setLoadingPayouts] = useState(false);
 
-  // Flagged & Rejected Ads Moderation State
+  // All Ads & Moderation Queue State
+  const [allAdminAds, setAllAdminAds] = useState<any[]>([]);
+  const [loadingAllAds, setLoadingAllAds] = useState(false);
+  const [moderationSubTab, setModerationSubTab] = useState<'approved' | 'queued' | 'flagged' | 'all'>('approved');
+  const [userFilterRole, setUserFilterRole] = useState<'all' | 'verified' | 'admin' | 'streamer' | 'guest'>('all');
   const [flaggedAds, setFlaggedAds] = useState<any[]>([]);
   const [loadingFlaggedAds, setLoadingFlaggedAds] = useState(false);
 
@@ -174,6 +178,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       console.error('Failed to fetch flagged ads:', err);
     } finally {
       setLoadingFlaggedAds(false);
+    }
+  };
+
+  const fetchAllAdminAds = async () => {
+    setLoadingAllAds(true);
+    try {
+      const res = await fetch('/api/admin/ads/all');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ads) setAllAdminAds(data.ads);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch all admin ads:', err);
+    } finally {
+      setLoadingAllAds(false);
+    }
+  };
+
+  const handleRejectLiveAd = async (adId: string) => {
+    try {
+      const res = await fetch('/api/admin/ads/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adId, reason: 'Admin safety removal' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addToast('info', 'Ad Removed', data.message || 'Ad rejected from rotation.');
+        fetchAllAdminAds();
+        fetchFlaggedAds();
+      }
+    } catch (e: any) {
+      addToast('error', 'Error', e.message);
     }
   };
 
@@ -347,6 +384,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchSettings();
     fetchCities();
     fetchFlaggedAds();
+    fetchAllAdminAds();
     fetchUsers();
     fetchVouchers();
     fetchPayouts();
@@ -517,7 +555,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
-      {/* SUB-TAB: FLAGGED & REJECTED ADS MODERATION QUEUE */}
+      {/* SUB-TAB: FLAGGED & APPROVED ADS MODERATION QUEUE */}
       {activeAdminSubTab === 'moderation' && (
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
@@ -527,77 +565,175 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-black text-white uppercase tracking-tight">
-                  Flagged & Rejected Ad Creative Queue
+                  Ad Creative Moderation & Live Inspection
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Review campaigns rejected by Gemini Vision AI or keyword safety filters. Admins can override or dismiss.
+                  Inspect live broadcast slots, queued submissions, and flagged campaigns. Admins have 100% force-reject and override authority.
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={fetchFlaggedAds}
-              disabled={loadingFlaggedAds}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingFlaggedAds ? 'animate-spin' : ''}`} />
-              <span>Refresh Queue</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { fetchFlaggedAds(); fetchAllAdminAds(); }}
+                disabled={loadingFlaggedAds || loadingAllAds}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${(loadingFlaggedAds || loadingAllAds) ? 'animate-spin' : ''}`} />
+                <span>Refresh Ads</span>
+              </button>
+            </div>
           </div>
 
-          {flaggedAds.length === 0 ? (
-            <div className="py-12 text-center space-y-2 bg-slate-950/60 rounded-2xl border border-slate-800/80">
-              <CheckCircle2 className="w-12 h-12 text-emerald-400/80 mx-auto" />
-              <div className="text-sm font-bold text-white uppercase">Moderation Queue is Clean!</div>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                No active flagged ads. All incoming creative has passed Gemini Vision AI brand safety filters.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {flaggedAds.map((ad) => (
-                <div key={ad.id} className="bg-slate-950 border border-rose-500/40 rounded-2xl p-4 space-y-3 shadow-lg flex flex-col justify-between">
-                  <div className="space-y-2.5">
-                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800">
-                      <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
-                      <span className="absolute top-2 right-2 px-2 py-0.5 bg-rose-950 text-rose-300 border border-rose-600 text-[10px] font-mono font-bold rounded-md">
-                        Safety: {ad.safetyScore}/100
-                      </span>
-                    </div>
+          {/* Sub-Filter Tabs: Approved vs Queued vs Flagged vs All */}
+          <div className="flex flex-wrap gap-2 p-1.5 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-bold font-mono">
+            {[
+              { id: 'approved', label: `🟢 Approved Live Broadcasts (${allAdminAds.filter(a => a.status === 'live').length})` },
+              { id: 'queued', label: `⏳ In-Queue Creatives (${allAdminAds.filter(a => a.status === 'queued').length})` },
+              { id: 'flagged', label: `🔴 Flagged / Rejected Queue (${flaggedAds.length})` },
+              { id: 'all', label: `📋 All Creatives (${allAdminAds.length})` }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setModerationSubTab(tab.id as any)}
+                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  moderationSubTab === tab.id
+                    ? 'bg-cyan-500 text-slate-950 font-black shadow'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-                    <div>
-                      <h4 className="text-xs font-black text-white line-clamp-1">{ad.title}</h4>
-                      <div className="text-[11px] text-slate-400 mt-0.5 flex items-center justify-between">
-                        <span>By: <strong className="text-slate-200">{ad.advertiserName || 'Anonymous'}</strong></span>
-                        <span className="font-mono text-amber-400 font-bold">${ad.bidAmountDollars}</span>
+          {/* Cards Grid */}
+          {(() => {
+            const displayedAds = moderationSubTab === 'flagged'
+              ? flaggedAds
+              : moderationSubTab === 'approved'
+              ? allAdminAds.filter(a => a.status === 'live')
+              : moderationSubTab === 'queued'
+              ? allAdminAds.filter(a => a.status === 'queued')
+              : allAdminAds;
+
+            if (displayedAds.length === 0) {
+              return (
+                <div className="py-12 text-center space-y-2 bg-slate-950/60 rounded-2xl border border-slate-800/80">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-400/80 mx-auto" />
+                  <div className="text-sm font-bold text-white uppercase">
+                    {moderationSubTab === 'flagged' ? 'Flagged Queue is Clean!' : 'No Ads in this Category'}
+                  </div>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    {moderationSubTab === 'flagged'
+                      ? 'All incoming creative has passed Gemini Vision AI brand safety filters.'
+                      : 'No campaigns currently matching this filter status.'}
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {displayedAds.map((ad) => {
+                  const isFlagged = ad.status === 'flagged' || Boolean(ad.reason);
+                  const isLive = ad.status === 'live';
+
+                  return (
+                    <div
+                      key={ad.id}
+                      className={`bg-slate-950 border rounded-2xl p-4 space-y-3 shadow-lg flex flex-col justify-between transition-all ${
+                        isFlagged
+                          ? 'border-rose-500/40 hover:border-rose-500'
+                          : isLive
+                          ? 'border-emerald-500/50 hover:border-emerald-400 shadow-emerald-500/10 ring-1 ring-emerald-500/20'
+                          : 'border-slate-800 hover:border-cyan-500/40'
+                      }`}
+                    >
+                      <div className="space-y-2.5">
+                        <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800">
+                          <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
+                          <div className="absolute top-2 left-2 flex gap-1">
+                            <span className="px-2 py-0.5 bg-slate-950/80 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold rounded-md uppercase">
+                              📍 {ad.targetCityCode || 'GLOBAL'}
+                            </span>
+                            {isLive && (
+                              <span className="px-2 py-0.5 bg-emerald-950/90 text-emerald-300 border border-emerald-500/60 text-[10px] font-mono font-bold rounded-md flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                LIVE ON SCREEN
+                              </span>
+                            )}
+                          </div>
+                          {isFlagged && (
+                            <span className="absolute top-2 right-2 px-2 py-0.5 bg-rose-950 text-rose-300 border border-rose-600 text-[10px] font-mono font-bold rounded-md">
+                              Safety: {ad.safetyScore || 45}/100
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-black text-white line-clamp-1">{ad.title}</h4>
+                          <div className="text-[11px] text-slate-400 mt-0.5 flex items-center justify-between">
+                            <span>Advertiser: <strong className="text-slate-200">{ad.advertiserName || 'Anonymous'}</strong></span>
+                            <span className="font-mono text-amber-400 font-bold">${ad.bidAmountDollars} USD</span>
+                          </div>
+                          {ad.impressions > 0 && (
+                            <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
+                              ⚡ {ad.impressions.toLocaleString()} Impressions Delivered
+                            </div>
+                          )}
+                        </div>
+
+                        {isFlagged && ad.reason && (
+                          <div className="p-2 bg-rose-950/40 border border-rose-500/30 rounded-xl text-[11px] font-mono text-rose-300">
+                            <strong>Flag Reason: </strong>{ad.reason}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                        {isFlagged ? (
+                          <>
+                            <button
+                              onClick={() => handleOverrideFlaggedAd(ad.id)}
+                              className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Approve & Reinstate</span>
+                            </button>
+                            <button
+                              onClick={() => handleDismissFlaggedAd(ad.id)}
+                              className="p-2 bg-slate-800 hover:bg-rose-900 text-slate-400 hover:text-rose-200 rounded-xl transition-all cursor-pointer"
+                              title="Permanently Dismiss"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleRejectLiveAd(ad.id)}
+                              className="flex-1 py-2 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Force Reject & Ban</span>
+                            </button>
+                            <button
+                              onClick={() => window.open(`/?city=${ad.targetCityCode || 'GLOBAL'}`, '_blank')}
+                              className="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-xl transition-all cursor-pointer"
+                              title="Watch on Live Screen"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
-
-                    <div className="p-2 bg-rose-950/40 border border-rose-500/30 rounded-xl text-[11px] font-mono text-rose-300">
-                      <strong>Flag Reason: </strong>{ad.reason}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
-                    <button
-                      onClick={() => handleOverrideFlaggedAd(ad.id)}
-                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Approve & Reinstate</span>
-                    </button>
-                    <button
-                      onClick={() => handleDismissFlaggedAd(ad.id)}
-                      className="p-2 bg-slate-800 hover:bg-rose-900 text-slate-400 hover:text-rose-200 rounded-xl transition-all cursor-pointer"
-                      title="Permanently Dismiss"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -611,10 +747,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-black text-white uppercase tracking-tight">
-                  Registered Users & Wallet Management
+                  Registered Users & Wallet Oversight
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Inspect user accounts, manage roles, view token balances, and issue direct credit adjustments.
+                  Inspect real verified accounts, manage platform roles, audit token balances, and issue direct credit grants.
                 </p>
               </div>
             </div>
@@ -625,7 +761,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 placeholder="Search email, UID or role..."
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-52"
+                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-56"
               />
               <button
                 onClick={fetchUsers}
@@ -638,23 +774,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
+          {/* Top 4 User Directory Summary Metric Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+              <span className="text-[10px] font-mono text-slate-400 uppercase block font-bold">Total Accounts</span>
+              <span className="text-lg font-black text-white font-mono">{usersList.length}</span>
+              <span className="text-[10px] text-slate-500 block">Directory Total</span>
+            </div>
+
+            <div className="bg-slate-950 p-3.5 rounded-2xl border border-blue-500/30 space-y-1">
+              <span className="text-[10px] font-mono text-blue-400 uppercase block font-bold">Verified Real Users</span>
+              <span className="text-lg font-black text-blue-300 font-mono">
+                {usersList.filter(u => u.isVerified).length}
+              </span>
+              <span className="text-[10px] text-blue-400/70 block">Google / Email Logins</span>
+            </div>
+
+            <div className="bg-slate-950 p-3.5 rounded-2xl border border-amber-500/30 space-y-1">
+              <span className="text-[10px] font-mono text-amber-400 uppercase block font-bold">Tokens in Circulation</span>
+              <span className="text-lg font-black text-amber-400 font-mono">
+                {usersList.reduce((sum, u) => sum + (u.tokensBalance || 0), 0).toLocaleString()}
+              </span>
+              <span className="text-[10px] text-amber-400/70 block">Ad Tokens Loaded</span>
+            </div>
+
+            <div className="bg-slate-950 p-3.5 rounded-2xl border border-emerald-500/30 space-y-1">
+              <span className="text-[10px] font-mono text-emerald-400 uppercase block font-bold">Total USD Value</span>
+              <span className="text-lg font-black text-emerald-400 font-mono">
+                ${(usersList.reduce((sum, u) => sum + (u.walletBalanceCents || 0), 0) / 100).toFixed(2)}
+              </span>
+              <span className="text-[10px] text-emerald-400/70 block">Available Ad Balance</span>
+            </div>
+          </div>
+
+          {/* Role Filter Buttons */}
+          <div className="flex flex-wrap gap-2 text-xs font-mono font-bold">
+            {[
+              { id: 'all', label: `All Accounts (${usersList.length})` },
+              { id: 'verified', label: `🛡️ Verified Users (${usersList.filter(u => u.isVerified).length})` },
+              { id: 'admin', label: `👑 Admins (${usersList.filter(u => u.role === 'admin').length})` },
+              { id: 'streamer', label: `🎮 Streamers (${usersList.filter(u => u.role === 'creator' || u.role === 'streamer').length})` },
+              { id: 'guest', label: `🌐 Guests (${usersList.filter(u => u.isGuest).length})` }
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setUserFilterRole(f.id as any)}
+                className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  userFilterRole === f.id
+                    ? 'bg-blue-600 text-white font-black shadow'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
           {loadingUsers ? (
             <div className="py-12 text-center text-slate-400 text-xs font-mono">
               <RefreshCw className="w-6 h-6 animate-spin mx-auto text-cyan-400 mb-2" />
               Loading registered user directory...
-            </div>
-          ) : usersList.length === 0 ? (
-            <div className="py-12 text-center space-y-2 bg-slate-950/60 rounded-2xl border border-slate-800/80">
-              <Users className="w-10 h-10 text-slate-600 mx-auto" />
-              <div className="text-sm font-bold text-white uppercase">No Users Found</div>
-              <p className="text-xs text-slate-400">No registered accounts in database yet.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px] uppercase">
-                    <th className="pb-3 px-3">User</th>
+                    <th className="pb-3 px-3">User & Email</th>
                     <th className="pb-3 px-3">Role</th>
                     <th className="pb-3 px-3">Ad Tokens</th>
                     <th className="pb-3 px-3">Balance ($)</th>
@@ -665,6 +851,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <tbody className="divide-y divide-slate-800/60 font-mono">
                   {usersList
                     .filter((u) => {
+                      // Apply role filter tab
+                      if (userFilterRole === 'verified' && !u.isVerified) return false;
+                      if (userFilterRole === 'admin' && u.role !== 'admin') return false;
+                      if (userFilterRole === 'streamer' && u.role !== 'creator' && u.role !== 'streamer') return false;
+                      if (userFilterRole === 'guest' && !u.isGuest) return false;
+
+                      // Apply search input
                       if (!userSearch) return true;
                       const q = userSearch.toLowerCase();
                       return (
@@ -675,10 +868,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       );
                     })
                     .map((u) => (
-                      <tr key={u.uid} className="hover:bg-slate-950/50 transition-colors">
+                      <tr key={u.uid} className={`hover:bg-slate-950/50 transition-colors ${u.isVerified ? 'bg-blue-950/10' : ''}`}>
                         <td className="py-3 px-3">
-                          <div className="font-bold text-white">{u.displayName || u.email?.split('@')[0]}</div>
-                          <div className="text-[10px] text-slate-400 font-mono truncate max-w-[180px]">{u.email}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-bold text-white flex items-center gap-1.5">
+                              <span>{u.displayName || u.email?.split('@')[0]}</span>
+                              {u.isVerified && (
+                                <span className="bg-blue-500/20 text-blue-400 border border-blue-500/40 text-[9px] px-1.5 py-0.2 rounded font-sans font-bold flex items-center gap-0.5">
+                                  <ShieldCheck className="w-2.5 h-2.5" />
+                                  <span>Verified</span>
+                                </span>
+                              )}
+                              {u.isGuest && (
+                                <span className="bg-slate-800 text-slate-400 text-[9px] px-1.5 py-0.2 rounded font-sans">
+                                  Guest
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono truncate max-w-[200px] mt-0.5">{u.email}</div>
                           <div className="text-[9px] text-slate-600 font-mono">{u.uid}</div>
                         </td>
                         <td className="py-3 px-3">
@@ -691,7 +899,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                               : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
                           }`}>
-                            {u.role || 'advertiser'}
+                            {u.role === 'admin' ? '👑 Admin' : u.role || 'advertiser'}
                           </span>
                         </td>
                         <td className="py-3 px-3 font-bold text-amber-400">
@@ -726,8 +934,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             >
                               <option value="advertiser">Advertiser</option>
                               <option value="creator">Creator (80%)</option>
-                              <option value="venue_host">Venue Host (70%)</option>
-                              <option value="admin">Admin</option>
+                              <option value="venue">Venue (70%)</option>
+                              <option value="admin">Admin (100%)</option>
                             </select>
                           </div>
                         </td>
