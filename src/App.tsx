@@ -417,6 +417,39 @@ export default function App() {
     }
   }, [effectiveUid]);
 
+  // Check and auto-redeem promo codes from URL query (e.g. ?promo=PRODUCTHUNT or ?voucher=LAUNCH2026)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const promoCode = urlParams.get('promo') || urlParams.get('voucher') || urlParams.get('code');
+
+    if (promoCode && effectiveUid) {
+      fetch('/api/wallet/claim-voucher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: effectiveUid, voucherCode: promoCode })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            if (typeof data.newTokensBalance === 'number') {
+              const newCents = Math.round(data.newTokensBalance / 10);
+              setWalletBalanceCents(newCents);
+              localStorage.setItem('vb_cached_balance_cents', String(newCents));
+            }
+            addToast(
+              'success',
+              '🎟️ Promo Code Claimed!',
+              `+$${data.dollarsAdded ? data.dollarsAdded.toFixed(2) : (data.tokensAdded / 1000).toFixed(2)} (${data.tokensAdded.toLocaleString()} Tokens) credited to your wallet from promo [${data.code}]!`
+            );
+            fetchWallet(effectiveUid);
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        })
+        .catch((e) => console.warn('Promo code redemption warning:', e));
+    }
+  }, [effectiveUid]);
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -1130,6 +1163,15 @@ export default function App() {
           hasClaimedStarter={hasClaimedStarter || (currentUser?.hasClaimedFreeSlot ?? false)}
           onTopUp={handleTopUpWallet}
           onClaimStarter={handleClaimStarterCredit}
+          onVoucherRedeemed={(tokensAdded, newTotal) => {
+            const newCents = Math.round(newTotal / 10);
+            setWalletBalanceCents(newCents);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('vb_cached_balance_cents', String(newCents));
+            }
+            addToast('success', '🎟️ Promo Claimed!', `+${tokensAdded.toLocaleString()} tokens credited! New Balance: ${newTotal.toLocaleString()} Tokens.`);
+            fetchWallet(effectiveUid);
+          }}
         />
 
         {/* My Placed Ads & Broadcast History Modal */}

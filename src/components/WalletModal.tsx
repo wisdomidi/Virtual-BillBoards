@@ -13,7 +13,9 @@ import {
   Copy,
   QrCode,
   ArrowUpRight,
-  Wallet
+  Wallet,
+  Gift,
+  Ticket
 } from 'lucide-react';
 import { TokenPackage, TokenTransaction } from '../types';
 import { PLATFORM_SOLANA_VAULT, solanaPaymentEngine } from '../lib/solanaPaymentEngine';
@@ -29,6 +31,7 @@ interface WalletModalProps {
   onTopUp: (amountDollars: number) => Promise<boolean>;
   onPurchaseTokenPackage?: (packageId: string) => Promise<boolean>;
   onClaimStarter?: () => Promise<void>;
+  onVoucherRedeemed?: (tokensAdded: number, newBalanceTokens: number) => void;
 }
 
 const PRESET_TIERS = [
@@ -83,7 +86,8 @@ export const WalletModal: React.FC<WalletModalProps> = ({
   userId,
   hasClaimedStarter = false,
   onTopUp,
-  onClaimStarter
+  onClaimStarter,
+  onVoucherRedeemed
 }) => {
   const [activeRailTab, setActiveRailTab] = useState<'stripe' | 'solana'>('stripe');
   const [selectedAmount, setSelectedAmount] = useState<number>(5.00);
@@ -94,12 +98,53 @@ export const WalletModal: React.FC<WalletModalProps> = ({
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [copiedSolanaAddress, setCopiedSolanaAddress] = useState<boolean>(false);
 
+  // Promo Voucher State
+  const [voucherCode, setVoucherCode] = useState<string>('');
+  const [isRedeemingVoucher, setIsRedeemingVoucher] = useState<boolean>(false);
+  const [voucherFeedback, setVoucherFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   // Solana Micro-Rail State
   const [solanaDepositAmount, setSolanaDepositAmount] = useState<number>(5.00);
 
   const safeTokensBalance = typeof tokensBalance === 'number'
     ? tokensBalance
     : Math.round((parseFloat(balanceDollars || '0') || 0) * 1000);
+
+  const handleRedeemVoucher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!voucherCode.trim() || !userId) return;
+
+    setIsRedeemingVoucher(true);
+    setVoucherFeedback(null);
+    try {
+      const res = await fetch('/api/wallet/claim-voucher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, voucherCode: voucherCode.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setVoucherFeedback({
+          type: 'success',
+          message: data.message || `🎉 Successfully claimed promo code! +${data.tokensAdded.toLocaleString()} tokens added.`
+        });
+        setVoucherCode('');
+        onVoucherRedeemed?.(data.tokensAdded, data.newTokensBalance);
+      } else {
+        setVoucherFeedback({
+          type: 'error',
+          message: data.error || 'Invalid or expired promo code.'
+        });
+      }
+    } catch (err: any) {
+      setVoucherFeedback({
+        type: 'error',
+        message: err.message || 'Network error while validating promo code.'
+      });
+    } finally {
+      setIsRedeemingVoucher(false);
+    }
+  };
 
   const handleClaimClick = async () => {
     if (!onClaimStarter) return;
@@ -483,6 +528,54 @@ export const WalletModal: React.FC<WalletModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Promo Voucher & Social Media Code Claim Box */}
+        <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-300 flex items-center gap-1.5">
+              <Gift className="w-3.5 h-3.5 text-pink-400" />
+              <span>Have a Promo Voucher / Social Code?</span>
+            </span>
+            <span className="text-[10px] text-pink-400 font-mono font-bold">Instant Credit</span>
+          </div>
+
+          <form onSubmit={handleRedeemVoucher} className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="e.g. PRODUCTHUNT, LAUNCH2026, XCOMMUNITY"
+                value={voucherCode}
+                onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase placeholder-slate-600 focus:outline-none transition-colors"
+              />
+              <Ticket className="w-3.5 h-3.5 text-slate-500 absolute right-3 top-2.5 pointer-events-none" />
+            </div>
+            <button
+              type="submit"
+              disabled={isRedeemingVoucher || !voucherCode.trim()}
+              className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white font-black text-xs rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              {isRedeemingVoucher ? 'Redeeming...' : 'Claim Code'}
+            </button>
+          </form>
+
+          {voucherFeedback && (
+            <div
+              className={`p-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                voucherFeedback.type === 'success'
+                  ? 'bg-emerald-950/60 border border-emerald-500/40 text-emerald-300'
+                  : 'bg-rose-950/60 border border-rose-500/40 text-rose-300'
+              }`}
+            >
+              {voucherFeedback.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              )}
+              <span>{voucherFeedback.message}</span>
+            </div>
+          )}
+        </div>
 
         {/* Security / Trust Badge */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-center gap-2 text-[11px] text-slate-400">

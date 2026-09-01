@@ -25,7 +25,12 @@ import {
   GitBranch,
   Flame,
   Send,
-  Bell
+  Bell,
+  Gift,
+  Ticket,
+  Copy,
+  Check,
+  CreditCard
 } from 'lucide-react';
 import { ArchitectureDiagram } from './ArchitectureDiagram';
 import { PostgresSchemaViewer } from './PostgresSchemaViewer';
@@ -46,7 +51,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   selectedCity,
   selectedCountry
 }) => {
-  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
+  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'vouchers' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
   const [techTool, setTechTool] = useState<'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger'>('architecture');
   const [creatorFilter, setCreatorFilter] = useState('');
 
@@ -56,6 +61,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [userSearch, setUserSearch] = useState('');
   const [adjustingUser, setAdjustingUser] = useState<string | null>(null);
   const [adjustTokensAmount, setAdjustTokensAmount] = useState<number>(1000);
+
+  // Social Vouchers & Promo Engine State
+  const [vouchersList, setVouchersList] = useState<any[]>([]);
+  const [loadingVouchers, setLoadingVouchers] = useState(false);
+  const [newVoucherCode, setNewVoucherCode] = useState('');
+  const [newVoucherTokens, setNewVoucherTokens] = useState(3000);
+  const [newVoucherMaxClaims, setNewVoucherMaxClaims] = useState(250);
+  const [newVoucherDesc, setNewVoucherDesc] = useState('');
+  const [creatingVoucher, setCreatingVoucher] = useState(false);
+  const [copiedVoucherCode, setCopiedVoucherCode] = useState<string | null>(null);
+
+  // Creator & Venue Payout Requests State
+  const [payoutsList, setPayoutsList] = useState<any[]>([]);
+  const [loadingPayouts, setLoadingPayouts] = useState(false);
 
   // Flagged & Rejected Ads Moderation State
   const [flaggedAds, setFlaggedAds] = useState<any[]>([]);
@@ -219,11 +238,118 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const fetchVouchers = async () => {
+    setLoadingVouchers(true);
+    try {
+      const res = await fetch('/api/admin/vouchers');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.vouchers) setVouchersList(data.vouchers);
+      }
+    } catch (e) {
+      console.warn('Failed to load vouchers:', e);
+    } finally {
+      setLoadingVouchers(false);
+    }
+  };
+
+  const handleCreateVoucher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVoucherCode.trim()) return;
+
+    setCreatingVoucher(true);
+    try {
+      const res = await fetch('/api/admin/vouchers/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: newVoucherCode.trim().toUpperCase(),
+          tokens: Number(newVoucherTokens),
+          maxClaims: Number(newVoucherMaxClaims),
+          description: newVoucherDesc || `Promo Voucher ${newVoucherCode.toUpperCase()}`
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addToast('success', 'Promo Voucher Created!', `Code [${data.voucher.code}] for ${data.voucher.tokens.toLocaleString()} tokens ($${data.voucher.dollars.toFixed(2)}) is live.`);
+        setNewVoucherCode('');
+        setNewVoucherDesc('');
+        fetchVouchers();
+      } else {
+        addToast('error', 'Creation Failed', data.error || 'Could not create voucher.');
+      }
+    } catch (err: any) {
+      addToast('error', 'Error', err.message);
+    } finally {
+      setCreatingVoucher(false);
+    }
+  };
+
+  const handleToggleVoucher = async (code: string) => {
+    try {
+      const res = await fetch('/api/admin/vouchers/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addToast('info', 'Voucher Status Changed', `Promo code ${code} is now ${data.active ? 'ACTIVE' : 'PAUSED'}.`);
+        fetchVouchers();
+      }
+    } catch (err: any) {
+      addToast('error', 'Toggle Error', err.message);
+    }
+  };
+
+  const fetchPayouts = async () => {
+    setLoadingPayouts(true);
+    try {
+      const res = await fetch('/api/admin/payouts');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.payouts) setPayoutsList(data.payouts);
+      }
+    } catch (e) {
+      console.warn('Failed to load payouts:', e);
+    } finally {
+      setLoadingPayouts(false);
+    }
+  };
+
+  const handleUpdatePayoutStatus = async (payoutId: string, status: 'approved' | 'rejected') => {
+    try {
+      const res = await fetch(`/api/admin/payouts/${payoutId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addToast('success', 'Payout Status Updated', `Payout ${payoutId} marked as ${status.toUpperCase()}.`);
+        fetchPayouts();
+      }
+    } catch (err: any) {
+      addToast('error', 'Payout Update Error', err.message);
+    }
+  };
+
+  const handleCopyShareablePromoLink = (code: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.livebillboards.lol';
+    const link = `${origin}/?promo=${code}`;
+    navigator.clipboard.writeText(link);
+    setCopiedVoucherCode(code);
+    addToast('success', 'Promo Link Copied!', `Copied ${link} to clipboard ready to tweet / share!`);
+    setTimeout(() => setCopiedVoucherCode(null), 2500);
+  };
+
   useEffect(() => {
     fetchSettings();
     fetchCities();
     fetchFlaggedAds();
     fetchUsers();
+    fetchVouchers();
+    fetchPayouts();
   }, []);
 
   const handleSaveSettings = async () => {
@@ -364,6 +490,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {[
             { id: 'settings', label: '⚙️ Platform Settings & Safety', icon: Settings },
             { id: 'users', label: `👥 Users & Wallets (${usersList.length})`, icon: Users },
+            { id: 'vouchers', label: `🎟️ Social Vouchers (${vouchersList.length}) & Payouts (${payoutsList.length})`, icon: Gift },
             { id: 'moderation', label: `🛡️ Moderation & Flagged Ads (${flaggedAds.length})`, icon: ShieldCheck },
             { id: 'creators', label: '👑 Creator Handles & Verification', icon: Crown },
             { id: 'overrides', label: '⚡ Emergency Ad Injector & Ejector', icon: Zap },
@@ -610,6 +737,267 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* SUB-TAB: SOCIAL PROMO VOUCHERS & CREATOR PAYOUTS */}
+      {activeAdminSubTab === 'vouchers' && (
+        <div className="space-y-6">
+          {/* Section 1: Promo Vouchers Creator & Table */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-pink-500/20 text-pink-400 rounded-2xl border border-pink-500/40">
+                  <Gift className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-white uppercase tracking-tight">
+                    Social Media Promo Vouchers & Ad Grants
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Create promo codes to share on Product Hunt, X (Twitter), and Discord for viral trial user acquisition.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={fetchVouchers}
+                disabled={loadingVouchers}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-pink-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingVouchers ? 'animate-spin' : ''}`} />
+                <span>Refresh Vouchers</span>
+              </button>
+            </div>
+
+            {/* Create New Voucher Form */}
+            <form onSubmit={handleCreateVoucher} className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+              <div className="text-xs font-bold text-white uppercase flex items-center gap-1.5">
+                <Ticket className="w-3.5 h-3.5 text-pink-400" />
+                <span>Create New Social Media Promo Voucher</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-mono text-[11px]">Voucher Code</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. PRODUCTHUNT500"
+                    value={newVoucherCode}
+                    onChange={(e) => setNewVoucherCode(e.target.value.toUpperCase())}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold uppercase focus:outline-none focus:border-pink-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-mono text-[11px]">Ad Tokens (1k = $1.00)</label>
+                  <input
+                    type="number"
+                    step="500"
+                    value={newVoucherTokens}
+                    onChange={(e) => setNewVoucherTokens(Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-mono font-bold focus:outline-none focus:border-pink-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-mono text-[11px]">Max Redemptions</label>
+                  <input
+                    type="number"
+                    value={newVoucherMaxClaims}
+                    onChange={(e) => setNewVoucherMaxClaims(Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-cyan-400 font-mono font-bold focus:outline-none focus:border-pink-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-mono text-[11px]">Description / Source</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. X Launch Community"
+                    value={newVoucherDesc}
+                    onChange={(e) => setNewVoucherDesc(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-pink-500"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  disabled={creatingVoucher || !newVoucherCode.trim()}
+                  className="px-5 py-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white font-black text-xs rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 fill-current" />
+                  <span>{creatingVoucher ? 'Publishing...' : 'Publish Social Promo Code'}</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Active Vouchers Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px] uppercase">
+                    <th className="pb-3 px-3">Promo Code</th>
+                    <th className="pb-3 px-3">Token Grant</th>
+                    <th className="pb-3 px-3">USD Value</th>
+                    <th className="pb-3 px-3">Claims / Limit</th>
+                    <th className="pb-3 px-3">Status</th>
+                    <th className="pb-3 px-3 text-right">Social Share Link</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {vouchersList.map((v) => (
+                    <tr key={v.code} className="hover:bg-slate-950/50 transition-colors">
+                      <td className="py-3 px-3">
+                        <span className="font-black text-white bg-slate-950 border border-pink-500/40 text-pink-300 px-2.5 py-1 rounded-lg">
+                          {v.code}
+                        </span>
+                        <div className="text-[10px] text-slate-500 mt-1 font-sans">{v.description}</div>
+                      </td>
+                      <td className="py-3 px-3 font-bold text-amber-400">
+                        {v.tokens.toLocaleString()} Tokens
+                      </td>
+                      <td className="py-3 px-3 text-emerald-400 font-bold">
+                        ${v.dollars ? v.dollars.toFixed(2) : (v.tokens / 1000).toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="text-white font-bold">{v.claimedCount}</span>
+                        <span className="text-slate-500"> / {v.maxClaims}</span>
+                        <div className="w-24 bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+                          <div
+                            className="bg-pink-500 h-full rounded-full transition-all"
+                            style={{ width: `${Math.min(100, (v.claimedCount / v.maxClaims) * 100)}%` }}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <button
+                          onClick={() => handleToggleVoucher(v.code)}
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                            v.active
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                              : 'bg-slate-800 text-slate-400 border border-slate-700'
+                          }`}
+                        >
+                          {v.active ? 'ACTIVE' : 'PAUSED'}
+                        </button>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          onClick={() => handleCopyShareablePromoLink(v.code)}
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          {copiedVoucherCode === v.code ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedVoucherCode === v.code ? 'Copied Link!' : 'Copy Social Link'}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 2: Creator & Venue Payout Requests Review Queue */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-500/40">
+                  <CreditCard className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-white uppercase tracking-tight">
+                    Creator (80%) & Venue (70%) Withdrawal Requests
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Review and approve earnings payouts submitted by streamer overlay partners and physical smart TV hosts.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={fetchPayouts}
+                disabled={loadingPayouts}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingPayouts ? 'animate-spin' : ''}`} />
+                <span>Refresh Payouts</span>
+              </button>
+            </div>
+
+            {payoutsList.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-xs font-mono bg-slate-950/60 rounded-2xl border border-slate-800/80">
+                No withdrawal payout requests submitted yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px] uppercase">
+                      <th className="pb-3 px-3">Partner Email / Role</th>
+                      <th className="pb-3 px-3">Amount</th>
+                      <th className="pb-3 px-3">Payment Method & Recipient Address</th>
+                      <th className="pb-3 px-3">Requested At</th>
+                      <th className="pb-3 px-3">Status</th>
+                      <th className="pb-3 px-3 text-right">Admin Settle Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono">
+                    {payoutsList.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-950/50 transition-colors">
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-white">{p.userEmail}</div>
+                          <span className="text-[10px] text-purple-400 font-bold uppercase">{p.userRole}</span>
+                        </td>
+                        <td className="py-3 px-3 font-black text-emerald-400 text-sm">
+                          ${p.amountDollars.toFixed(2)} USD
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-slate-200 uppercase">{p.paymentMethod}</div>
+                          <div className="text-[10px] text-slate-400 font-mono select-all truncate max-w-[200px]">{p.recipientAddress}</div>
+                        </td>
+                        <td className="py-3 px-3 text-slate-400 text-[11px]">
+                          {new Date(p.requestedAt).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                            p.status === 'approved'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                              : p.status === 'rejected'
+                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                              : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                          }`}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          {p.status === 'pending' ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleUpdatePayoutStatus(p.id, 'approved')}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[10px] transition-all cursor-pointer flex items-center gap-1"
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Approve & Settle</span>
+                              </button>
+                              <button
+                                onClick={() => handleUpdatePayoutStatus(p.id, 'rejected')}
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-rose-900 text-slate-400 hover:text-rose-200 font-bold rounded-lg text-[10px] transition-all cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-500">Processed</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

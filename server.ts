@@ -4254,6 +4254,320 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 });
 
 // ------------------------------------------------------------------------------
+// PROMO VOUCHERS & SOCIAL MEDIA GROWTH ENGINE
+// ------------------------------------------------------------------------------
+
+export interface PromoVoucher {
+  code: string;
+  tokens: number;
+  dollars: number;
+  maxClaims: number;
+  claimedCount: number;
+  claimedByUsers: string[];
+  expiresAt: string;
+  description: string;
+  active: boolean;
+  createdAt: string;
+}
+
+const promoVouchersMap: Map<string, PromoVoucher> = new Map([
+  [
+    'PRODUCTHUNT',
+    {
+      code: 'PRODUCTHUNT',
+      tokens: 5000,
+      dollars: 5.0,
+      maxClaims: 500,
+      claimedCount: 0,
+      claimedByUsers: [],
+      expiresAt: '2026-12-31T23:59:59Z',
+      description: 'Product Hunt Launch Community Perk ($5.00 Free Billboard Ad Credit)',
+      active: true,
+      createdAt: new Date().toISOString()
+    }
+  ],
+  [
+    'LAUNCH2026',
+    {
+      code: 'LAUNCH2026',
+      tokens: 3000,
+      dollars: 3.0,
+      maxClaims: 1000,
+      claimedCount: 0,
+      claimedByUsers: [],
+      expiresAt: '2026-12-31T23:59:59Z',
+      description: 'Global Launch Special Promo Voucher ($3.00 Free Billboard Ad Credit)',
+      active: true,
+      createdAt: new Date().toISOString()
+    }
+  ],
+  [
+    'XCOMMUNITY',
+    {
+      code: 'XCOMMUNITY',
+      tokens: 2500,
+      dollars: 2.5,
+      maxClaims: 500,
+      claimedCount: 0,
+      claimedByUsers: [],
+      expiresAt: '2026-12-31T23:59:59Z',
+      description: 'X (Twitter) Community Special ($2.50 Free Ad Credit)',
+      active: true,
+      createdAt: new Date().toISOString()
+    }
+  ],
+  [
+    'MEMELORD',
+    {
+      code: 'MEMELORD',
+      tokens: 1500,
+      dollars: 1.5,
+      maxClaims: 2000,
+      claimedCount: 0,
+      claimedByUsers: [],
+      expiresAt: '2026-12-31T23:59:59Z',
+      description: 'Meme Creator Broadcast Grant ($1.50 Free Ad Credit)',
+      active: true,
+      createdAt: new Date().toISOString()
+    }
+  ]
+]);
+
+// Claim Promo Voucher (User endpoint)
+app.post('/api/wallet/claim-voucher', async (req, res) => {
+  const { userId, voucherCode } = req.body;
+  if (!userId || !voucherCode) {
+    return res.status(400).json({ success: false, error: 'Missing userId or voucherCode' });
+  }
+
+  const cleanCode = String(voucherCode).trim().toUpperCase();
+  const voucher = promoVouchersMap.get(cleanCode);
+
+  if (!voucher || !voucher.active) {
+    return res.status(404).json({ success: false, error: `Invalid or inactive promo voucher code "${cleanCode}".` });
+  }
+
+  if (voucher.claimedCount >= voucher.maxClaims) {
+    return res.status(400).json({ success: false, error: `Promo voucher "${cleanCode}" has reached its maximum limit (${voucher.maxClaims} claims).` });
+  }
+
+  if (voucher.claimedByUsers.includes(userId)) {
+    return res.status(400).json({ success: false, error: `You have already redeemed promo voucher "${cleanCode}".` });
+  }
+
+  try {
+    // 1. Fetch current profile
+    const profile = await getUserWalletFromFirestore(userId);
+    const newTokens = profile.tokensBalance + voucher.tokens;
+    const newCents = Math.round(newTokens / 10);
+
+    // 2. Atomic memory map credit
+    userWalletsMemoryMap.set(userId, {
+      tokensBalance: newTokens,
+      walletBalanceCents: newCents,
+      freeSlotClaimed: true,
+      bidsPlacedCount: (profile as any).bidsPlacedCount || 0
+    });
+
+    // 3. Mark voucher as claimed by this user
+    voucher.claimedCount += 1;
+    voucher.claimedByUsers.push(userId);
+
+    // 4. Record in Firestore
+    try {
+      const userRef = doc(db, 'users', userId);
+      await setDoc(userRef, { tokensBalance: newTokens, walletBalanceCents: newCents }, { merge: true });
+      const txnsCol = collection(db, 'users', userId, 'transactions');
+      await addDoc(txnsCol, {
+        id: `tx_voucher_${Date.now()}`,
+        type: 'voucher_redemption',
+        code: cleanCode,
+        tokens: voucher.tokens,
+        amountCents: voucher.tokens / 10,
+        amountDollars: (voucher.tokens * 0.001).toFixed(2),
+        description: `Promo Code Redeemed: ${cleanCode} (+$${voucher.dollars.toFixed(2)})`,
+        timestamp: new Date().toISOString()
+      });
+    } catch (fsErr) {
+      console.warn('Voucher Firestore sync non-fatal error:', fsErr);
+    }
+
+    logTelemetry('PROMO_VOUCHER_REDEEMED', `🎟️ User [${userId}] successfully redeemed promo code [${cleanCode}] for +${voucher.tokens.toLocaleString()} tokens ($${voucher.dollars.toFixed(2)} USD). New balance: ${newTokens.toLocaleString()} tokens.`);
+
+    return res.json({
+      success: true,
+      code: cleanCode,
+      tokensAdded: voucher.tokens,
+      dollarsAdded: voucher.dollars,
+      newTokensBalance: newTokens,
+      newWalletBalanceCents: newCents,
+      newWalletBalanceDollars: (newCents / 100).toFixed(2),
+      message: `🎉 Success! +${voucher.tokens.toLocaleString()} Ad Tokens ($${voucher.dollars.toFixed(2)} USD) added to your Ad Wallet!`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Failed to redeem voucher' });
+  }
+});
+
+// Admin: Get all promo vouchers
+app.get('/api/admin/vouchers', (req, res) => {
+  const vouchersList = Array.from(promoVouchersMap.values());
+  res.json({ success: true, totalVouchers: vouchersList.length, vouchers: vouchersList });
+});
+
+// Admin: Create new promo voucher
+app.post('/api/admin/vouchers/create', (req, res) => {
+  const { code, tokens, dollars, maxClaims, description, expiresAt } = req.body;
+  if (!code || (!tokens && !dollars)) {
+    return res.status(400).json({ success: false, error: 'code and tokens/dollars are required' });
+  }
+
+  const cleanCode = String(code).trim().toUpperCase();
+  const tokenVal = tokens ? Number(tokens) : Math.round(Number(dollars) * 1000);
+  const dollarVal = dollars ? Number(dollars) : tokenVal / 1000;
+
+  const newVoucher: PromoVoucher = {
+    code: cleanCode,
+    tokens: tokenVal,
+    dollars: dollarVal,
+    maxClaims: Number(maxClaims) || 100,
+    claimedCount: 0,
+    claimedByUsers: [],
+    expiresAt: expiresAt || '2026-12-31T23:59:59Z',
+    description: description || `Promo Code ${cleanCode} ($${dollarVal.toFixed(2)} Ad Credit)`,
+    active: true,
+    createdAt: new Date().toISOString()
+  };
+
+  promoVouchersMap.set(cleanCode, newVoucher);
+  logTelemetry('PROMO_VOUCHER_CREATED', `Admin created promo voucher [${cleanCode}] worth ${tokenVal.toLocaleString()} tokens with limit ${newVoucher.maxClaims}.`);
+
+  res.json({ success: true, voucher: newVoucher });
+});
+
+// Admin: Toggle promo voucher status
+app.post('/api/admin/vouchers/toggle', (req, res) => {
+  const { code } = req.body;
+  const cleanCode = String(code || '').trim().toUpperCase();
+  const voucher = promoVouchersMap.get(cleanCode);
+  if (!voucher) return res.status(404).json({ success: false, error: 'Voucher not found' });
+
+  voucher.active = !voucher.active;
+  res.json({ success: true, code: cleanCode, active: voucher.active });
+});
+
+// ------------------------------------------------------------------------------
+// QR SCAN & AD CONVERSION ATTRIBUTION TRACKER
+// ------------------------------------------------------------------------------
+const campaignQrScansMap: Map<string, { scansCount: number; lastScannedAt: string; scanLogs: any[] }> = new Map();
+
+// Public QR scan redirect & logging endpoint
+app.get('/api/qr-scan/:campaignId', (req, res) => {
+  const { campaignId } = req.params;
+  const stats = campaignQrScansMap.get(campaignId) || { scansCount: 0, lastScannedAt: '', scanLogs: [] };
+  stats.scansCount += 1;
+  stats.lastScannedAt = new Date().toISOString();
+  stats.scanLogs.push({
+    timestamp: new Date().toISOString(),
+    ip: req.ip,
+    userAgent: req.headers['user-agent'] || 'Unknown'
+  });
+  if (stats.scanLogs.length > 50) stats.scanLogs.shift();
+  campaignQrScansMap.set(campaignId, stats);
+
+  logTelemetry('QR_CODE_SCANNED', `📱 Viewer scanned QR Code for campaign [${campaignId}]! Total Scans: ${stats.scansCount}`);
+
+  // Query landing page URL if known
+  const campaign = activeBillboardCampaigns?.find(c => c.id === campaignId) ||
+    (activeBroadcastItem && activeBroadcastItem.id === campaignId ? activeBroadcastItem : null);
+
+  const targetUrl = campaign?.landingPageUrl || campaign?.ctaUrl || 'https://www.livebillboards.lol';
+  res.redirect(targetUrl);
+});
+
+// Get QR Scan Statistics for a campaign
+app.get('/api/campaigns/:campaignId/stats', (req, res) => {
+  const { campaignId } = req.params;
+  const stats = campaignQrScansMap.get(campaignId) || { scansCount: 0, lastScannedAt: null };
+  res.json({ success: true, campaignId, scansCount: stats.scansCount, lastScannedAt: stats.lastScannedAt });
+});
+
+// ------------------------------------------------------------------------------
+// CREATOR & VENUE PAYOUTS WITHDRAWAL ENGINE
+// ------------------------------------------------------------------------------
+export interface PayoutRequestItem {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userRole: string;
+  amountDollars: number;
+  paymentMethod: 'paypal' | 'wise' | 'stripe' | 'crypto';
+  recipientAddress: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
+  processedAt?: string;
+}
+
+const payoutRequestsLedger: PayoutRequestItem[] = [
+  {
+    id: 'pay_demo_01',
+    userId: 'usr_streamer_01',
+    userEmail: 'creator@streamer.tv',
+    userRole: 'creator',
+    amountDollars: 120.0,
+    paymentMethod: 'paypal',
+    recipientAddress: 'creator@streamer.tv',
+    status: 'approved',
+    requestedAt: new Date(Date.now() - 86400000).toISOString(),
+    processedAt: new Date(Date.now() - 3600000).toISOString()
+  }
+];
+
+// Submit Payout Request (Creator / Venue Host)
+app.post('/api/payouts/request', (req, res) => {
+  const { userId, userEmail, userRole, amountDollars, paymentMethod, recipientAddress } = req.body;
+  if (!userId || !amountDollars || !recipientAddress) {
+    return res.status(400).json({ success: false, error: 'Missing required payout fields (amount, recipientAddress)' });
+  }
+
+  const newPayout: PayoutRequestItem = {
+    id: `pay_req_${Date.now()}`,
+    userId,
+    userEmail: userEmail || 'user@example.com',
+    userRole: userRole || 'creator',
+    amountDollars: Number(amountDollars),
+    paymentMethod: paymentMethod || 'paypal',
+    recipientAddress,
+    status: 'pending',
+    requestedAt: new Date().toISOString()
+  };
+
+  payoutRequestsLedger.unshift(newPayout);
+  logTelemetry('PAYOUT_REQUEST_SUBMITTED', `💰 Payout request of $${amountDollars} submitted by ${userRole} [${userEmail || userId}] via ${paymentMethod}!`);
+
+  res.json({ success: true, payout: newPayout, message: 'Payout request submitted successfully. Admin review initiated.' });
+});
+
+// Admin: Get all payout requests
+app.get('/api/admin/payouts', (req, res) => {
+  res.json({ success: true, totalPayouts: payoutRequestsLedger.length, payouts: payoutRequestsLedger });
+});
+
+// Admin: Approve/reject payout request
+app.post('/api/admin/payouts/:payoutId/status', (req, res) => {
+  const { payoutId } = req.params;
+  const { status } = req.body;
+  const payout = payoutRequestsLedger.find(p => p.id === payoutId);
+  if (!payout) return res.status(404).json({ success: false, error: 'Payout request not found' });
+
+  payout.status = status;
+  payout.processedAt = new Date().toISOString();
+  logTelemetry('PAYOUT_STATUS_UPDATED', `Payout [${payoutId}] marked as ${String(status).toUpperCase()} by Admin.`);
+
+  res.json({ success: true, payout });
+});
+
+// ------------------------------------------------------------------------------
 // MACHINE-TO-MACHINE (M2M) PROGRAMMATIC PAYMENT & BIDDING ENDPOINTS
 // ------------------------------------------------------------------------------
 
