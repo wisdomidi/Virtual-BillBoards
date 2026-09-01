@@ -7,6 +7,7 @@ import http from 'http';
 import fs from 'fs';
 import crypto from 'crypto';
 import Stripe from 'stripe';
+import { Resend } from 'resend';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI } from '@google/genai';
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -4577,24 +4578,43 @@ export interface EmailLog {
   subject: string;
   template: 'going_live' | 'outbid' | 'proof_of_play' | 'payout_approved';
   sentAt: string;
-  status: 'delivered' | 'simulated' | 'failed';
+  status: 'delivered' | 'in_app_only' | 'simulated' | 'failed';
+  resendId?: string;
   previewText?: string;
 }
 
 const emailLogsLedger: EmailLog[] = [];
 
+// Lazy Resend Client Instance
+let resendClient: Resend | null = null;
+function getResendClient(): Resend | null {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (apiKey && apiKey.startsWith('re_') && !resendClient) {
+    try {
+      resendClient = new Resend(apiKey);
+    } catch (e) {
+      console.warn('⚠️ Resend SDK initialization note:', e);
+    }
+  }
+  return resendClient;
+}
+
 export async function sendTransactionalEmail(
   toEmail: string,
   template: 'going_live' | 'outbid' | 'proof_of_play' | 'payout_approved',
   data: Record<string, any>
-): Promise<boolean> {
-  if (!toEmail || !toEmail.includes('@')) return false;
+): Promise<{ success: boolean; mode: 'resend' | 'in_app_only'; messageId?: string }> {
+  if (!toEmail || !toEmail.includes('@')) {
+    return { success: false, mode: 'in_app_only' };
+  }
 
   let subject = 'LiveBillboards.lol Notification';
   let htmlBody = '';
+  let toastMessage = '';
 
   if (template === 'going_live') {
     subject = `🎉 YOUR AD IS GOING LIVE IN ${String(data.city || 'TIMES SQUARE').toUpperCase()}!`;
+    toastMessage = `Your ad "${data.title || 'Virtual Billboard'}" is broadcasting live in ${data.city}!`;
     htmlBody = `
       <div style="font-family: sans-serif; background: #020617; color: #f8fafc; padding: 24px; border-radius: 16px;">
         <h1 style="color: #38bdf8; margin-top: 0;">🎬 Your Ad is Broadcasting Live!</h1>
@@ -4607,6 +4627,7 @@ export async function sendTransactionalEmail(
     `;
   } else if (template === 'outbid') {
     subject = `⚠️ Outbid Alert: Slot in ${String(data.city || 'Global').toUpperCase()} was outbid!`;
+    toastMessage = `Someone outbid your ad in ${data.city}. Tap to reclaim #1 billboard slot!`;
     htmlBody = `
       <div style="font-family: sans-serif; background: #020617; color: #f8fafc; padding: 24px; border-radius: 16px;">
         <h1 style="color: #f43f5e; margin-top: 0;">⚠️ You have been outbid!</h1>
@@ -4620,6 +4641,7 @@ export async function sendTransactionalEmail(
     `;
   } else if (template === 'proof_of_play') {
     subject = `📜 Certified Proof-of-Play Certificate: "${data.title || 'Campaign'}"`;
+    toastMessage = `Proof of play confirmed for "${data.title}". Download certificate in Account Hub.`;
     htmlBody = `
       <div style="font-family: sans-serif; background: #020617; color: #f8fafc; padding: 24px; border-radius: 16px;">
         <h1 style="color: #10b981; margin-top: 0;">📜 Proof of Play Confirmed!</h1>
@@ -4634,6 +4656,7 @@ export async function sendTransactionalEmail(
     `;
   } else if (template === 'payout_approved') {
     subject = `💰 Your $${data.amount || '50.00'} Payout Has Been Approved!`;
+    toastMessage = `Your payout of $${data.amount} USD has been approved and settled!`;
     htmlBody = `
       <div style="font-family: sans-serif; background: #020617; color: #f8fafc; padding: 24px; border-radius: 16px;">
         <h1 style="color: #10b981; margin-top: 0;">💰 Withdrawal Settle Complete</h1>
@@ -4642,21 +4665,57 @@ export async function sendTransactionalEmail(
     `;
   }
 
+  const client = getResendClient();
+  let dispatchMode: 'resend' | 'in_app_only' = 'in_app_only';
+  let messageId: string | undefined;
+
+  if (client) {
+    try {
+      const fromEmail = process.env.FROM_EMAIL || 'LiveBillboards <notifications@livebillboards.lol>';
+      const res = await client.emails.send({
+        from: fromEmail,
+        to: toEmail,
+        subject,
+        html: htmlBody
+      });
+      if (res.data?.id) {
+        dispatchMode = 'resend';
+        messageId = res.data.id;
+        logTelemetry('RESEND_EMAIL_DELIVERED', `📬 Live Resend email delivered to ${toEmail} (ID: ${messageId})`);
+      }
+    } catch (err: any) {
+      console.warn(`Resend transmission fallback: ${err.message}`);
+    }
+  }
+
+  // Fallback: Dispatch In-App Notification Toast over WebSockets
+  if (dispatchMode === 'in_app_only') {
+    broadcastToAll({
+      type: 'NOTIFICATION_TOAST',
+      toastType: template === 'outbid' ? 'outbid' : template === 'going_live' ? 'live' : 'success',
+      title: subject,
+      message: toastMessage,
+      targetEmail: toEmail,
+      timestamp: new Date().toISOString()
+    });
+    logTelemetry('IN_APP_NOTIFICATION_DELIVERED', `🔔 In-app notification dispatched for [${toEmail}]: "${subject}" (No RESEND_API_KEY detected)`);
+  }
+
   const logItem: EmailLog = {
     id: `em_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     toEmail,
     subject,
     template,
     sentAt: new Date().toISOString(),
-    status: 'delivered',
+    status: dispatchMode === 'resend' ? 'delivered' : 'in_app_only',
+    resendId: messageId,
     previewText: subject
   };
 
   emailLogsLedger.unshift(logItem);
   if (emailLogsLedger.length > 200) emailLogsLedger.pop();
 
-  logTelemetry('EMAIL_NOTIFICATION_DISPATCHED', `📧 Dispatched transactional email [${template}] to ${toEmail}: "${subject}"`);
-  return true;
+  return { success: true, mode: dispatchMode, messageId };
 }
 
 // Public endpoint to test/dispatch email notification
