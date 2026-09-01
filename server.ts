@@ -7022,17 +7022,20 @@ app.get('/api/admin/ads/all', (req, res) => {
   // 1. Active Live Ads across all cities
   Object.entries(redisActiveSlots).forEach(([cityCode, slot]) => {
     if (slot && slot.winningAd) {
+      const ad = slot.winningAd;
+      const isHouse = Boolean(ad.isHouseAd || ad.id?.startsWith('demo_') || ad.id?.startsWith('seed_') || ad.id?.startsWith('house_') || ad.advertiserName?.includes('SYSTEM') || ad.advertiserName?.includes('AEGIS'));
       allAds.push({
-        id: slot.winningAd.id || `act_${cityCode}`,
-        title: slot.winningAd.title,
-        imageUrl: slot.winningAd.imageUrl,
-        advertiserName: slot.winningAd.advertiserName || 'Active Sponsor',
+        id: ad.id || `act_${cityCode}`,
+        title: ad.title,
+        imageUrl: ad.imageUrl,
+        advertiserName: ad.advertiserName || 'Active Sponsor',
         targetCityCode: cityCode,
-        bidAmountDollars: ((slot.winningAd.bidAmountCents || 100) / 100).toFixed(2),
-        bidAmountCents: slot.winningAd.bidAmountCents || 100,
+        bidAmountDollars: ((ad.bidAmountCents || 100) / 100).toFixed(2),
+        bidAmountCents: ad.bidAmountCents || 100,
         status: 'live',
+        isHouseAd: isHouse,
         impressions: slot.impressions || 12400,
-        createdAt: slot.winningAd.createdAt || new Date().toISOString()
+        createdAt: ad.createdAt || new Date().toISOString()
       });
     }
   });
@@ -7041,6 +7044,7 @@ app.get('/api/admin/ads/all', (req, res) => {
   Object.entries(redisQueues).forEach(([queueKey, queue]) => {
     const cityCode = queueKey.replace('billboard:queue:', '');
     (queue || []).forEach((adItem) => {
+      const isHouse = Boolean(adItem.isHouseAd || adItem.id?.startsWith('demo_') || adItem.id?.startsWith('seed_') || adItem.id?.startsWith('house_') || adItem.advertiserName?.includes('SYSTEM') || adItem.advertiserName?.includes('AEGIS'));
       allAds.push({
         id: adItem.id,
         title: adItem.title,
@@ -7050,6 +7054,7 @@ app.get('/api/admin/ads/all', (req, res) => {
         bidAmountDollars: ((adItem.bidAmountCents || 100) / 100).toFixed(2),
         bidAmountCents: adItem.bidAmountCents || 100,
         status: 'queued',
+        isHouseAd: isHouse,
         impressions: 0,
         createdAt: adItem.createdAt || new Date().toISOString()
       });
@@ -7066,15 +7071,21 @@ app.get('/api/admin/ads/all', (req, res) => {
       targetCityCode: flagged.targetCityCode || 'GLOBAL',
       bidAmountDollars: flagged.bidAmountDollars,
       status: 'flagged',
+      isHouseAd: false,
       safetyScore: flagged.safetyScore,
       reason: flagged.reason,
       createdAt: flagged.timestamp
     });
   });
 
+  const userAdsCount = allAds.filter(a => !a.isHouseAd).length;
+  const houseAdsCount = allAds.filter(a => a.isHouseAd).length;
+
   res.json({
     success: true,
     totalAds: allAds.length,
+    userAdsCount,
+    houseAdsCount,
     liveCount: allAds.filter(a => a.status === 'live').length,
     queuedCount: allAds.filter(a => a.status === 'queued').length,
     flaggedCount: allAds.filter(a => a.status === 'flagged').length,

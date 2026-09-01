@@ -32,7 +32,11 @@ import {
   Check,
   CreditCard,
   X,
-  ExternalLink
+  ExternalLink,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Filter
 } from 'lucide-react';
 import { ArchitectureDiagram } from './ArchitectureDiagram';
 import { PostgresSchemaViewer } from './PostgresSchemaViewer';
@@ -82,6 +86,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [allAdminAds, setAllAdminAds] = useState<any[]>([]);
   const [loadingAllAds, setLoadingAllAds] = useState(false);
   const [moderationSubTab, setModerationSubTab] = useState<'approved' | 'queued' | 'flagged' | 'all'>('approved');
+  const [adSourceFilter, setAdSourceFilter] = useState<'all' | 'user' | 'house'>('all');
+  const [adCityFilter, setAdCityFilter] = useState<string>('ALL');
+  const [adSearchQuery, setAdSearchQuery] = useState<string>('');
+  const [adPage, setAdPage] = useState<number>(1);
   const [userFilterRole, setUserFilterRole] = useState<'all' | 'verified' | 'admin' | 'streamer' | 'guest'>('all');
   const [flaggedAds, setFlaggedAds] = useState<any[]>([]);
   const [loadingFlaggedAds, setLoadingFlaggedAds] = useState(false);
@@ -587,17 +595,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
+          {/* Controls Bar: Source Filter, City Drill-down, Search, Refresh */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+            {/* Ad Source Type Filter */}
+            <div className="flex flex-wrap gap-1.5 font-mono text-xs font-bold">
+              {[
+                { id: 'user', label: `👤 Real User Ads (${allAdminAds.filter(a => !a.isHouseAd).length})` },
+                { id: 'house', label: `🏢 Demo House Ads (${allAdminAds.filter(a => a.isHouseAd).length})` },
+                { id: 'all', label: `🌐 All (${allAdminAds.length})` }
+              ].map((src) => (
+                <button
+                  key={src.id}
+                  onClick={() => { setAdSourceFilter(src.id as any); setAdPage(1); }}
+                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                    adSourceFilter === src.id
+                      ? 'bg-blue-600 text-white font-black shadow'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  {src.label}
+                </button>
+              ))}
+            </div>
+
+            {/* City Dropdown & Search Input */}
+            <div className="flex items-center gap-2">
+              <select
+                value={adCityFilter}
+                onChange={(e) => { setAdCityFilter(e.target.value); setAdPage(1); }}
+                className="bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 font-mono font-bold focus:outline-none focus:border-cyan-500"
+              >
+                <option value="ALL">🌍 All Cities ({allAdminAds.length})</option>
+                {Array.from(new Set(allAdminAds.map(a => a.targetCityCode).filter(Boolean))).sort().map(c => (
+                  <option key={c} value={c}>📍 {c}</option>
+                ))}
+              </select>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search ad title or sponsor..."
+                  value={adSearchQuery}
+                  onChange={(e) => { setAdSearchQuery(e.target.value); setAdPage(1); }}
+                  className="bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-44 sm:w-56 font-mono"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+              </div>
+            </div>
+          </div>
+
           {/* Sub-Filter Tabs: Approved vs Queued vs Flagged vs All */}
           <div className="flex flex-wrap gap-2 p-1.5 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-bold font-mono">
             {[
               { id: 'approved', label: `🟢 Approved Live Broadcasts (${allAdminAds.filter(a => a.status === 'live').length})` },
               { id: 'queued', label: `⏳ In-Queue Creatives (${allAdminAds.filter(a => a.status === 'queued').length})` },
               { id: 'flagged', label: `🔴 Flagged / Rejected Queue (${flaggedAds.length})` },
-              { id: 'all', label: `📋 All Creatives (${allAdminAds.length})` }
+              { id: 'all', label: `📋 All Statuses (${allAdminAds.length})` }
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setModerationSubTab(tab.id as any)}
+                onClick={() => { setModerationSubTab(tab.id as any); setAdPage(1); }}
                 className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
                   moderationSubTab === tab.id
                     ? 'bg-cyan-500 text-slate-950 font-black shadow'
@@ -609,9 +666,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             ))}
           </div>
 
-          {/* Cards Grid */}
+          {/* Cards Grid with Client-Side 18-Items-per-Page Pagination */}
           {(() => {
-            const displayedAds = moderationSubTab === 'flagged'
+            const rawAds = moderationSubTab === 'flagged'
               ? flaggedAds
               : moderationSubTab === 'approved'
               ? allAdminAds.filter(a => a.status === 'live')
@@ -619,120 +676,212 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ? allAdminAds.filter(a => a.status === 'queued')
               : allAdminAds;
 
-            if (displayedAds.length === 0) {
+            const filteredAds = rawAds.filter(ad => {
+              // 1. Source filter
+              if (adSourceFilter === 'user' && ad.isHouseAd) return false;
+              if (adSourceFilter === 'house' && !ad.isHouseAd) return false;
+
+              // 2. City filter
+              if (adCityFilter !== 'ALL' && ad.targetCityCode?.toUpperCase() !== adCityFilter.toUpperCase()) return false;
+
+              // 3. Search query
+              if (adSearchQuery.trim()) {
+                const q = adSearchQuery.toLowerCase();
+                const matchTitle = ad.title?.toLowerCase().includes(q);
+                const matchAdv = ad.advertiserName?.toLowerCase().includes(q);
+                if (!matchTitle && !matchAdv) return false;
+              }
+              return true;
+            });
+
+            const pageSize = 18;
+            const totalPages = Math.max(1, Math.ceil(filteredAds.length / pageSize));
+            const currentPage = Math.min(adPage, totalPages);
+            const paginatedAds = filteredAds.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+            if (filteredAds.length === 0) {
               return (
                 <div className="py-12 text-center space-y-2 bg-slate-950/60 rounded-2xl border border-slate-800/80">
                   <CheckCircle2 className="w-12 h-12 text-emerald-400/80 mx-auto" />
                   <div className="text-sm font-bold text-white uppercase">
-                    {moderationSubTab === 'flagged' ? 'Flagged Queue is Clean!' : 'No Ads in this Category'}
+                    {moderationSubTab === 'flagged' ? 'Flagged Queue is Clean!' : 'No Campaigns Match Filters'}
                   </div>
                   <p className="text-xs text-slate-400 max-w-sm mx-auto">
                     {moderationSubTab === 'flagged'
                       ? 'All incoming creative has passed Gemini Vision AI brand safety filters.'
-                      : 'No campaigns currently matching this filter status.'}
+                      : 'Try selecting "All Cities" or switching between Real User vs Demo House Ads.'}
                   </p>
                 </div>
               );
             }
 
             return (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {displayedAds.map((ad) => {
-                  const isFlagged = ad.status === 'flagged' || Boolean(ad.reason);
-                  const isLive = ad.status === 'live';
+              <div className="space-y-4">
+                {/* Results count & Pagination Top Header */}
+                <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+                  <span>Showing <strong>{paginatedAds.length}</strong> of <strong>{filteredAds.length}</strong> matching creatives</span>
+                  
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setAdPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage <= 1}
+                        className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 disabled:opacity-30 hover:border-cyan-500 cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="font-bold text-white">Page {currentPage} of {totalPages}</span>
+                      <button
+                        onClick={() => setAdPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 disabled:opacity-30 hover:border-cyan-500 cursor-pointer"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-                  return (
-                    <div
-                      key={ad.id}
-                      className={`bg-slate-950 border rounded-2xl p-4 space-y-3 shadow-lg flex flex-col justify-between transition-all ${
-                        isFlagged
-                          ? 'border-rose-500/40 hover:border-rose-500'
-                          : isLive
-                          ? 'border-emerald-500/50 hover:border-emerald-400 shadow-emerald-500/10 ring-1 ring-emerald-500/20'
-                          : 'border-slate-800 hover:border-cyan-500/40'
-                      }`}
-                    >
-                      <div className="space-y-2.5">
-                        <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800">
-                          <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
-                          <div className="absolute top-2 left-2 flex gap-1">
-                            <span className="px-2 py-0.5 bg-slate-950/80 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold rounded-md uppercase">
-                              📍 {ad.targetCityCode || 'GLOBAL'}
-                            </span>
-                            {isLive && (
-                              <span className="px-2 py-0.5 bg-emerald-950/90 text-emerald-300 border border-emerald-500/60 text-[10px] font-mono font-bold rounded-md flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                LIVE ON SCREEN
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedAds.map((ad) => {
+                    const isFlagged = ad.status === 'flagged' || Boolean(ad.reason);
+                    const isLive = ad.status === 'live';
+                    const isHouse = Boolean(ad.isHouseAd);
+
+                    return (
+                      <div
+                        key={ad.id}
+                        className={`bg-slate-950 border rounded-2xl p-4 space-y-3 shadow-lg flex flex-col justify-between transition-all ${
+                          isFlagged
+                            ? 'border-rose-500/40 hover:border-rose-500'
+                            : isLive
+                            ? 'border-emerald-500/50 hover:border-emerald-400 shadow-emerald-500/10 ring-1 ring-emerald-500/20'
+                            : isHouse
+                            ? 'border-slate-800/80 hover:border-slate-700 opacity-90'
+                            : 'border-cyan-500/30 hover:border-cyan-400 ring-1 ring-cyan-500/10'
+                        }`}
+                      >
+                        <div className="space-y-2.5">
+                          <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800">
+                            <img
+                              src={ad.imageUrl}
+                              alt={ad.title}
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+                              <span className="px-2 py-0.5 bg-slate-950/90 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold rounded-md uppercase">
+                                📍 {ad.targetCityCode || 'GLOBAL'}
+                              </span>
+                              {isLive && (
+                                <span className="px-2 py-0.5 bg-emerald-950/90 text-emerald-300 border border-emerald-500/60 text-[10px] font-mono font-bold rounded-md flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  LIVE
+                                </span>
+                              )}
+                              {isHouse ? (
+                                <span className="px-2 py-0.5 bg-slate-900/90 text-slate-400 border border-slate-700 text-[10px] font-mono font-bold rounded-md">
+                                  🏢 Demo House Ad
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 bg-blue-950/90 text-blue-300 border border-blue-500/60 text-[10px] font-mono font-bold rounded-md flex items-center gap-0.5">
+                                  <span>💎 User Ad</span>
+                                </span>
+                              )}
+                            </div>
+                            {isFlagged && (
+                              <span className="absolute top-2 right-2 px-2 py-0.5 bg-rose-950 text-rose-300 border border-rose-600 text-[10px] font-mono font-bold rounded-md">
+                                Safety: {ad.safetyScore || 45}/100
                               </span>
                             )}
                           </div>
-                          {isFlagged && (
-                            <span className="absolute top-2 right-2 px-2 py-0.5 bg-rose-950 text-rose-300 border border-rose-600 text-[10px] font-mono font-bold rounded-md">
-                              Safety: {ad.safetyScore || 45}/100
-                            </span>
-                          )}
-                        </div>
 
-                        <div>
-                          <h4 className="text-xs font-black text-white line-clamp-1">{ad.title}</h4>
-                          <div className="text-[11px] text-slate-400 mt-0.5 flex items-center justify-between">
-                            <span>Advertiser: <strong className="text-slate-200">{ad.advertiserName || 'Anonymous'}</strong></span>
-                            <span className="font-mono text-amber-400 font-bold">${ad.bidAmountDollars} USD</span>
+                          <div>
+                            <h4 className="text-xs font-black text-white line-clamp-1">{ad.title}</h4>
+                            <div className="text-[11px] text-slate-400 mt-0.5 flex items-center justify-between">
+                              <span>Advertiser: <strong className="text-slate-200">{ad.advertiserName || 'Anonymous'}</strong></span>
+                              <span className="font-mono text-amber-400 font-bold">${ad.bidAmountDollars} USD</span>
+                            </div>
+                            {ad.impressions > 0 && (
+                              <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
+                                ⚡ {ad.impressions.toLocaleString()} Impressions Delivered
+                              </div>
+                            )}
                           </div>
-                          {ad.impressions > 0 && (
-                            <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
-                              ⚡ {ad.impressions.toLocaleString()} Impressions Delivered
+
+                          {isFlagged && ad.reason && (
+                            <div className="p-2 bg-rose-950/40 border border-rose-500/30 rounded-xl text-[11px] font-mono text-rose-300">
+                              <strong>Flag Reason: </strong>{ad.reason}
                             </div>
                           )}
                         </div>
 
-                        {isFlagged && ad.reason && (
-                          <div className="p-2 bg-rose-950/40 border border-rose-500/30 rounded-xl text-[11px] font-mono text-rose-300">
-                            <strong>Flag Reason: </strong>{ad.reason}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                          {isFlagged ? (
+                            <>
+                              <button
+                                onClick={() => handleOverrideFlaggedAd(ad.id)}
+                                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Approve & Reinstate</span>
+                              </button>
+                              <button
+                                onClick={() => handleDismissFlaggedAd(ad.id)}
+                                className="p-2 bg-slate-800 hover:bg-rose-900 text-slate-400 hover:text-rose-200 rounded-xl transition-all cursor-pointer"
+                                title="Permanently Dismiss"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleRejectLiveAd(ad.id)}
+                                className="flex-1 py-2 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Force Reject & Ban</span>
+                              </button>
+                              <button
+                                onClick={() => window.open(`/?city=${ad.targetCityCode || 'GLOBAL'}`, '_blank')}
+                                className="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-xl transition-all cursor-pointer"
+                                title="Watch on Live Screen"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
+                    );
+                  })}
+                </div>
 
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
-                        {isFlagged ? (
-                          <>
-                            <button
-                              onClick={() => handleOverrideFlaggedAd(ad.id)}
-                              className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>Approve & Reinstate</span>
-                            </button>
-                            <button
-                              onClick={() => handleDismissFlaggedAd(ad.id)}
-                              className="p-2 bg-slate-800 hover:bg-rose-900 text-slate-400 hover:text-rose-200 rounded-xl transition-all cursor-pointer"
-                              title="Permanently Dismiss"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleRejectLiveAd(ad.id)}
-                              className="flex-1 py-2 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              <span>Force Reject & Ban</span>
-                            </button>
-                            <button
-                              onClick={() => window.open(`/?city=${ad.targetCityCode || 'GLOBAL'}`, '_blank')}
-                              className="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-xl transition-all cursor-pointer"
-                              title="Watch on Live Screen"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {/* Bottom Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-3 pt-4 border-t border-slate-800/80">
+                    <button
+                      onClick={() => setAdPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className="px-3 py-1.5 bg-slate-950 border border-slate-800 hover:border-cyan-500 rounded-xl text-xs font-mono font-bold text-slate-200 disabled:opacity-30 cursor-pointer flex items-center gap-1"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Previous</span>
+                    </button>
+                    <span className="text-xs font-mono text-slate-400">
+                      Page <strong className="text-white">{currentPage}</strong> of <strong className="text-white">{totalPages}</strong>
+                    </span>
+                    <button
+                      onClick={() => setAdPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                      className="px-3 py-1.5 bg-slate-950 border border-slate-800 hover:border-cyan-500 rounded-xl text-xs font-mono font-bold text-slate-200 disabled:opacity-30 cursor-pointer flex items-center gap-1"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })()}
