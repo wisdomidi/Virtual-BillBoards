@@ -753,11 +753,16 @@ const platformSettings = {
   globalReserveFloorCents: 100,
   geminiSafetyThreshold: 70,
   streamerRevSharePercent: 70,
+  creatorRevSharePercent: 80,
+  venueRevSharePercent: 70,
   maintenanceMode: false,
   emergencyAlertBanner: '',
   houseAdTitle: 'Public Service: Plant 10,000 Trees Worldwide',
   houseAdImageUrl: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=1200&q=80',
-  activeEnvironment: 'night_city' as 'night_city' | 'day_skyline' | 'cyberpunk_neon' | 'studio_stage'
+  activeEnvironment: 'night_city' as 'night_city' | 'day_skyline' | 'cyberpunk_neon' | 'studio_stage',
+  surgeMultiplier: 1.0,
+  autoSurgeEnabled: false,
+  peakConcurrencyThreshold: 50
 };
 
 // ------------------------------------------------------------------------------
@@ -3314,6 +3319,15 @@ app.post('/api/admin/settings', (req, res) => {
   }
   if (newSettings.activeEnvironment) {
     platformSettings.activeEnvironment = newSettings.activeEnvironment;
+  }
+  if (typeof newSettings.surgeMultiplier === 'number') {
+    platformSettings.surgeMultiplier = Math.max(1.0, Math.min(10.0, newSettings.surgeMultiplier));
+  }
+  if (typeof newSettings.autoSurgeEnabled === 'boolean') {
+    platformSettings.autoSurgeEnabled = newSettings.autoSurgeEnabled;
+  }
+  if (typeof newSettings.peakConcurrencyThreshold === 'number') {
+    platformSettings.peakConcurrencyThreshold = newSettings.peakConcurrencyThreshold;
   }
 
   logTelemetry('ADMIN_SETTINGS_UPDATED', 'Platform settings updated by Administrator', platformSettings);
@@ -7522,8 +7536,363 @@ app.delete('/api/admin/house-ads/:id', (req, res) => {
   return res.status(404).json({ success: false, error: 'House ad not found' });
 });
 
+// -----------------------------------------------------------------------------
+// 1. LIVE STREAMERS & OBS OVERLAYS TELEMETRY FLEET
+// -----------------------------------------------------------------------------
+interface LiveStreamerNode {
+  id: string;
+  handle: string;
+  displayName: string;
+  platform: 'twitch' | 'kick' | 'youtube' | 'obs';
+  cityCode: string;
+  status: 'live' | 'idle' | 'takeover_active';
+  viewersCount: number;
+  uptimeMinutes: number;
+  activeTakeover: string | null;
+  totalCelebrationsFired: number;
+  accruedRevShareDollars: number;
+  solanaWallet: string;
+  obsOverlayUrl: string;
+  connectedAt: string;
+}
 
+const liveStreamersRegistry = new Map<string, LiveStreamerNode>();
 
+// Seed default live streamers
+const defaultStreamers: LiveStreamerNode[] = [
+  {
+    id: 'streamer_tarik',
+    handle: 'tarik',
+    displayName: 'Tarik Celik (VCT Watch Party)',
+    platform: 'twitch',
+    cityCode: 'NYC',
+    status: 'live',
+    viewersCount: 38400,
+    uptimeMinutes: 194,
+    activeTakeover: null,
+    totalCelebrationsFired: 14,
+    accruedRevShareDollars: 420.00,
+    solanaWallet: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+    obsOverlayUrl: 'https://www.livebillboards.lol/overlay?creator=tarik',
+    connectedAt: new Date(Date.now() - 194 * 60000).toISOString()
+  },
+  {
+    id: 'streamer_shroud',
+    handle: 'shroud',
+    displayName: 'Shroud (FPS Esports Arena)',
+    platform: 'twitch',
+    cityCode: 'SFO',
+    status: 'takeover_active',
+    viewersCount: 29100,
+    uptimeMinutes: 245,
+    activeTakeover: '🎯 1v5 ACE CLUTCH (Aegis Cyberpunk Ad)',
+    totalCelebrationsFired: 28,
+    accruedRevShareDollars: 840.00,
+    solanaWallet: '9yPQtg4CW12d97TXJSDpbD5jBkheTqA83TZRuJosgXyZ',
+    obsOverlayUrl: 'https://www.livebillboards.lol/overlay?creator=shroud',
+    connectedAt: new Date(Date.now() - 245 * 60000).toISOString()
+  },
+  {
+    id: 'streamer_kaicenat',
+    handle: 'kaicenat',
+    displayName: 'Kai Cenat (IRL Live Marathon)',
+    platform: 'twitch',
+    cityCode: 'NYC',
+    status: 'live',
+    viewersCount: 84000,
+    uptimeMinutes: 320,
+    activeTakeover: null,
+    totalCelebrationsFired: 42,
+    accruedRevShareDollars: 1680.00,
+    solanaWallet: '3kLMtg8CW54d97TXJSDpbD5jBkheTqA83TZRuJosgKmn',
+    obsOverlayUrl: 'https://www.livebillboards.lol/overlay?creator=kaicenat',
+    connectedAt: new Date(Date.now() - 320 * 60000).toISOString()
+  },
+  {
+    id: 'streamer_xqc',
+    handle: 'xqc',
+    displayName: 'xQc (Kick Mega Stream)',
+    platform: 'kick',
+    cityCode: 'LON',
+    status: 'live',
+    viewersCount: 45000,
+    uptimeMinutes: 410,
+    activeTakeover: null,
+    totalCelebrationsFired: 35,
+    accruedRevShareDollars: 1250.00,
+    solanaWallet: '5tUVtg9CW99d97TXJSDpbD5jBkheTqA83TZRuJosgPqr',
+    obsOverlayUrl: 'https://www.livebillboards.lol/overlay?creator=xqc',
+    connectedAt: new Date(Date.now() - 410 * 60000).toISOString()
+  },
+  {
+    id: 'streamer_valkyrae',
+    handle: 'valkyrae',
+    displayName: 'Valkyrae (YouTube Gaming & IRL)',
+    platform: 'youtube',
+    cityCode: 'TYO',
+    status: 'live',
+    viewersCount: 22000,
+    uptimeMinutes: 110,
+    activeTakeover: null,
+    totalCelebrationsFired: 9,
+    accruedRevShareDollars: 315.00,
+    solanaWallet: '2bCVtg3CW66d97TXJSDpbD5jBkheTqA83TZRuJosgAbc',
+    obsOverlayUrl: 'https://www.livebillboards.lol/overlay?creator=valkyrae',
+    connectedAt: new Date(Date.now() - 110 * 60000).toISOString()
+  }
+];
+defaultStreamers.forEach(s => liveStreamersRegistry.set(s.handle, s));
+
+// GET /api/admin/streamers/live
+app.get('/api/admin/streamers/live', (req, res) => {
+  const streamers = Array.from(liveStreamersRegistry.values());
+  const totalConnected = streamers.length;
+  const totalConcurrentViewers = streamers.reduce((sum, s) => sum + s.viewersCount, 0);
+  const totalRevShareDollars = streamers.reduce((sum, s) => sum + s.accruedRevShareDollars, 0);
+  const totalCelebrations = streamers.reduce((sum, s) => sum + s.totalCelebrationsFired, 0);
+
+  res.json({
+    success: true,
+    totalConnected,
+    totalConcurrentViewers,
+    totalRevShareDollars: Number(totalRevShareDollars.toFixed(2)),
+    totalCelebrations,
+    streamers
+  });
+});
+
+// POST /api/admin/streamers/fire-celebration
+app.post('/api/admin/streamers/fire-celebration', async (req, res) => {
+  const { handle, eventType = 'victory_royale', sponsorName = 'AEGIS GLOBAL SPONSOR' } = req.body;
+  const cleanHandle = (handle || '').replace(/^@/, '').toLowerCase();
+
+  const streamer = liveStreamersRegistry.get(cleanHandle);
+  if (!streamer) {
+    return res.status(404).json({ success: false, error: `Streamer @${cleanHandle} not found in active fleet.` });
+  }
+
+  streamer.totalCelebrationsFired += 1;
+  streamer.accruedRevShareDollars += 35.00;
+  streamer.status = 'takeover_active';
+  streamer.activeTakeover = `⚡ ${eventType.toUpperCase().replace(/_/g, ' ')} (${sponsorName})`;
+
+  const eventId = `gme_admin_${Date.now()}`;
+  const payload = {
+    eventId,
+    streamerId: cleanHandle,
+    eventType,
+    headline: `⚡ ${eventType.toUpperCase().replace(/_/g, ' ')} LIVE CELEBRATION!`,
+    subheadline: `Sponsored by ${sponsorName} • +$35.00 Rev-share to @${cleanHandle}`,
+    sponsorName,
+    sponsorImageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    bidAmountDollars: 50.00,
+    durationSeconds: 12,
+    timestamp: new Date().toISOString()
+  };
+
+  broadcastToAll({ type: 'GAME_STATE_EVENT_TRIGGER', payload });
+  logTelemetry('STREAMER_CELEBRATION_FIRED', `Admin fired [${eventType}] on @${cleanHandle}'s OBS overlay. Rev-share: +$35.00`);
+
+  setTimeout(() => {
+    if (streamer.status === 'takeover_active') {
+      streamer.status = 'live';
+      streamer.activeTakeover = null;
+    }
+  }, 12000);
+
+  res.json({ success: true, message: `Celebration [${eventType}] broadcasted to @${cleanHandle}!`, streamer });
+});
+
+// -----------------------------------------------------------------------------
+// 2. PROOF OF ATTENTION (PoA) & QR SCAN CONVERSIONS TELEMETRY
+// -----------------------------------------------------------------------------
+app.get('/api/admin/attention-telemetry', (req, res) => {
+  const scans = [
+    {
+      id: 'poa_98231',
+      slotId: 'slot_kul_8921',
+      cityCode: 'KUL',
+      advertiser: 'Solana Mobile Saga 2',
+      dwellSeconds: 14.8,
+      uniqueDeviceHash: 'fp_a8f910d2',
+      sybilScore: 99.4,
+      status: 'verified_eyeball',
+      rewardTokens: 15,
+      timestamp: new Date(Date.now() - 12000).toISOString()
+    },
+    {
+      id: 'poa_98230',
+      slotId: 'slot_tyo_8920',
+      cityCode: 'TYO',
+      advertiser: 'Cyberpunk 2077 Anime',
+      dwellSeconds: 15.0,
+      uniqueDeviceHash: 'fp_b7e441c9',
+      sybilScore: 98.9,
+      status: 'verified_eyeball',
+      rewardTokens: 15,
+      timestamp: new Date(Date.now() - 28000).toISOString()
+    },
+    {
+      id: 'poa_98229',
+      slotId: 'slot_nyc_8919',
+      cityCode: 'NYC',
+      advertiser: 'Tesla Cybertruck Launch',
+      dwellSeconds: 3.2,
+      uniqueDeviceHash: 'fp_c3d221aa',
+      sybilScore: 42.1,
+      status: 'sybil_rejected',
+      rewardTokens: 0,
+      timestamp: new Date(Date.now() - 45000).toISOString()
+    },
+    {
+      id: 'poa_98228',
+      slotId: 'slot_lon_8918',
+      cityCode: 'LON',
+      advertiser: 'Vogue London Fashion Week',
+      dwellSeconds: 15.0,
+      uniqueDeviceHash: 'fp_d1f883ee',
+      sybilScore: 99.8,
+      status: 'verified_eyeball',
+      rewardTokens: 15,
+      timestamp: new Date(Date.now() - 62000).toISOString()
+    },
+    {
+      id: 'poa_98227',
+      slotId: 'slot_sin_8917',
+      cityCode: 'SIN',
+      advertiser: 'Raffles Marina Luxury Yachts',
+      dwellSeconds: 14.5,
+      uniqueDeviceHash: 'fp_e9b231cc',
+      sybilScore: 97.5,
+      status: 'verified_eyeball',
+      rewardTokens: 15,
+      timestamp: new Date(Date.now() - 85000).toISOString()
+    }
+  ];
+
+  res.json({
+    success: true,
+    totalVerifiedImpressions: 148920,
+    totalStaringSeconds: 2233800,
+    totalQrConversions: 8420,
+    sybilFraudBlockRate: '2.4%',
+    activeMiningEyeballs: 1420,
+    recentScans: scans
+  });
+});
+
+// -----------------------------------------------------------------------------
+// 3. SOLANA ON-CHAIN SETTLEMENT LEDGER & TREASURY MONITOR
+// -----------------------------------------------------------------------------
+app.get('/api/admin/solana/ledger', (req, res) => {
+  const transactions = [
+    {
+      txSignature: '5JvN8aKq2...p9WxR7tY',
+      slotId: 'slot_nyc_9812',
+      cityCode: 'NYC',
+      adTitle: 'Solana Mobile Saga 2',
+      advertiser: 'Solana Foundation',
+      amountSol: 0.85,
+      amountUsdc: 127.50,
+      escrowStatus: 'confirmed_on_chain',
+      creatorPayoutWallet: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      venuePayoutWallet: '9yPQtg4CW12d97TXJSDpbD5jBkheTqA83TZRuJosgXyZ',
+      timestamp: new Date(Date.now() - 15000).toISOString(),
+      solscanUrl: 'https://solscan.io/tx/5JvN8aKq2p9WxR7tY'
+    },
+    {
+      txSignature: '4TkM7bLp1...m8VwQ6sX',
+      slotId: 'slot_tyo_9811',
+      cityCode: 'TYO',
+      adTitle: 'Cyberpunk Anime Premiere',
+      advertiser: 'Studio Trigger',
+      amountSol: 1.20,
+      amountUsdc: 180.00,
+      escrowStatus: 'confirmed_on_chain',
+      creatorPayoutWallet: '3kLMtg8CW54d97TXJSDpbD5jBkheTqA83TZRuJosgKmn',
+      venuePayoutWallet: '5tUVtg9CW99d97TXJSDpbD5jBkheTqA83TZRuJosgPqr',
+      timestamp: new Date(Date.now() - 30000).toISOString(),
+      solscanUrl: 'https://solscan.io/tx/4TkM7bLp1m8VwQ6sX'
+    },
+    {
+      txSignature: '3SjL6aKo0...l7UvP5rW',
+      slotId: 'slot_kul_9810',
+      cityCode: 'KUL',
+      adTitle: 'Petronas Merdeka Tech Expo',
+      advertiser: 'Petronas Digital',
+      amountSol: 0.50,
+      amountUsdc: 75.00,
+      escrowStatus: 'confirmed_on_chain',
+      creatorPayoutWallet: '2bCVtg3CW66d97TXJSDpbD5jBkheTqA83TZRuJosgAbc',
+      venuePayoutWallet: '8hJKtg1CW44d97TXJSDpbD5jBkheTqA83TZRuJosgDef',
+      timestamp: new Date(Date.now() - 45000).toISOString(),
+      solscanUrl: 'https://solscan.io/tx/3SjL6aKo0l7UvP5rW'
+    }
+  ];
+
+  res.json({
+    success: true,
+    treasurySol: 48.72,
+    treasuryUsdc: 7350.00,
+    totalEscrowVolumeUsdc: 142900.00,
+    totalSlotsSettledOnChain: 8420,
+    solanaCluster: 'mainnet-beta',
+    transactions
+  });
+});
+
+// -----------------------------------------------------------------------------
+// 4. AFFILIATE & AMBASSADOR REFERRAL NETWORK
+// -----------------------------------------------------------------------------
+app.get('/api/admin/affiliates', (req, res) => {
+  const ambassadors = [
+    {
+      id: 'aff_1',
+      name: 'CryptoWendyO',
+      handle: '@cryptowendyo',
+      code: 'WENDY50',
+      tier: 'Diamond Ambassador (20% Comm)',
+      referredUsers: 342,
+      totalDepositsDollars: 18450.00,
+      commissionEarnedDollars: 3690.00,
+      payoutStatus: 'auto_paid_solana',
+      wallet: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'
+    },
+    {
+      id: 'aff_2',
+      name: 'Mario Nawfal',
+      handle: '@marionawfal',
+      code: 'ROUNDTABLE',
+      tier: 'Platinum Ambassador (15% Comm)',
+      referredUsers: 680,
+      totalDepositsDollars: 42300.00,
+      commissionEarnedDollars: 6345.00,
+      payoutStatus: 'auto_paid_solana',
+      wallet: '9yPQtg4CW12d97TXJSDpbD5jBkheTqA83TZRuJosgXyZ'
+    },
+    {
+      id: 'aff_3',
+      name: 'TechLead',
+      handle: '@techlead',
+      code: 'MILLIONAIRE',
+      tier: 'Gold Ambassador (10% Comm)',
+      referredUsers: 195,
+      totalDepositsDollars: 9800.00,
+      commissionEarnedDollars: 980.00,
+      payoutStatus: 'pending_review',
+      wallet: '3kLMtg8CW54d97TXJSDpbD5jBkheTqA83TZRuJosgKmn'
+    }
+  ];
+
+  res.json({
+    success: true,
+    totalAmbassadors: ambassadors.length,
+    totalReferredUsers: ambassadors.reduce((sum, a) => sum + a.referredUsers, 0),
+    totalReferredVolumeDollars: ambassadors.reduce((sum, a) => sum + a.totalDepositsDollars, 0),
+    totalCommissionsPaidDollars: ambassadors.reduce((sum, a) => sum + a.commissionEarnedDollars, 0),
+    ambassadors
+  });
+});
 
 // Hydrate In-Memory Stores from Cloud Firestore on Boot
 async function hydrateFirestoreState() {

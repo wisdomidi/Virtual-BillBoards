@@ -317,6 +317,9 @@ export interface PlatformSettings {
   houseAdTitle: string;
   houseAdImageUrl: string;
   activeEnvironment: 'night_city' | 'day_skyline' | 'cyberpunk_neon' | 'studio_stage';
+  surgeMultiplier?: number;
+  autoSurgeEnabled?: boolean;
+  peakConcurrencyThreshold?: number;
 }
 
 export interface CityConfig {

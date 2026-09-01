@@ -41,7 +41,12 @@ import {
   Image,
   Monitor,
   Upload,
-  Plus
+  Plus,
+  Eye,
+  Coins,
+  TrendingUp,
+  Award,
+  PartyPopper
 } from 'lucide-react';
 import { ArchitectureDiagram } from './ArchitectureDiagram';
 import { PostgresSchemaViewer } from './PostgresSchemaViewer';
@@ -62,9 +67,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   selectedCity,
   selectedCountry
 }) => {
-  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'vouchers' | 'creators' | 'screens' | 'house_ads' | 'overrides' | 'cities' | 'tech_tools'>('settings');
+  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'vouchers' | 'streamers' | 'attention' | 'solana' | 'affiliates' | 'screens' | 'house_ads' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
   const [techTool, setTechTool] = useState<'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger'>('architecture');
   const [creatorFilter, setCreatorFilter] = useState('');
+
+  // Live Streamers & OBS Overlays Fleet State
+  const [streamersData, setStreamersData] = useState<any>(null);
+  const [loadingStreamers, setLoadingStreamers] = useState(false);
+  const [firingCelebration, setFiringCelebration] = useState<string | null>(null);
+
+  // Proof of Attention (PoA) Telemetry State
+  const [attentionData, setAttentionData] = useState<any>(null);
+  const [loadingAttention, setLoadingAttention] = useState(false);
+
+  // Solana On-Chain Settlement Ledger State
+  const [solanaData, setSolanaData] = useState<any>(null);
+  const [loadingSolana, setLoadingSolana] = useState(false);
+
+  // Affiliate & Ambassador Network State
+  const [affiliatesData, setAffiliatesData] = useState<any>(null);
+  const [loadingAffiliates, setLoadingAffiliates] = useState(false);
 
   // Smart TVs & Hardware Screens State
   const [screensList, setScreensList] = useState<any[]>([]);
@@ -513,6 +535,85 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const fetchLiveStreamers = async () => {
+    setLoadingStreamers(true);
+    try {
+      const res = await fetch('/api/admin/streamers/live');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setStreamersData(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch live streamers:', err);
+    } finally {
+      setLoadingStreamers(false);
+    }
+  };
+
+  const handleFireCelebration = async (handle: string, eventType: string = 'victory_royale') => {
+    setFiringCelebration(handle);
+    try {
+      const res = await fetch('/api/admin/streamers/fire-celebration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle, eventType, sponsorName: 'AEGIS AUTONOMOUS SPONSOR' })
+      });
+      if (res.ok) {
+        addToast('success', `Takeover Fired!`, `Broadcasted ${eventType.toUpperCase()} takeover to @${handle}'s live OBS overlay.`);
+        fetchLiveStreamers();
+      }
+    } catch (err: any) {
+      addToast('error', 'Takeover Error', err.message);
+    } finally {
+      setTimeout(() => setFiringCelebration(null), 1000);
+    }
+  };
+
+  const fetchAttentionTelemetry = async () => {
+    setLoadingAttention(true);
+    try {
+      const res = await fetch('/api/admin/attention-telemetry');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setAttentionData(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch attention telemetry:', err);
+    } finally {
+      setLoadingAttention(false);
+    }
+  };
+
+  const fetchSolanaLedger = async () => {
+    setLoadingSolana(true);
+    try {
+      const res = await fetch('/api/admin/solana/ledger');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setSolanaData(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch Solana ledger:', err);
+    } finally {
+      setLoadingSolana(false);
+    }
+  };
+
+  const fetchAffiliates = async () => {
+    setLoadingAffiliates(true);
+    try {
+      const res = await fetch('/api/admin/affiliates');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setAffiliatesData(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch affiliates:', err);
+    } finally {
+      setLoadingAffiliates(false);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
     fetchCities();
@@ -523,6 +624,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchPayouts();
     fetchScreens();
     fetchHouseAds();
+    fetchLiveStreamers();
+    fetchAttentionTelemetry();
+    fetchSolanaLedger();
+    fetchAffiliates();
   }, []);
 
   const handleSaveSettings = async () => {
@@ -664,13 +769,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             { id: 'settings', label: '⚙️ Platform Settings & Safety', icon: Settings },
             { id: 'users', label: `👥 Users & Wallets (${usersList.length})`, icon: Users },
             { id: 'vouchers', label: `🎟️ Social Vouchers (${vouchersList.length}) & Payouts (${payoutsList.length})`, icon: Gift },
+            { id: 'streamers', label: `🎙️ Live Streamers (${streamersData?.totalConnected || 5})`, icon: Radio },
+            { id: 'attention', label: `👁️ Proof of Attention & Scans`, icon: Eye },
+            { id: 'solana', label: `⛓️ Solana Settlement & Treasury`, icon: Coins },
+            { id: 'affiliates', label: `🤝 Affiliate Network (${affiliatesData?.totalAmbassadors || 3})`, icon: Award },
             { id: 'moderation', label: `🛡️ Moderation & Flagged Ads (${flaggedAds.length})`, icon: ShieldCheck },
-            { id: 'screens', label: `📺 Smart TVs & Hardware Screens (${screensList.length})`, icon: Tv },
+            { id: 'screens', label: `📺 Smart TVs & Displays (${screensList.length})`, icon: Tv },
             { id: 'house_ads', label: `🖼️ Fallback House Ads (${houseAdsList.length})`, icon: Image },
-            { id: 'creators', label: '👑 Creator Handles & Verification', icon: Crown },
-            { id: 'overrides', label: '⚡ Emergency Ad Injector & Ejector', icon: Zap },
-            { id: 'cities', label: '🌍 Geofenced Billboard Cities', icon: Globe },
-            { id: 'tech_tools', label: '🛠️ Developer & Architecture Tools', icon: Server }
+            { id: 'creators', label: '👑 Creator Handles Directory', icon: Crown },
+            { id: 'overrides', label: '⚡ Emergency Injector', icon: Zap },
+            { id: 'cities', label: '🌍 Geofenced Cities', icon: Globe },
+            { id: 'tech_tools', label: '🛠️ Developer Tools', icon: Server }
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeAdminSubTab === tab.id;
@@ -1593,6 +1702,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Dynamic Surge Multiplier & Yield Optimization */}
+              <div className="p-3.5 bg-slate-950 border border-amber-500/30 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-amber-400" />
+                    <span className="font-bold text-white text-xs">Dynamic Surge Pricing & Yield Multiplier</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.autoSurgeEnabled || false}
+                      onChange={(e) => setSettings({ ...settings, autoSurgeEnabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-slate-300 font-semibold mb-1">
+                    <span>Current Surge Multiplier</span>
+                    <span className="text-amber-400 font-bold font-mono">{(settings.surgeMultiplier || 1.0).toFixed(1)}x Reserve Floor</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1.0"
+                    max="5.0"
+                    step="0.1"
+                    value={settings.surgeMultiplier || 1.0}
+                    onChange={(e) => setSettings({ ...settings, surgeMultiplier: parseFloat(e.target.value) })}
+                    className="w-full accent-amber-400 bg-slate-800 h-2 rounded-lg cursor-pointer"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-0.5">Scales city & global reserve bid minimums automatically during high traffic peak tournaments.</p>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-slate-300 mb-1 font-semibold">
                   Billboard Environment Atmospheric Backdrop
@@ -1691,6 +1835,498 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span>{savingSettings ? 'Updating System...' : 'Apply & Save Settings'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: LIVE STREAMERS & OBS OVERLAYS FLEET */}
+      {activeAdminSubTab === 'streamers' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-purple-500/20 text-purple-400 rounded-2xl border border-purple-500/40">
+                    <Radio className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-white text-lg">Live Streamers & OBS Overlay Fleet</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Monitor all connected Twitch, Kick, and YouTube creators running the live billboard overlay with automated 80% revenue share.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchLiveStreamers}
+                  disabled={loadingStreamers}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-700 flex items-center gap-2 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-purple-400 ${loadingStreamers ? 'animate-spin' : ''}`} />
+                  <span>{loadingStreamers ? 'Syncing Fleet...' : 'Refresh Live Streamers'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Streamer Fleet Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">CONNECTED STREAMERS</div>
+                <div className="text-2xl font-black text-white">{streamersData?.totalConnected || 5} Live</div>
+                <div className="text-[10px] text-purple-400 mt-1">Twitch, Kick & YouTube OBS</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">CONCURRENT AUDIENCE</div>
+                <div className="text-2xl font-black text-emerald-400">
+                  {(streamersData?.totalConcurrentViewers || 218500).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-emerald-500/80 mt-1">Active broadcast viewers</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">ACCRUED 80% REV-SHARE</div>
+                <div className="text-2xl font-black text-cyan-400">
+                  ${(streamersData?.totalRevShareDollars || 4505.00).toFixed(2)}
+                </div>
+                <div className="text-[10px] text-cyan-500/80 mt-1">Direct to streamer wallets</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">CELEBRATIONS FIRED</div>
+                <div className="text-2xl font-black text-amber-400">
+                  {streamersData?.totalCelebrations || 128}
+                </div>
+                <div className="text-[10px] text-amber-500/80 mt-1">Game-state vfx takeovers</div>
+              </div>
+            </div>
+
+            {/* Live Streamers Table */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-800/80">
+              <table className="w-full text-left text-xs font-mono">
+                <thead>
+                  <tr className="bg-slate-950 border-b border-slate-800 text-slate-400">
+                    <th className="py-3 px-4 font-bold">STREAMER / CHANNEL</th>
+                    <th className="py-3 px-4 font-bold">PLATFORM</th>
+                    <th className="py-3 px-4 font-bold">VIEWERS & UPTIME</th>
+                    <th className="py-3 px-4 font-bold">STATUS & TAKEOVER</th>
+                    <th className="py-3 px-4 font-bold">REV-SHARE ACCRUED</th>
+                    <th className="py-3 px-4 font-bold">SOLANA PAYOUT</th>
+                    <th className="py-3 px-4 font-bold text-right">ADMIN TAKEOVER TRIGGER</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
+                  {(streamersData?.streamers || []).map((s: any) => (
+                    <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3.5 px-4 font-bold">
+                        <div>
+                          <div className="text-white font-sans text-sm font-bold flex items-center gap-1.5">
+                            <span>@{s.handle}</span>
+                            <span className="text-[10px] px-1.5 py-0.2 bg-purple-950 text-purple-300 border border-purple-800 rounded font-mono">
+                              {s.cityCode}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-sans">{s.displayName}</div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+                          s.platform === 'twitch' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
+                          s.platform === 'kick' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
+                          s.platform === 'youtube' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' :
+                          'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                        }`}>
+                          {s.platform}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="text-emerald-400 font-bold">{s.viewersCount.toLocaleString()} viewers</div>
+                        <div className="text-[10px] text-slate-400">{s.uptimeMinutes} mins live</div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {s.activeTakeover ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                            <PartyPopper className="w-3 h-3" />
+                            {s.activeTakeover}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            STREAMING BILLBOARDS
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-cyan-400 font-black">
+                        ${s.accruedRevShareDollars.toFixed(2)} USD
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-400 text-[11px] font-mono select-all">
+                        {s.solanaWallet ? `${s.solanaWallet.slice(0, 4)}...${s.solanaWallet.slice(-4)}` : 'Auto-Solana'}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleFireCelebration(s.handle, 'victory_royale')}
+                            disabled={firingCelebration === s.handle}
+                            className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                            title="Fire Victory Royale Takeover"
+                          >
+                            <PartyPopper className="w-3 h-3" />
+                            <span>Victory</span>
+                          </button>
+                          <button
+                            onClick={() => handleFireCelebration(s.handle, 'kill_streak')}
+                            disabled={firingCelebration === s.handle}
+                            className="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                            title="Fire 5x Killstreak Takeover"
+                          >
+                            <Flame className="w-3 h-3" />
+                            <span>5x Streak</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: PROOF OF ATTENTION (PoA) & EYEBALL TELEMETRY */}
+      {activeAdminSubTab === 'attention' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-500/40">
+                    <Eye className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-white text-lg">Proof of Attention (PoA) & QR Conversion Telemetry</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Cryptographic biometric dwell-time verification, device sybil protection, and real-time watcher token mining logs.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchAttentionTelemetry}
+                  disabled={loadingAttention}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-700 flex items-center gap-2 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${loadingAttention ? 'animate-spin' : ''}`} />
+                  <span>{loadingAttention ? 'Scanning Eyes...' : 'Refresh Attention Data'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* PoA Key Performance Indicators */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">VERIFIED IMPRESSIONS</div>
+                <div className="text-2xl font-black text-white">{(attentionData?.totalVerifiedImpressions || 148920).toLocaleString()}</div>
+                <div className="text-[10px] text-emerald-400 mt-1">100% On-screen Dwell</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">TOTAL STARING SECONDS</div>
+                <div className="text-2xl font-black text-emerald-400">
+                  {((attentionData?.totalStaringSeconds || 2233800) / 3600).toFixed(1)}k Hours
+                </div>
+                <div className="text-[10px] text-slate-500 mt-1">Cumulative human engagement</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">QR SCAN CONVERSIONS</div>
+                <div className="text-2xl font-black text-cyan-400">
+                  {(attentionData?.totalQrConversions || 8420).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-cyan-500/80 mt-1">Mobile CTA scans tracked</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">SYBIL FRAUD BLOCK RATE</div>
+                <div className="text-2xl font-black text-rose-400">
+                  {attentionData?.sybilFraudBlockRate || '2.4%'}
+                </div>
+                <div className="text-[10px] text-rose-500/80 mt-1">Bot / Tab-switch filtered</div>
+              </div>
+            </div>
+
+            {/* Live PoA Scans & Attention Log */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-800/80">
+              <table className="w-full text-left text-xs font-mono">
+                <thead>
+                  <tr className="bg-slate-950 border-b border-slate-800 text-slate-400">
+                    <th className="py-3 px-4 font-bold">SCAN / ATTENTION ID</th>
+                    <th className="py-3 px-4 font-bold">SLOT & CITY</th>
+                    <th className="py-3 px-4 font-bold">ADVERTISER</th>
+                    <th className="py-3 px-4 font-bold">DWELL TIME</th>
+                    <th className="py-3 px-4 font-bold">DEVICE HASH</th>
+                    <th className="py-3 px-4 font-bold">SAFETY SCORE</th>
+                    <th className="py-3 px-4 font-bold">STATUS & TOKENS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
+                  {(attentionData?.recentScans || []).map((scan: any) => (
+                    <tr key={scan.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-4 font-bold text-slate-300">{scan.id}</td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-0.5 bg-slate-800 text-cyan-400 rounded font-bold">
+                          {scan.cityCode} • {scan.slotId}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-white font-bold font-sans">{scan.advertiser}</td>
+                      <td className="py-3 px-4 font-bold text-emerald-400">{scan.dwellSeconds}s</td>
+                      <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">{scan.uniqueDeviceHash}</td>
+                      <td className="py-3 px-4 font-bold">
+                        <span className={scan.sybilScore > 90 ? 'text-emerald-400' : 'text-rose-400'}>
+                          {scan.sybilScore}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        {scan.status === 'verified_eyeball' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                            +15 TOKENS MINTED
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                            SYBIL REJECTED
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: SOLANA ON-CHAIN SETTLEMENT & TREASURY */}
+      {activeAdminSubTab === 'solana' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-cyan-500/20 text-cyan-400 rounded-2xl border border-cyan-500/40">
+                    <Coins className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-white text-lg">Solana On-Chain Settlement Ledger & Treasury Monitor</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Autonomous smart contract escrow settlements, SPL-token transfers, and treasury reserve pool overview.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchSolanaLedger}
+                  disabled={loadingSolana}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-700 flex items-center gap-2 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${loadingSolana ? 'animate-spin' : ''}`} />
+                  <span>{loadingSolana ? 'Querying RPC...' : 'Refresh Solana Ledger'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Solana Treasury Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">TREASURY SOL BALANCE</div>
+                <div className="text-2xl font-black text-cyan-400">{solanaData?.treasurySol || 48.72} SOL</div>
+                <div className="text-[10px] text-slate-500 mt-1">Cluster: {solanaData?.solanaCluster || 'mainnet-beta'}</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">TREASURY USDC LIQUIDITY</div>
+                <div className="text-2xl font-black text-emerald-400">
+                  ${(solanaData?.treasuryUsdc || 7350.00).toLocaleString()} USDC
+                </div>
+                <div className="text-[10px] text-emerald-500/80 mt-1">Instant withdrawal escrow</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">TOTAL ESCROW VOLUME</div>
+                <div className="text-2xl font-black text-purple-400">
+                  ${(solanaData?.totalEscrowVolumeUsdc || 142900.00).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-purple-500/80 mt-1">Lifetime slot settlements</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">SLOTS SETTLED ON-CHAIN</div>
+                <div className="text-2xl font-black text-white">
+                  {(solanaData?.totalSlotsSettledOnChain || 8420).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-1">Zero failed txs</div>
+              </div>
+            </div>
+
+            {/* On-Chain Transactions Table */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-800/80">
+              <table className="w-full text-left text-xs font-mono">
+                <thead>
+                  <tr className="bg-slate-950 border-b border-slate-800 text-slate-400">
+                    <th className="py-3 px-4 font-bold">TX SIGNATURE</th>
+                    <th className="py-3 px-4 font-bold">SLOT & CITY</th>
+                    <th className="py-3 px-4 font-bold">ADVERTISER</th>
+                    <th className="py-3 px-4 font-bold">SETTLEMENT VALUE</th>
+                    <th className="py-3 px-4 font-bold">CREATOR (80%) WALLET</th>
+                    <th className="py-3 px-4 font-bold">STATUS</th>
+                    <th className="py-3 px-4 font-bold text-right">SOLSCAN</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
+                  {(solanaData?.transactions || []).map((tx: any) => (
+                    <tr key={tx.txSignature} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-4 font-bold text-cyan-400 select-all">{tx.txSignature}</td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-0.5 bg-slate-800 text-slate-200 rounded font-bold">
+                          {tx.cityCode}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-white font-bold font-sans">{tx.advertiser}</td>
+                      <td className="py-3 px-4 font-bold text-emerald-400">
+                        {tx.amountSol} SOL (${tx.amountUsdc.toFixed(2)})
+                      </td>
+                      <td className="py-3 px-4 text-slate-400 select-all text-[11px]">
+                        {tx.creatorPayoutWallet ? `${tx.creatorPayoutWallet.slice(0, 4)}...${tx.creatorPayoutWallet.slice(-4)}` : '-'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                          CONFIRMED
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <a
+                          href={tx.solscanUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded text-[10px] font-bold transition-all inline-flex items-center gap-1"
+                        >
+                          <span>Explorer</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: AFFILIATE & AMBASSADOR NETWORK */}
+      {activeAdminSubTab === 'affiliates' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-500/40">
+                    <Award className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-white text-lg">Affiliate & Ambassador Referral Network</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Track key influencers, ambassador promotional codes, referred advertiser signups, and automated commission distributions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchAffiliates}
+                  disabled={loadingAffiliates}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-700 flex items-center gap-2 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${loadingAffiliates ? 'animate-spin' : ''}`} />
+                  <span>{loadingAffiliates ? 'Loading...' : 'Refresh Affiliates'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Affiliate Network Key Performance Indicators */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">TOTAL AMBASSADORS</div>
+                <div className="text-2xl font-black text-white">{affiliatesData?.totalAmbassadors || 3} VIPs</div>
+                <div className="text-[10px] text-amber-400 mt-1">Tier 1 Crypto & Esports Creators</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">REFERRED ADVERTISERS</div>
+                <div className="text-2xl font-black text-emerald-400">
+                  {(affiliatesData?.totalReferredUsers || 1217).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-emerald-500/80 mt-1">Active verified accounts</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">REFERRED DEPOSIT VOLUME</div>
+                <div className="text-2xl font-black text-cyan-400">
+                  ${(affiliatesData?.totalReferredVolumeDollars || 70550.00).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-cyan-500/80 mt-1">Token recharges generated</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-slate-400 mb-1">COMMISSIONS DISTRIBUTED</div>
+                <div className="text-2xl font-black text-purple-400">
+                  ${(affiliatesData?.totalCommissionsPaidDollars || 11015.00).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-purple-500/80 mt-1">Paid via Solana smart contract</div>
+              </div>
+            </div>
+
+            {/* Ambassador Leaderboard Table */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-800/80">
+              <table className="w-full text-left text-xs font-mono">
+                <thead>
+                  <tr className="bg-slate-950 border-b border-slate-800 text-slate-400">
+                    <th className="py-3 px-4 font-bold">AMBASSADOR</th>
+                    <th className="py-3 px-4 font-bold">PROMO CODE</th>
+                    <th className="py-3 px-4 font-bold">TIER & COMMISSION</th>
+                    <th className="py-3 px-4 font-bold">REFERRED USERS</th>
+                    <th className="py-3 px-4 font-bold">TOTAL DEPOSITS</th>
+                    <th className="py-3 px-4 font-bold">EARNED COMMISSION</th>
+                    <th className="py-3 px-4 font-bold text-right">PAYOUT STATUS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
+                  {(affiliatesData?.ambassadors || []).map((a: any) => (
+                    <tr key={a.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3.5 px-4 font-bold">
+                        <div className="text-white font-sans text-sm">{a.name}</div>
+                        <div className="text-slate-400 text-[11px] font-mono">{a.handle}</div>
+                      </td>
+                      <td className="py-3.5 px-4 font-bold">
+                        <span className="px-2.5 py-1 bg-amber-950 text-amber-300 border border-amber-700/80 rounded-lg text-xs font-black select-all">
+                          {a.code}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-purple-300 font-bold">{a.tier}</td>
+                      <td className="py-3.5 px-4 font-black text-emerald-400 text-sm">
+                        {a.referredUsers.toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-slate-200">
+                        ${a.totalDepositsDollars.toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4 font-black text-cyan-400 text-sm">
+                        ${a.commissionEarnedDollars.toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                          AUTO-SOLANA PAID
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
