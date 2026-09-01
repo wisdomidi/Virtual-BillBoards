@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { PlatformSettings, CityConfig, TelemetryLog, ToastMessage } from '../types';
+import { db, isUserAdmin } from '../lib/firebase';
+import {
+  collection,
+  getDocs,
+  onSnapshot,
+  doc,
+  updateDoc,
+  query,
+  limit
+} from 'firebase/firestore';
 import {
   ShieldCheck,
   Settings,
@@ -42,7 +52,6 @@ import {
   Monitor,
   Upload,
   Plus,
-  Eye,
   Coins,
   TrendingUp,
   Award,
@@ -295,11 +304,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res = await fetch('/api/admin/users');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.users) setUsersList(data.users);
+      const mergedUsersMap = new Map<string, any>();
+
+      // 1. Direct Firestore Browser Query (100% live from Firestore)
+      if (db) {
+        try {
+          const usersCol = collection(db, 'users');
+          const snap = await getDocs(query(usersCol, limit(500)));
+          snap.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const uid = docSnap.id;
+            const isGuestUser = uid.startsWith('guest_') || data.isAnonymous === true;
+            const hasEmail = Boolean(data.email && typeof data.email === 'string' && data.email.trim() !== '');
+            const resolvedEmail = hasEmail ? data.email : (isGuestUser ? `Guest Visitor (${uid.slice(0, 8)})` : `Registered User (${uid.slice(0, 8)})`);
+            const resolvedName = data.displayName || (hasEmail ? data.email.split('@')[0] : (isGuestUser ? 'Guest Session' : 'User'));
+            const isAdmin = isUserAdmin(data.email, data.role);
+
+            mergedUsersMap.set(uid, {
+              uid,
+              email: resolvedEmail,
+              displayName: resolvedName,
+              photoURL: data.photoURL || null,
+              role: data.role || (isAdmin ? 'admin' : 'advertiser'),
+              isGuest: isGuestUser,
+              isVerified: !isGuestUser && (hasEmail || data.starterGrantClaimed || Boolean(data.email)),
+              tokensBalance: typeof data.tokensBalance === 'number' ? data.tokensBalance : 1000,
+              walletBalanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : 100,
+              bidsPlacedCount: data.bidsPlacedCount || 0,
+              createdAt: data.createdAt || new Date().toISOString()
+            });
+          });
+        } catch (fsErr) {
+          console.warn('Client direct Firestore users fetch notice:', fsErr);
+        }
       }
+
+      // 2. Fetch from backend /api/admin/users to merge in-memory balances
+      try {
+        const res = await fetch('/api/admin/users');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.users && Array.isArray(data.users)) {
+            data.users.forEach((u: any) => {
+              const existing = mergedUsersMap.get(u.uid);
+              if (existing) {
+                mergedUsersMap.set(u.uid, {
+                  ...existing,
+                  tokensBalance: u.tokensBalance !== undefined ? u.tokensBalance : existing.tokensBalance,
+                  walletBalanceCents: u.walletBalanceCents !== undefined ? u.walletBalanceCents : existing.walletBalanceCents,
+                  bidsPlacedCount: u.bidsPlacedCount || existing.bidsPlacedCount,
+                  role: u.role || existing.role
+                });
+              } else {
+                mergedUsersMap.set(u.uid, u);
+              }
+            });
+          }
+        }
+      } catch (beErr) {
+        console.warn('Backend /api/admin/users notice:', beErr);
+      }
+
+      const finalUsers = Array.from(mergedUsersMap.values()).sort((a, b) => {
+        if (a.isVerified !== b.isVerified) return a.isVerified ? -1 : 1;
+        return (b.tokensBalance || 0) - (a.tokensBalance || 0);
+      });
+
+      setUsersList(finalUsers);
     } catch (e) {
       console.warn('Failed to load admin users:', e);
     } finally {
@@ -309,6 +380,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleAdjustBalance = async (targetUserId: string, addTokens: number, newRole?: string) => {
     try {
+      // 1. Direct Firestore write
+      if (db) {
+        try {
+          const userDocRef = doc(db, 'users', targetUserId);
+          const updates: Record<string, any> = {};
+          if (newRole) updates.role = newRole;
+          if (addTokens !== 0) {
+            const current = usersList.find(u => u.uid === targetUserId);
+            const currentTokens = current?.tokensBalance || 0;
+            const newTokens = Math.max(0, currentTokens + addTokens);
+            updates.tokensBalance = newTokens;
+            updates.walletBalanceCents = Math.round(newTokens / 10);
+          }
+          if (Object.keys(updates).length > 0) {
+            await updateDoc(userDocRef, updates);
+          }
+        } catch (fsErr) {
+          console.warn('Firestore updateDoc warning:', fsErr);
+        }
+      }
+
+      // 2. Server API adjust
       const res = await fetch('/api/admin/user/adjust-balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -316,7 +409,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
       const data = await res.json();
       if (data.success) {
-        addToast('success', 'Balance Updated', `User ${targetUserId.slice(-6)} updated: ${data.newTokensBalance.toLocaleString()} tokens`);
+        addToast('success', 'Balance Updated', `User ${targetUserId.slice(-6)} updated successfully.`);
         fetchUsers();
         setAdjustingUser(null);
       }
@@ -629,6 +722,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchSolanaLedger();
     fetchAffiliates();
   }, []);
+
+  // Real-time Firestore users listener
+  useEffect(() => {
+    if (activeAdminSubTab !== 'users' || !db) return;
+    try {
+      const usersCol = collection(db, 'users');
+      const unsubscribe = onSnapshot(query(usersCol, limit(500)), (snap) => {
+        setUsersList((prevList) => {
+          const map = new Map(prevList.map(u => [u.uid, u]));
+          snap.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const uid = docSnap.id;
+            const isGuestUser = uid.startsWith('guest_') || data.isAnonymous === true;
+            const hasEmail = Boolean(data.email && typeof data.email === 'string' && data.email.trim() !== '');
+            const resolvedEmail = hasEmail ? data.email : (isGuestUser ? `Guest Visitor (${uid.slice(0, 8)})` : `Registered User (${uid.slice(0, 8)})`);
+            const resolvedName = data.displayName || (hasEmail ? data.email.split('@')[0] : (isGuestUser ? 'Guest Session' : 'User'));
+            const isAdmin = isUserAdmin(data.email, data.role);
+
+            const existing = map.get(uid);
+            map.set(uid, {
+              uid,
+              email: resolvedEmail,
+              displayName: resolvedName,
+              photoURL: data.photoURL || existing?.photoURL || null,
+              role: data.role || (isAdmin ? 'admin' : existing?.role || 'advertiser'),
+              isGuest: isGuestUser,
+              isVerified: !isGuestUser && (hasEmail || data.starterGrantClaimed || Boolean(data.email)),
+              tokensBalance: typeof data.tokensBalance === 'number' ? data.tokensBalance : (existing?.tokensBalance ?? 1000),
+              walletBalanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : (existing?.walletBalanceCents ?? 100),
+              bidsPlacedCount: data.bidsPlacedCount || existing?.bidsPlacedCount || 0,
+              createdAt: data.createdAt || existing?.createdAt || new Date().toISOString()
+            });
+          });
+          return Array.from(map.values()).sort((a, b) => {
+            if (a.isVerified !== b.isVerified) return a.isVerified ? -1 : 1;
+            return (b.tokensBalance || 0) - (a.tokensBalance || 0);
+          });
+        });
+      }, (err) => {
+        console.warn('Real-time users onSnapshot notice:', err);
+      });
+      return () => unsubscribe();
+    } catch (err) {
+      console.warn('Real-time users listener setup notice:', err);
+    }
+  }, [activeAdminSubTab]);
 
   const handleSaveSettings = async () => {
     setSavingSettings(true);

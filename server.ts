@@ -3396,20 +3396,22 @@ app.get('/api/admin/users', async (req, res) => {
       const snap = await getDocs(query(usersCol, limit(200)));
       snap.docs.forEach(docSnap => {
         const data = docSnap.data();
-        const isGuestUser = docSnap.id.startsWith('guest_') || data.isAnonymous === true;
-        const hasRealEmail = data.email && typeof data.email === 'string' && data.email.trim() !== '' && !data.email.includes('example.com');
+        const uid = docSnap.id;
+        const isGuestUser = uid.startsWith('guest_') || data.isAnonymous === true;
+        const hasRealEmail = Boolean(data.email && typeof data.email === 'string' && data.email.trim() !== '');
         const realEmail = hasRealEmail
           ? data.email
-          : (isGuestUser ? `Guest Visitor (${docSnap.id.slice(0, 8)})` : (data.email || 'Registered User'));
+          : (isGuestUser ? `Guest Visitor (${uid.slice(0, 8)})` : `Registered User (${uid.slice(0, 8)})`);
+        const isAdmin = isUserAdmin(data.email, data.role);
 
-        usersMap.set(docSnap.id, {
-          uid: docSnap.id,
+        usersMap.set(uid, {
+          uid,
           email: realEmail,
           displayName: data.displayName || (hasRealEmail ? data.email.split('@')[0] : (isGuestUser ? 'Guest Session' : 'User')),
           photoURL: data.photoURL || null,
-          role: data.role || (isUserAdmin(data.email, data.role) ? 'admin' : 'advertiser'),
+          role: data.role || (isAdmin ? 'admin' : 'advertiser'),
           isGuest: isGuestUser,
-          isVerified: hasRealEmail,
+          isVerified: !isGuestUser && (hasRealEmail || data.starterGrantClaimed || Boolean(data.email)),
           tokensBalance: typeof data.tokensBalance === 'number' ? data.tokensBalance : 1000,
           walletBalanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : 100,
           bidsPlacedCount: data.bidsPlacedCount || 0,
