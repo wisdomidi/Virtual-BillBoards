@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TabType, UserRole } from '../types';
 import { BrandLogo } from './BrandLogo';
+import { isUserAdmin } from '../lib/firebase';
 import {
   Monitor,
   Tv,
@@ -14,7 +15,8 @@ import {
   ExternalLink,
   Bot,
   Menu,
-  X
+  X,
+  User
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -41,8 +43,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   userRole,
+  setUserRole,
   isConnected,
   selectedCity,
+  selectedCountry,
+  onCityChange,
   onOpenWalletModal,
   onOpenMyAdsModal,
   onOpenClaimModal,
@@ -54,6 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSignOut
 }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const isAdmin = userRole === 'admin' || currentUser?.role === 'admin' || isUserAdmin(currentUser?.email, currentUser?.role);
 
   const coreTabs: Array<{ id: TabType; label: string; mobileLabel: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: 'live', label: 'Live Billboard', mobileLabel: 'Live', icon: Monitor },
@@ -62,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'watcher', label: '💎 Interact & Earn', mobileLabel: 'Earn', icon: Sparkles }
   ];
 
-  if (userRole === 'admin' || currentUser?.role === 'admin') {
+  if (isAdmin) {
     coreTabs.unshift({ id: 'admin', label: 'Admin', mobileLabel: 'Admin', icon: Crown });
   }
 
@@ -150,8 +156,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <div className="text-[11px] text-white font-bold truncate max-w-[85px] group-hover:text-cyan-300 transition-colors">
                         {currentUser.displayName || currentUser.email?.split('@')[0]}
                       </div>
-                      <div className="text-[9px] text-cyan-400 font-mono font-extrabold uppercase mt-0.5">
-                        {currentUser.role || 'Advertiser'}
+                      <div className="text-[9px] font-mono font-extrabold uppercase mt-0.5">
+                        {isAdmin ? (
+                          <span className="text-amber-400 font-black flex items-center gap-0.5">
+                            <Crown className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+                            <span>ADMIN</span>
+                          </span>
+                        ) : (
+                          <span className="text-cyan-400">
+                            {currentUser.role || userRole || 'Advertiser'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>

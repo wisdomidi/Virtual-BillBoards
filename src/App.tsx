@@ -238,7 +238,13 @@ export default function App() {
     : '';
 
   const initialGeo = detectInitialUserCity();
-  const [userRole, setUserRole] = useState<UserRole>('advertiser');
+  const [userRole, setUserRole] = useState<UserRole>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('vb_active_role') as UserRole | null;
+      if (saved) return saved;
+    }
+    return 'advertiser';
+  });
   const [activeTab, setActiveTab] = useState<TabType>(() => detectInitialTabFromUrl());
 
   // Creator Vanity Billboard Routing State (e.g. livebillboards.lol/@elonmusk)
@@ -1144,8 +1150,14 @@ export default function App() {
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
           onAuthSuccess={(profile) => {
-            setCurrentUser(profile);
-            setUserRole(profile.role);
+            const isAdmin = isUserAdmin(profile.email, profile.role);
+            const resolvedRole: UserRole = isAdmin ? 'admin' : (profile.role || 'advertiser');
+            const updatedProfile = { ...profile, role: resolvedRole };
+            setCurrentUser(updatedProfile);
+            setUserRole(resolvedRole);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('vb_active_role', resolvedRole);
+            }
             const tokens = profile.tokensBalance || (typeof profile.walletBalanceCents === 'number' ? profile.walletBalanceCents * 10 : 1000);
             if (typeof profile.walletBalanceCents === 'number') {
               setWalletBalanceCents(profile.walletBalanceCents);
@@ -1170,6 +1182,17 @@ export default function App() {
           onOpenMyAdsModal={() => setIsMyAdsModalOpen(true)}
           onOpenClaimModal={() => setIsClaimModalOpen(true)}
           onSignOut={handleSignOut}
+          onNavigateToAdmin={() => handleNavigateTab('admin')}
+          onUpdateRole={(newRole) => {
+            setUserRole(newRole);
+            if (currentUser) {
+              setCurrentUser({ ...currentUser, role: newRole });
+            }
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('vb_active_role', newRole);
+            }
+            addToast('info', 'Role Updated', `Switched active platform role to: ${newRole.toUpperCase()}`);
+          }}
         />
 
         {/* Trending Creator Billboards Carousel & Social Discovery (Desktop/Tablet only) */}

@@ -22,6 +22,8 @@ import {
   Globe
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
+import { isUserAdmin } from '../lib/firebase';
+import { Crown } from 'lucide-react';
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -34,6 +36,8 @@ interface AccountModalProps {
   onOpenMyAdsModal: () => void;
   onOpenClaimModal: () => void;
   onSignOut: () => void;
+  onNavigateToAdmin?: () => void;
+  onUpdateRole?: (newRole: UserRole) => void;
 }
 
 export const AccountModal: React.FC<AccountModalProps> = ({
@@ -46,12 +50,16 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   onOpenWalletModal,
   onOpenMyAdsModal,
   onOpenClaimModal,
-  onSignOut
+  onSignOut,
+  onNavigateToAdmin,
+  onUpdateRole
 }) => {
   const [copiedUid, setCopiedUid] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'ledger' | 'api'>('overview');
 
   if (!isOpen || !currentUser) return null;
+
+  const isAdmin = currentUser.role === 'admin' || isUserAdmin(currentUser.email, currentUser.role);
 
   const handleCopyUid = () => {
     navigator.clipboard.writeText(currentUser.uid);
@@ -140,6 +148,66 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {activeTab === 'overview' && (
             <>
+              {/* Administrator Quick Launch Banner */}
+              {isAdmin && (
+                <div className="bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/40 border border-amber-500/50 p-4 rounded-2xl flex items-center justify-between gap-3 shadow-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-xl">
+                      <Crown className="w-5 h-5 fill-amber-400 text-amber-400" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-amber-300 text-xs flex items-center gap-1.5">
+                        <span>Platform Administrator Mode</span>
+                        <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 text-[9px] font-black rounded-md uppercase">Authorized</span>
+                      </div>
+                      <div className="text-[11px] text-slate-300">You have full platform controls, moderation & balance tools.</div>
+                    </div>
+                  </div>
+                  {onNavigateToAdmin && (
+                    <button
+                      onClick={() => { onClose(); onNavigateToAdmin(); }}
+                      className="px-3 py-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-current" />
+                      <span>Admin Console</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Active Role Switcher */}
+              <div className="bg-slate-950 border border-slate-800/80 p-3.5 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-bold text-[11px] uppercase">Active Platform Role</span>
+                  <span className="text-cyan-400 font-mono text-[10px] font-bold">Role-Aware UI Engine</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'advertiser', label: 'Advertiser', icon: Megaphone, color: 'cyan' },
+                    { id: 'creator', label: 'Creator (80%)', icon: Sparkles, color: 'purple' },
+                    { id: 'venue_host', label: 'Venue (70%)', icon: Tv, color: 'emerald' },
+                    { id: 'admin', label: 'Admin', icon: Crown, color: 'amber' }
+                  ].map((r) => {
+                    const Icon = r.icon;
+                    const isSelected = (currentUser.role === r.id) || (r.id === 'admin' && isAdmin);
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => onUpdateRole?.(r.id as UserRole)}
+                        className={`p-2 rounded-xl text-center flex flex-col items-center gap-1 border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold shadow-sm'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="text-[10px]">{r.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Wallet Balance Card */}
               <div className="bg-gradient-to-r from-slate-950 via-cyan-950/40 to-slate-950 border border-cyan-500/30 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
                 <div className="flex items-center gap-3">
