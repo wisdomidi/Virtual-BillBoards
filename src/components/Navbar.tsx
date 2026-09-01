@@ -53,6 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenWalletModal,
   onOpenMyAdsModal,
   onOpenClaimModal,
+  onOpenHallOfFame,
   walletBalanceDollars = '0.00',
   tokensBalance = 0,
   currentUser,
@@ -226,6 +227,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   >
                     <Megaphone className="w-3.5 h-3.5 text-cyan-400" />
                     My Placed Ads
+                  </button>
+                )}
+                {onOpenHallOfFame && (
+                  <button
+                    onClick={() => { onOpenHallOfFame(); setShowMobileMenu(false); }}
+                    className="flex-1 min-w-[120px] px-3 py-2 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/40 rounded-xl text-xs font-bold text-amber-300 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    🏆 Hall of Fame
                   </button>
                 )}
                 {onOpenClaimModal && (
