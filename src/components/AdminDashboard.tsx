@@ -880,47 +880,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          {/* Sub-Filter Tabs: Approved vs Queued vs Flagged vs All */}
-          <div className="flex flex-wrap gap-2 p-1.5 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-bold font-mono">
-            {[
-              { id: 'approved', label: `🟢 Approved Live Broadcasts (${allAdminAds.filter(a => a.status === 'live').length})` },
-              { id: 'queued', label: `⏳ In-Queue Creatives (${allAdminAds.filter(a => a.status === 'queued').length})` },
-              { id: 'flagged', label: `🔴 Flagged / Rejected Queue (${flaggedAds.length})` },
-              { id: 'all', label: `📋 All Statuses (${allAdminAds.length})` }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => { setModerationSubTab(tab.id as any); setAdPage(1); }}
-                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
-                  moderationSubTab === tab.id
-                    ? 'bg-cyan-500 text-slate-950 font-black shadow'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Cards Grid with Client-Side 18-Items-per-Page Pagination */}
+          {/* Sub-Filter Tabs: Live & Approved vs Queued vs Flagged vs All — Dynamically Context-Filtered */}
           {(() => {
-            const rawAds = moderationSubTab === 'flagged'
-              ? flaggedAds
-              : moderationSubTab === 'approved'
-              ? allAdminAds.filter(a => a.status === 'live')
-              : moderationSubTab === 'queued'
-              ? allAdminAds.filter(a => a.status === 'queued')
-              : allAdminAds;
-
-            const filteredAds = rawAds.filter(ad => {
-              // 1. Source filter
+            const sourceBaseAds = allAdminAds.filter(ad => {
               if (adSourceFilter === 'user' && ad.isHouseAd) return false;
               if (adSourceFilter === 'house' && !ad.isHouseAd) return false;
-
-              // 2. City filter
               if (adCityFilter !== 'ALL' && ad.targetCityCode?.toUpperCase() !== adCityFilter.toUpperCase()) return false;
+              return true;
+            });
 
-              // 3. Search query
+            const sourceApprovedAds = sourceBaseAds.filter(a => a.status === 'live' || a.status === 'approved' || a.status === 'active');
+            const sourceQueuedAds = sourceBaseAds.filter(a => a.status === 'queued' || a.status === 'scheduled');
+            const sourceFlaggedAds = flaggedAds.filter(a => {
+              if (adCityFilter !== 'ALL' && a.targetCityCode?.toUpperCase() !== adCityFilter.toUpperCase()) return false;
+              return true;
+            });
+
+            const rawAds = moderationSubTab === 'flagged'
+              ? sourceFlaggedAds
+              : moderationSubTab === 'approved'
+              ? sourceApprovedAds
+              : moderationSubTab === 'queued'
+              ? sourceQueuedAds
+              : sourceBaseAds;
+
+            const filteredAds = rawAds.filter(ad => {
               if (adSearchQuery.trim()) {
                 const q = adSearchQuery.toLowerCase();
                 const matchTitle = ad.title?.toLowerCase().includes(q);
@@ -935,68 +919,87 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             const currentPage = Math.min(adPage, totalPages);
             const paginatedAds = filteredAds.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-            if (filteredAds.length === 0) {
-              return (
-                <div className="py-12 text-center space-y-2 bg-slate-950/60 rounded-2xl border border-slate-800/80">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-400/80 mx-auto" />
-                  <div className="text-sm font-bold text-white uppercase">
-                    {moderationSubTab === 'flagged' ? 'Flagged Queue is Clean!' : 'No Campaigns Match Filters'}
-                  </div>
-                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    {moderationSubTab === 'flagged'
-                      ? 'All incoming creative has passed Gemini Vision AI brand safety filters.'
-                      : 'Try selecting "All Cities" or switching between Real User vs Demo House Ads.'}
-                  </p>
-                </div>
-              );
-            }
-
             return (
               <div className="space-y-4">
-                {/* Results count & Pagination Top Header */}
-                <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-                  <span>Showing <strong>{paginatedAds.length}</strong> of <strong>{filteredAds.length}</strong> matching creatives</span>
-                  
-                  {totalPages > 1 && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setAdPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage <= 1}
-                        className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 disabled:opacity-30 hover:border-cyan-500 cursor-pointer"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="font-bold text-white">Page {currentPage} of {totalPages}</span>
-                      <button
-                        onClick={() => setAdPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage >= totalPages}
-                        className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 disabled:opacity-30 hover:border-cyan-500 cursor-pointer"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
+                <div className="flex flex-wrap gap-2 p-1.5 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-bold font-mono">
+                  {[
+                    { id: 'approved', label: `🟢 Live & Approved (${sourceApprovedAds.length})` },
+                    { id: 'queued', label: `⏳ In-Queue & Scheduled (${sourceQueuedAds.length})` },
+                    { id: 'flagged', label: `🔴 Flagged / Rejected (${sourceFlaggedAds.length})` },
+                    { id: 'all', label: `📋 All Creatives (${sourceBaseAds.length})` }
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => { setModerationSubTab(tab.id as any); setAdPage(1); }}
+                      className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                        moderationSubTab === tab.id
+                          ? 'bg-cyan-500 text-slate-950 font-black shadow'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {paginatedAds.map((ad) => {
-                    const isFlagged = ad.status === 'flagged' || Boolean(ad.reason);
-                    const isLive = ad.status === 'live';
-                    const isHouse = Boolean(ad.isHouseAd);
+                {filteredAds.length === 0 ? (
+                  <div className="py-12 text-center space-y-2 bg-slate-950/60 rounded-2xl border border-slate-800/80">
+                    <CheckCircle2 className="w-12 h-12 text-emerald-400/80 mx-auto" />
+                    <div className="text-sm font-bold text-white uppercase">
+                      {moderationSubTab === 'flagged' ? 'Flagged Queue is Clean!' : 'No Campaigns Match Filters'}
+                    </div>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      {moderationSubTab === 'flagged'
+                        ? 'All incoming creative has passed Gemini Vision AI brand safety filters.'
+                        : 'Try selecting "All Cities" or switching between Real User vs Demo House Ads.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Results count & Pagination Top Header */}
+                    <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+                      <span>Showing <strong>{paginatedAds.length}</strong> of <strong>{filteredAds.length}</strong> matching creatives</span>
+                      
+                      {totalPages > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setAdPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage <= 1}
+                            className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 disabled:opacity-30 hover:border-cyan-500 cursor-pointer"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="font-bold text-white">Page {currentPage} of {totalPages}</span>
+                          <button
+                            onClick={() => setAdPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage >= totalPages}
+                            className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 disabled:opacity-30 hover:border-cyan-500 cursor-pointer"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                    return (
-                      <div
-                        key={ad.id}
-                        className={`bg-slate-950 border rounded-2xl p-4 space-y-3 shadow-lg flex flex-col justify-between transition-all ${
-                          isFlagged
-                            ? 'border-rose-500/40 hover:border-rose-500'
-                            : isLive
-                            ? 'border-emerald-500/50 hover:border-emerald-400 shadow-emerald-500/10 ring-1 ring-emerald-500/20'
-                            : isHouse
-                            ? 'border-slate-800/80 hover:border-slate-700 opacity-90'
-                            : 'border-cyan-500/30 hover:border-cyan-400 ring-1 ring-cyan-500/10'
-                        }`}
-                      >
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {paginatedAds.map((ad) => {
+                        const isFlagged = ad.status === 'flagged' || Boolean(ad.reason);
+                        const isLive = ad.status === 'live';
+                        const isHouse = Boolean(ad.isHouseAd);
+
+                        return (
+                          <div
+                            key={ad.id}
+                            className={`bg-slate-950 border rounded-2xl p-4 space-y-3 shadow-lg flex flex-col justify-between transition-all ${
+                              isFlagged
+                                ? 'border-rose-500/40 hover:border-rose-500'
+                                : isLive
+                                ? 'border-emerald-500/50 hover:border-emerald-400 shadow-emerald-500/10 ring-1 ring-emerald-500/20'
+                                : isHouse
+                                ? 'border-slate-800/80 hover:border-slate-700 opacity-90'
+                                : 'border-cyan-500/30 hover:border-cyan-400 ring-1 ring-cyan-500/10'
+                            }`}
+                          >
                         <div className="space-y-2.5">
                           <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800">
                             <img
@@ -1119,8 +1122,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 )}
               </div>
-            );
-          })()}
+            )}
+          </div>
+        );
+      })()}
         </div>
       )}
 

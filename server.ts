@@ -5708,30 +5708,38 @@ app.post('/api/admin/populate-city-campaigns', (req, res) => {
       ? activeCitiesStore
       : activeCitiesStore.filter(c => c.cityCode.toUpperCase() === targetCityCode);
 
-    const INDUSTRIES = [
-      'Tech & SaaS', 'Luxury Fashion', 'EV & Automotive', 'Fine Dining', 'FinTech & Banking',
-      'Air Travel & Hospitality', 'Luxury Real Estate', 'Gaming & Esports', 'Clean Energy', 'Arts & Culture'
+    const INDUSTRY_CREATIVES = [
+      { name: 'AI & Neo-Tech', img: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80', sponsor: 'Quantum AI Systems' },
+      { name: 'Luxury Haute Couture', img: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80', sponsor: 'Maison de Luxe' },
+      { name: 'Autonomous EV Supercars', img: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80', sponsor: 'Aegis Motors' },
+      { name: 'Michelin Gastronomy', img: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80', sponsor: 'Grand Gourmet Atelier' },
+      { name: 'Web3 & Decentralized Finance', img: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?auto=format&fit=crop&w=1200&q=80', sponsor: 'Solana Global Treasury' },
+      { name: 'Penthouse Architecture', img: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80', sponsor: 'Skyline Estates International' },
+      { name: 'Esports World Championship', img: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80', sponsor: 'Global Gaming League' },
+      { name: 'Ocean Clean Energy', img: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1200&q=80', sponsor: 'Verde Renewable Power' },
+      { name: 'Neon Sound Music Festival', img: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80', sponsor: 'Electric Dream Festival' },
+      { name: 'First Class Orbital Travel', img: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=80', sponsor: 'AeroSpace Horizons' }
     ];
 
     citiesToPopulate.forEach((city) => {
       const cityKey = `billboard:queue:${city.cityCode.toUpperCase()}`;
       if (!redisQueues[cityKey]) redisQueues[cityKey] = [];
 
-      // Generate 10 diverse industry campaigns
-      const newCampaigns: QueueItem[] = INDUSTRIES.map((industry, idx) => {
+      // Generate 10 diverse industry campaigns with unique images and sponsors
+      const newCampaigns: QueueItem[] = INDUSTRY_CREATIVES.map((ind, idx) => {
         const baseBidCents = 1800 + (idx * 300);
-        const campId = `${city.cityCode.toLowerCase()}_${industry.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now().toString(36)}_${idx + 1}`;
+        const campId = `${city.cityCode.toLowerCase()}_${ind.name.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now().toString(36)}_${idx + 1}`;
         return {
           id: campId,
-          title: `${city.cityName} ${industry} Showcase`,
-          advertiserName: `${city.cityName} ${industry} Group`,
+          title: `${city.cityName}: ${ind.name} Showcase`,
+          advertiserName: `${city.cityName} ${ind.sponsor}`,
           bidAmountCents: baseBidCents,
           targetCityCode: city.cityCode.toUpperCase(),
           targetCountryCode: city.countryCode.toUpperCase(),
-          imageUrl: `https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80`,
+          imageUrl: ind.img,
           submittedAt: new Date().toISOString(),
           safetyScore: 95 + (idx % 5),
-          redirectUrl: `https://brand-${industry.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`
+          redirectUrl: `https://brand-${ind.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`
         };
       });
 
@@ -7087,6 +7095,20 @@ app.get('/api/admin/ads/all', async (req, res) => {
   const allAds: any[] = [];
   const seenIds = new Set<string>();
 
+  const CITY_FALLBACK_CREATIVES: Record<string, { title: string; imageUrl: string; advertiserName: string }> = {
+    TYO: { title: 'Tokyo Shibuya Neo-Tech Expo 2026', imageUrl: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Shibuya Future Labs' },
+    NYC: { title: 'Times Square Global Financial Summit', imageUrl: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Wall Street Digital' },
+    LON: { title: 'London Mayfair Luxury Fashion Showcase', imageUrl: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=1200&q=80', advertiserName: 'British Fashion Council' },
+    PAR: { title: 'Paris Haute Couture & Design Gala', imageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Maison de Paris' },
+    SIN: { title: 'Singapore Marina Bay FinTech Hub', imageUrl: 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Marina Bay Ventures' },
+    KUL: { title: 'Petronas Twin Towers Innovation Expo', imageUrl: 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Petronas Digital Horizon' },
+    DXB: { title: 'Dubai Future City Autonomous AI Forum', imageUrl: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Emirates Tech Council' },
+    BER: { title: 'Berlin Cyberpunk Music & Media Festival', imageUrl: 'https://images.unsplash.com/photo-1560969184-10fe8719e047?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Berlin Sound Collective' },
+    SYD: { title: 'Sydney Harbour Clean Oceans Initiative', imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Pacific Clean Energy' },
+    SFO: { title: 'Silicon Valley AI Autonomous Agents Keynote', imageUrl: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Bay Area AI Institute' },
+    SEO: { title: 'Seoul Gangnam Web3 & K-Pop Festival', imageUrl: 'https://images.unsplash.com/photo-1538485399081-7191377e8241?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Gangnam Digital Media' }
+  };
+
   // 1. Active Live Ads across all cities
   Object.entries(redisActiveSlots).forEach(([cityKey, slot]) => {
     if (slot && slot.winningAd) {
@@ -7097,14 +7119,21 @@ app.get('/api/admin/ads/all', async (req, res) => {
         .replace(/^room_[A-Z]{2}_/i, '')
         .toUpperCase();
 
-      const isHouse = Boolean(ad.isHouseAd || ad.id?.startsWith('demo_') || ad.id?.startsWith('seed_') || ad.id?.startsWith('house_') || ad.advertiserName?.includes('SYSTEM') || ad.advertiserName?.includes('AEGIS'));
+      const isHouse = Boolean(ad.isHouseAd || ad.id?.startsWith('demo_') || ad.id?.startsWith('seed_') || ad.id?.startsWith('house_') || ad.advertiserName?.includes('SYSTEM') || ad.advertiserName?.includes('AEGIS') || ad.title?.includes('Apex Legends'));
       const adId = ad.id || `act_${cleanCity}`;
       seenIds.add(adId);
+
+      const localizedFallback = CITY_FALLBACK_CREATIVES[cleanCity] || {
+        title: `${cleanCity} Live Global Billboard`,
+        imageUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=1200&q=80',
+        advertiserName: `${cleanCity} Media Hub`
+      };
+
       allAds.push({
         id: adId,
-        title: ad.title,
-        imageUrl: ad.imageUrl,
-        advertiserName: ad.advertiserName || 'Active Sponsor',
+        title: isHouse && (ad.title === platformSettings.houseAdTitle || ad.title?.includes('Apex Legends')) ? localizedFallback.title : ad.title,
+        imageUrl: isHouse && ad.imageUrl?.includes('1542751371') ? localizedFallback.imageUrl : ad.imageUrl,
+        advertiserName: isHouse && (ad.advertiserName === 'Active Sponsor' || ad.advertiserName?.includes('Esports')) ? localizedFallback.advertiserName : (ad.advertiserName || 'Active Sponsor'),
         targetCityCode: cleanCity,
         bidAmountDollars: ((ad.bidAmountCents || 100) / 100).toFixed(2),
         bidAmountCents: ad.bidAmountCents || 100,
