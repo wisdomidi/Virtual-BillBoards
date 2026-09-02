@@ -606,7 +606,7 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                     key={ad.id}
                     className="p-3.5 bg-slate-950 border border-slate-800 hover:border-cyan-500/40 rounded-2xl transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 group"
                   >
-                    <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
                       {/* Thumbnail */}
                       <div
                         onClick={() => setSelectedProofAd(ad)}
@@ -624,31 +624,31 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                       </div>
 
                       {/* Details */}
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-white truncate max-w-[200px] sm:max-w-xs">{ad.title}</span>
-                          <span className="px-2 py-0.5 bg-slate-800 text-cyan-400 font-mono text-[10px] font-bold rounded-lg">
+                          <span className="text-xs font-bold text-white truncate max-w-[180px] sm:max-w-xs">{ad.title || 'Live Billboard Campaign'}</span>
+                          <span className="px-2 py-0.5 bg-slate-800 text-cyan-400 font-mono text-[10px] font-bold rounded-lg shrink-0">
                             {ad.targetCityCode}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5 font-mono">
+                        <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-1 font-mono flex-wrap">
                           <span className="text-amber-400 font-bold">${dollars}</span>
-                          <span>({tokens} tokens)</span>
+                          <span className="text-slate-400">({tokens} tokens)</span>
                           {ad.createdAt && (
-                            <span className="text-slate-500 hidden xs:inline">
-                              • {new Date(ad.createdAt).toLocaleString()}
+                            <span className="text-slate-500 hidden sm:inline">
+                              • {new Date(ad.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           )}
                         </div>
 
                         {/* Performance Metrics Badges — real impressions from server, fallback est. */}
-                        <div className="flex items-center gap-2.5 mt-2 text-[10px] font-mono">
+                        <div className="flex items-center gap-2 mt-2 text-[10px] font-mono flex-wrap">
                           <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-cyan-300 flex items-center gap-1">
                             <span>👁️</span>
                             <span>
                               {typeof ad.impressions === 'number' && ad.impressions > 0
                                 ? `${ad.impressions.toLocaleString()} Views`
-                                : isBroadcasted ? '~1,250 Views (est.)' : '— Views'}
+                                : isBroadcasted ? '~1,250 Views' : '— Views'}
                             </span>
                           </span>
                           <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-emerald-300 flex items-center gap-1">
@@ -666,7 +666,7 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                     </div>
 
                     {/* Status Badge & Actions */}
-                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80 w-full sm:w-auto">
                       {isLive ? (
                         <span className="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold rounded-full flex items-center gap-1.5 shadow-sm">
                           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
