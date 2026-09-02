@@ -985,7 +985,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               solanaWallet: data.solanaWallet || null,
               connectedAt: data.pairedAt || data.createdAt || new Date().toISOString(),
               resolution: data.resolution || '4K Ultra-HD (3840x2160)',
-              activeAd: data.activeAd || platformSettings.houseAdTitle || 'Live Billboard Feed'
+              activeAd: data.activeAd || settings.houseAdTitle || 'Live Billboard Feed'
             });
           });
           return Array.from(map.values());

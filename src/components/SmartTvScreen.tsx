@@ -19,14 +19,33 @@ import {
 import { soundEffects } from '../lib/soundEffects';
 import { db } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { generate20AdsForCity } from '../data/seedAds';
 
 interface SmartTvScreenProps {
   slotData?: ActiveBillboardSlot | null;
   selectedCity?: string;
 }
 
-// Built-in high-definition fallback house ads so TV displays are NEVER blank
+// Built-in high-definition fallback house & seeded ads so TV displays rotate all 20+ ads
+const SEEDED_TV_ADS: BillboardAd[] = generate20AdsForCity('GLOBAL', 'US', 'Global Network Feed').map(ad => ({
+  id: ad.id,
+  title: ad.title,
+  advertiserName: ad.advertiserName,
+  bidAmountCents: ad.bidAmountCents || 100,
+  imageUrl: ad.imageUrl,
+  ctaUrl: ad.ctaUrl || ad.landingPageUrl || 'https://www.livebillboards.lol',
+  cityCode: ad.targetCityCode || 'GLOBAL',
+  countryCode: ad.targetCountryCode || 'GLOBAL',
+  mediaType: ad.mediaType || 'image',
+  category: ad.industry || 'tech',
+  isApproved: true,
+  viewCount: 14200,
+  scanCount: 310,
+  createdAt: ad.createdAt
+}));
+
 const DEFAULT_HOUSE_ADS: BillboardAd[] = [
+  ...SEEDED_TV_ADS,
   {
     id: 'house_brand_global_1',
     title: 'World-First 24/7 Virtual Billboard Network',
@@ -198,7 +217,7 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
               scanCount: ha.clicks || 50,
               createdAt: ha.createdAt || new Date().toISOString()
             }));
-            setHouseAdsCatalog(mapped);
+            setHouseAdsCatalog([...mapped, ...SEEDED_TV_ADS]);
           }
         }
       } catch {}

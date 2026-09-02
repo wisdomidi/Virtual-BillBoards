@@ -7815,7 +7815,47 @@ const defaultHouseBanners: HouseAdAsset[] = [
     mediaType: 'image',
     targetCityCode: 'GLOBAL',
     category: 'gaming',
-    isActive: false,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'house_solana_pay',
+    title: 'Instant Micro-Settlements on Solana Network',
+    imageUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80',
+    mediaType: 'image',
+    targetCityCode: 'GLOBAL',
+    category: 'crypto',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'house_ai_mesh',
+    title: 'Autonomous AI Agent Real-Time Bidding Protocol',
+    imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
+    mediaType: 'image',
+    targetCityCode: 'GLOBAL',
+    category: 'tech',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'house_shibuya_neon',
+    title: 'Shibuya Tokyo Neon Skyline Virtual Showcase',
+    imageUrl: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1200&q=80',
+    mediaType: 'image',
+    targetCityCode: 'TYO',
+    category: 'culture',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'house_times_square',
+    title: 'Times Square Digital Apex Display Network',
+    imageUrl: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1200&q=80',
+    mediaType: 'image',
+    targetCityCode: 'NYC',
+    category: 'brand',
+    isActive: true,
     createdAt: new Date().toISOString()
   }
 ];

@@ -341,19 +341,39 @@ export default function App() {
     fetchInitialTelemetry();
   }, []);
 
-  // Secure Wallet State (1,000 Starter Tokens = $1.00 USD / 1 Free 15s Slot Credit)
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
-  const [isMyAdsModalOpen, setIsMyAdsModalOpen] = useState(false);
-  const [walletBalanceCents, setWalletBalanceCents] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('vb_cached_balance_cents');
-      if (cached !== null && cached !== undefined && cached !== '') {
-        const parsed = parseInt(cached, 10);
+  // Helper for instant 0ms cached balance per user
+  const getCachedBalance = (uid?: string): number => {
+    if (typeof window === 'undefined') return 0;
+    const lastUid = uid || localStorage.getItem('vb_last_user_uid') || localStorage.getItem('vb_guest_uid');
+    if (lastUid) {
+      const val = localStorage.getItem(`vb_cached_balance_${lastUid}`);
+      if (val !== null && val !== undefined && val !== '') {
+        const parsed = parseInt(val, 10);
         if (!isNaN(parsed) && parsed >= 0) return parsed;
       }
     }
-    return 0; // Starts at 0 until verified account profile is loaded from Firestore
-  });
+    const legacy = localStorage.getItem('vb_cached_balance_cents');
+    if (legacy !== null && legacy !== undefined && legacy !== '') {
+      const parsed = parseInt(legacy, 10);
+      if (!isNaN(parsed) && parsed >= 0) return parsed;
+    }
+    return 0;
+  };
+
+  const setCachedBalance = (uid: string, cents: number) => {
+    if (typeof window === 'undefined' || !uid) return;
+    localStorage.setItem(`vb_cached_balance_${uid}`, String(cents));
+    localStorage.setItem('vb_cached_balance_cents', String(cents));
+    if (!uid.startsWith('guest_')) {
+      localStorage.setItem('vb_last_user_uid', uid);
+    }
+  };
+
+  // Secure Wallet State (1,000 Starter Tokens = $1.00 USD / 1 Free 15s Slot Credit)
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isMyAdsModalOpen, setIsMyAdsModalOpen] = useState(false);
+  const [isAuthResolved, setIsAuthResolved] = useState<boolean>(false);
+  const [walletBalanceCents, setWalletBalanceCents] = useState<number>(() => getCachedBalance());
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
   const [hasClaimedStarter, setHasClaimedStarter] = useState<boolean>(false);
 
@@ -374,15 +394,11 @@ export default function App() {
           const data = snap.data();
           if (typeof data.walletBalanceCents === 'number' && !isNaN(data.walletBalanceCents)) {
             setWalletBalanceCents(data.walletBalanceCents);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('vb_cached_balance_cents', String(data.walletBalanceCents));
-            }
+            setCachedBalance(currentUser.uid, data.walletBalanceCents);
           } else if (typeof data.tokensBalance === 'number' && !isNaN(data.tokensBalance)) {
             const cents = Math.round(data.tokensBalance / 10);
             setWalletBalanceCents(cents);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('vb_cached_balance_cents', String(cents));
-            }
+            setCachedBalance(currentUser.uid, cents);
           }
           if (data.role && data.role !== userRole) {
             setUserRole(data.role as UserRole);
@@ -398,6 +414,12 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && !user.isAnonymous) {
+        const cachedInstant = getCachedBalance(user.uid);
+        if (cachedInstant > 0) {
+          setWalletBalanceCents(cachedInstant);
+        }
+        localStorage.setItem('vb_last_user_uid', user.uid);
+
         const isAdminUser = isUserAdmin(user.email || '');
         const profile = await syncUserProfile(user, isAdminUser ? 'admin' : 'advertiser');
         const isAdmin = isAdminUser || profile.role === 'admin' || isUserAdmin(profile.email, profile.role);
@@ -421,16 +443,14 @@ export default function App() {
         if (typeof profile.tokensBalance === 'number') {
           const centsVal = Math.round(profile.tokensBalance / 10);
           setWalletBalanceCents(centsVal);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('vb_cached_balance_cents', String(centsVal));
-          }
+          setCachedBalance(profile.uid, centsVal);
         } else if (typeof profile.walletBalanceCents === 'number') {
           setWalletBalanceCents(profile.walletBalanceCents);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('vb_cached_balance_cents', String(profile.walletBalanceCents));
-          }
+          setCachedBalance(profile.uid, profile.walletBalanceCents);
         }
         setHasClaimedStarter(Boolean(profile.hasClaimedFreeSlot && (!profile.tokensBalance || profile.tokensBalance <= 0)));
+        setIsAuthResolved(true);
+
         // Sync verified session to backend server
         fetch('/api/auth/sync', {
           method: 'POST',
@@ -450,6 +470,7 @@ export default function App() {
         setCurrentUser(null);
         setUserRole('guest');
         setHasClaimedStarter(false);
+        setIsAuthResolved(true);
       }
     });
     return () => unsubscribe();
@@ -524,9 +545,12 @@ export default function App() {
 
   const handleSignOut = async () => {
     try {
+      localStorage.removeItem('vb_last_user_uid');
+      localStorage.removeItem('vb_cached_balance_cents');
       await signOut(auth);
       setCurrentUser(null);
       setUserRole('guest');
+      setWalletBalanceCents(0);
       addToast('info', 'Signed Out', 'You have been signed out of your account.');
     } catch (err) {
       console.error('Sign Out Error:', err);
@@ -562,9 +586,7 @@ export default function App() {
 
           if (typeof newCents === 'number' && !isNaN(newCents)) {
             setWalletBalanceCents(newCents);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('vb_cached_balance_cents', String(newCents));
-            }
+            setCachedBalance(uid, newCents);
           }
           const isClaimed = data.starterGrantClaimed === true || data.hasClaimedFreeSlot === true;
           setHasClaimedStarter(isClaimed && (data.bidsPlacedCount || 0) > 0);
@@ -590,11 +612,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Only auto-fetch on mount if user is established or genuine guest
-    if (currentUser || !auth.currentUser) {
+    // Only fetch wallet after auth has resolved to prevent guest fetch race condition on reload
+    if (isAuthResolved) {
       fetchWallet(effectiveUid);
     }
-  }, [effectiveUid, currentUser]);
+  }, [effectiveUid, isAuthResolved]);
 
   const handleTopUpWallet = async (amountDollars: number): Promise<boolean> => {
     const uid = effectiveUid;
@@ -726,9 +748,7 @@ export default function App() {
       if (data.success) {
         if (typeof data.newWalletBalanceCents === 'number') {
           setWalletBalanceCents(data.newWalletBalanceCents);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('vb_cached_balance_cents', String(data.newWalletBalanceCents));
-          }
+          setCachedBalance(uid, data.newWalletBalanceCents);
         }
 
         // Instant Local Campaign Persistence (Resilient to any deployment or server restart)
@@ -1254,9 +1274,7 @@ export default function App() {
           onVoucherRedeemed={(tokensAdded, newTotal) => {
             const newCents = Math.round(newTotal / 10);
             setWalletBalanceCents(newCents);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('vb_cached_balance_cents', String(newCents));
-            }
+            setCachedBalance(effectiveUid, newCents);
             addToast('success', '🎟️ Promo Claimed!', `+${tokensAdded.toLocaleString()} tokens credited! New Balance: ${newTotal.toLocaleString()} Tokens.`);
             fetchWallet(effectiveUid);
           }}
