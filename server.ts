@@ -7276,68 +7276,38 @@ app.get('/api/admin/ads/all', async (req, res) => {
     SEO: { title: 'Seoul Gangnam Web3 & K-Pop Festival', imageUrl: 'https://images.unsplash.com/photo-1538485399081-7191377e8241?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Gangnam Digital Media' }
   };
 
-  // 1. Active Live Ads across all cities
-  Object.entries(redisActiveSlots).forEach(([cityKey, slot]) => {
-    if (slot && slot.winningAd) {
-      const ad = slot.winningAd;
-      const cleanCity = (ad.targetCityCode || cityKey)
-        .replace(/^billboard:active:/i, '')
-        .replace(/^billboard:queue:/i, '')
-        .replace(/^room_[A-Z]{2}_/i, '')
-        .toUpperCase();
-
-      const isHouse = Boolean(ad.isHouseAd || ad.id?.startsWith('demo_') || ad.id?.startsWith('seed_') || ad.id?.startsWith('house_') || ad.advertiserName?.includes('SYSTEM') || ad.advertiserName?.includes('AEGIS') || ad.title?.includes('Apex Legends'));
-      const adId = ad.id || `act_${cleanCity}`;
-      seenIds.add(adId);
-
-      const localizedFallback = CITY_FALLBACK_CREATIVES[cleanCity] || {
-        title: `${cleanCity} Live Global Billboard`,
-        imageUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=1200&q=80',
-        advertiserName: `${cleanCity} Media Hub`
-      };
-
-      allAds.push({
-        id: adId,
-        title: isHouse && (ad.title === platformSettings.houseAdTitle || ad.title?.includes('Apex Legends')) ? localizedFallback.title : ad.title,
-        imageUrl: isHouse && ad.imageUrl?.includes('1542751371') ? localizedFallback.imageUrl : ad.imageUrl,
-        advertiserName: isHouse && (ad.advertiserName === 'Active Sponsor' || ad.advertiserName?.includes('Esports')) ? localizedFallback.advertiserName : (ad.advertiserName || 'Active Sponsor'),
-        targetCityCode: cleanCity,
-        bidAmountDollars: ((ad.bidAmountCents || 100) / 100).toFixed(2),
-        bidAmountCents: ad.bidAmountCents || 100,
-        status: 'live',
-        isHouseAd: isHouse,
-        impressions: slot.impressions || 12400,
-        createdAt: ad.createdAt || new Date().toISOString()
-      });
-    }
-  });
-
-  // 2. Queued Ads across all cities
-  Object.entries(redisQueues).forEach(([queueKey, queue]) => {
-    const cleanCity = queueKey.replace(/^billboard:queue:/i, '').replace(/^queue:/i, '').toUpperCase();
-    (queue || []).forEach((adItem) => {
-      const isHouse = Boolean(adItem.isHouseAd || adItem.id?.startsWith('demo_') || adItem.id?.startsWith('seed_') || adItem.id?.startsWith('house_') || adItem.advertiserName?.includes('SYSTEM') || adItem.advertiserName?.includes('AEGIS'));
-      const adId = adItem.id;
-      if (!seenIds.has(adId)) {
+  // 1. User Campaigns from Cloud Firestore Database FIRST (Authoritative real user ads)
+  try {
+    const campaignsCol = collection(db, 'campaigns');
+    const snap = await getDocs(query(campaignsCol, limit(200)));
+    snap.docs.forEach(docSnap => {
+      const data = docSnap.data();
+      const adId = docSnap.id;
+      const cleanId = data.id || adId;
+      if (!seenIds.has(adId) && !seenIds.has(cleanId)) {
         seenIds.add(adId);
+        seenIds.add(cleanId);
+        const cents = data.bidAmountCents || (data.bidAmountTokens ? Math.round(data.bidAmountTokens / 10) : 100);
         allAds.push({
-          id: adId,
-          title: adItem.title,
-          imageUrl: adItem.imageUrl,
-          advertiserName: adItem.advertiserName || 'Advertiser',
-          targetCityCode: adItem.targetCityCode || cleanCity,
-          bidAmountDollars: ((adItem.bidAmountCents || 100) / 100).toFixed(2),
-          bidAmountCents: adItem.bidAmountCents || 100,
-          status: 'queued',
-          isHouseAd: isHouse,
-          impressions: 0,
-          createdAt: adItem.createdAt || new Date().toISOString()
+          id: cleanId,
+          title: data.title || 'User Campaign',
+          imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+          advertiserName: data.advertiserName || data.displayName || 'Verified Advertiser',
+          targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
+          bidAmountDollars: (cents / 100).toFixed(2),
+          bidAmountCents: cents,
+          status: data.status || 'approved',
+          isHouseAd: false, // Guaranteed Real User Campaign
+          impressions: data.impressions || 15200,
+          createdAt: data.createdAt || new Date().toISOString()
         });
       }
     });
-  });
+  } catch (fsErr) {
+    console.warn('Firestore admin campaigns fetch notice:', fsErr);
+  }
 
-  // 3. Historical In-Memory Real User Bids (from globalBidHistoryStore)
+  // 2. In-Memory Real User Bids (from globalBidHistoryStore)
   for (const item of globalBidHistoryStore) {
     if (!seenIds.has(item.id)) {
       seenIds.add(item.id);
@@ -7358,34 +7328,70 @@ app.get('/api/admin/ads/all', async (req, res) => {
     }
   }
 
-  // 4. User Campaigns from Firestore Database (Safe index-free query)
-  try {
-    const campaignsCol = collection(db, 'campaigns');
-    const snap = await getDocs(query(campaignsCol, limit(100)));
-    snap.docs.forEach(docSnap => {
-      const data = docSnap.data();
-      const adId = docSnap.id;
-      if (!seenIds.has(adId) && !seenIds.has(data.id)) {
+  // 3. Active Live Slots across all cities (Flag system demo slots as House Ads)
+  Object.entries(redisActiveSlots).forEach(([cityKey, slot]) => {
+    if (slot && slot.winningAd) {
+      const ad = slot.winningAd;
+      const cleanCity = (ad.targetCityCode || cityKey)
+        .replace(/^billboard:active:/i, '')
+        .replace(/^billboard:queue:/i, '')
+        .replace(/^room_[A-Z]{2}_/i, '')
+        .toUpperCase();
+
+      const isRealUserBid = Boolean(ad.userId && !ad.userId.startsWith('system_') && !ad.userId.startsWith('house_') && ad.userId !== 'default_user' && !ad.isHouseAd);
+      const isHouse = !isRealUserBid;
+      const adId = ad.id || `act_${cleanCity}`;
+
+      if (!seenIds.has(adId)) {
         seenIds.add(adId);
-        const cents = data.bidAmountCents || (data.bidAmountTokens ? Math.round(data.bidAmountTokens / 10) : 100);
+        const localizedFallback = CITY_FALLBACK_CREATIVES[cleanCity] || {
+          title: `${cleanCity} Live Global Billboard`,
+          imageUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=1200&q=80',
+          advertiserName: `${cleanCity} Media Hub`
+        };
+
         allAds.push({
           id: adId,
-          title: data.title || 'User Campaign',
-          imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
-          advertiserName: data.advertiserName || data.displayName || 'Verified Advertiser',
-          targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
-          bidAmountDollars: (cents / 100).toFixed(2),
-          bidAmountCents: cents,
-          status: data.status || 'approved',
-          isHouseAd: false, // Confirmed Real User Campaign
-          impressions: data.impressions || 15200,
-          createdAt: data.createdAt || new Date().toISOString()
+          title: isHouse && (ad.title === platformSettings.houseAdTitle || ad.title?.includes('Apex Legends')) ? localizedFallback.title : ad.title,
+          imageUrl: isHouse && ad.imageUrl?.includes('1542751371') ? localizedFallback.imageUrl : ad.imageUrl,
+          advertiserName: isHouse && (ad.advertiserName === 'Active Sponsor' || ad.advertiserName?.includes('Esports')) ? localizedFallback.advertiserName : (ad.advertiserName || 'Active Sponsor'),
+          targetCityCode: cleanCity,
+          bidAmountDollars: ((ad.bidAmountCents || 100) / 100).toFixed(2),
+          bidAmountCents: ad.bidAmountCents || 100,
+          status: 'live',
+          isHouseAd: isHouse,
+          impressions: slot.impressions || 12400,
+          createdAt: ad.createdAt || new Date().toISOString()
+        });
+      }
+    }
+  });
+
+  // 4. Queued Ads across all cities
+  Object.entries(redisQueues).forEach(([queueKey, queue]) => {
+    const cleanCity = queueKey.replace(/^billboard:queue:/i, '').replace(/^queue:/i, '').toUpperCase();
+    (queue || []).forEach((adItem) => {
+      const isRealUserBid = Boolean(adItem.userId && !adItem.userId.startsWith('system_') && !adItem.userId.startsWith('house_') && adItem.userId !== 'default_user' && !adItem.isHouseAd);
+      const isHouse = !isRealUserBid;
+      const adId = adItem.id;
+      if (!seenIds.has(adId)) {
+        seenIds.add(adId);
+        allAds.push({
+          id: adId,
+          title: adItem.title,
+          imageUrl: adItem.imageUrl,
+          advertiserName: adItem.advertiserName || 'Advertiser',
+          targetCityCode: adItem.targetCityCode || cleanCity,
+          bidAmountDollars: ((adItem.bidAmountCents || 100) / 100).toFixed(2),
+          bidAmountCents: adItem.bidAmountCents || 100,
+          status: 'queued',
+          isHouseAd: isHouse,
+          impressions: 0,
+          createdAt: adItem.createdAt || new Date().toISOString()
         });
       }
     });
-  } catch (fsErr) {
-    console.warn('Firestore admin campaigns fetch notice:', fsErr);
-  }
+  });
 
   // 5. Scheduled User Bids from Firestore
   try {
