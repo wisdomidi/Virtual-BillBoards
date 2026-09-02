@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { soundEffects } from '../lib/soundEffects';
 import { GLOBAL_CITIES } from '../data/cities';
+import { db } from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface TvPairingModalProps {
   isOpen: boolean;
@@ -78,6 +80,26 @@ export const TvPairingModal: React.FC<TvPairingModalProps> = ({
         setResultMsg(data.message || '🎉 Screen paired successfully! Your TV is now broadcasting live.');
         if (solanaWallet.trim()) {
           localStorage.setItem('vb_streamer_solana_wallet', solanaWallet.trim());
+        }
+
+        // Direct Firestore screen write for instant admin sync
+        if (db) {
+          try {
+            const screenRef = doc(db, 'screens', cleanPin);
+            setDoc(screenRef, {
+              pin: cleanPin,
+              formattedPin: `${cleanPin.substring(0, 3)}-${cleanPin.substring(3)}`,
+              venueName: venueName.trim(),
+              solanaWallet: solanaWallet.trim() || null,
+              city: city.toUpperCase(),
+              status: 'paired',
+              deviceType: 'Smart TV (WebOS/Tizen/FireTV)',
+              resolution: '4K Ultra-HD (3840x2160)',
+              pairedAt: new Date().toISOString(),
+              lastHeartbeat: Date.now(),
+              createdAt: Date.now()
+            }, { merge: true }).catch(() => {});
+          } catch {}
         }
       } else {
         setResultMsg(`⚠️ ${data.error || 'Failed to pair TV screen. Please check the PIN.'}`);

@@ -17,6 +17,8 @@ import {
   Radio
 } from 'lucide-react';
 import { soundEffects } from '../lib/soundEffects';
+import { db } from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface SmartTvScreenProps {
   slotData?: ActiveBillboardSlot | null;
@@ -117,6 +119,24 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
         setFormattedPin(data.formattedPin);
         setPairingUrl(data.pairingUrl);
         localStorage.setItem('vb_tv_saved_pin', data.pin);
+
+        // Direct Firestore registration for instant admin visibility
+        if (db && data.pin) {
+          try {
+            const screenRef = doc(db, 'screens', data.pin);
+            setDoc(screenRef, {
+              pin: data.pin,
+              formattedPin: data.formattedPin,
+              venueName: 'Pending Smart TV Display',
+              city: (venueInfo.city || selectedCity || 'GLOBAL').toUpperCase(),
+              status: 'pending_pairing',
+              deviceType: 'Smart TV (WebOS/Tizen/FireTV)',
+              resolution: '4K Ultra-HD (3840x2160)',
+              createdAt: Date.now(),
+              lastHeartbeat: Date.now()
+            }, { merge: true }).catch(() => {});
+          } catch {}
+        }
       }
     } catch (e) {
       console.warn('TV PIN generation note:', e);
@@ -326,7 +346,12 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
     if (!isPaired) return;
 
     const sendHeartbeat = () => {
-      const activePin = pin || localStorage.getItem('vb_tv_saved_pin') || '999999';
+      let activePin = pin || localStorage.getItem('vb_tv_saved_pin');
+      if (!activePin) {
+        activePin = Math.floor(100000 + Math.random() * 900000).toString();
+        localStorage.setItem('vb_tv_saved_pin', activePin);
+        setPin(activePin);
+      }
       fetch('/api/tv/heartbeat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -337,6 +362,25 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
           solanaWallet: venueInfo.wallet
         })
       }).catch(() => {});
+
+      // Direct Firestore heartbeat write
+      if (db && activePin) {
+        try {
+          const screenRef = doc(db, 'screens', activePin);
+          setDoc(screenRef, {
+            pin: activePin,
+            formattedPin: `${activePin.substring(0, 3)}-${activePin.substring(3)}`,
+            venueName: venueInfo.name || 'Verified Smart TV Screen',
+            city: (venueInfo.city || selectedCity || 'GLOBAL').toUpperCase(),
+            solanaWallet: venueInfo.wallet || null,
+            status: 'paired',
+            deviceType: 'Smart TV (WebOS/Tizen/FireTV)',
+            resolution: '4K Ultra-HD (3840x2160)',
+            pairedAt: localStorage.getItem('vb_tv_paired_at') || new Date().toISOString(),
+            lastHeartbeat: Date.now()
+          }, { merge: true }).catch(() => {});
+        } catch {}
+      }
     };
 
     sendHeartbeat();

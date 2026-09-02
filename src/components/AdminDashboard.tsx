@@ -962,6 +962,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   }, [activeAdminSubTab]);
 
+  // Real-time Firestore screens listener
+  useEffect(() => {
+    if (!db) return;
+    try {
+      const screensCol = collection(db, 'screens');
+      const unsubscribe = onSnapshot(query(screensCol, limit(200)), (snap) => {
+        setScreensList((prevList) => {
+          const map = new Map(prevList.map(s => [s.id, s]));
+          snap.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const pin = data.pin || docSnap.id;
+            const id = `tv_${pin}`;
+            map.set(id, {
+              id,
+              pin,
+              formattedPin: data.formattedPin || (pin ? `${pin.substring(0, 3)}-${pin.substring(3)}` : 'LIVE'),
+              venueName: data.venueName || 'Verified Smart TV',
+              deviceType: data.deviceType || 'Smart TV (WebOS/Tizen/FireTV)',
+              cityCode: (data.city || 'GLOBAL').toUpperCase(),
+              status: data.status === 'paired' || data.status === 'online' ? 'online' : (data.status || 'online'),
+              solanaWallet: data.solanaWallet || null,
+              connectedAt: data.pairedAt || data.createdAt || new Date().toISOString(),
+              resolution: data.resolution || '4K Ultra-HD (3840x2160)',
+              activeAd: data.activeAd || platformSettings.houseAdTitle || 'Live Billboard Feed'
+            });
+          });
+          return Array.from(map.values());
+        });
+      }, (err) => {
+        console.warn('Real-time screens onSnapshot notice:', err);
+      });
+      return () => unsubscribe();
+    } catch (err) {
+      console.warn('Real-time screens listener setup notice:', err);
+    }
+  }, []);
+
+  // Fetch screens immediately when screens tab becomes active
+  useEffect(() => {
+    if (activeAdminSubTab === 'screens') {
+      fetchScreens();
+    }
+  }, [activeAdminSubTab]);
+
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     askConfirmation({
