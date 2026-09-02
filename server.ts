@@ -7740,6 +7740,7 @@ app.get('/api/admin/screens', async (req, res) => {
       const memSession = tvPairingSessions.get(pin);
       const lastHb = memSession?.lastHeartbeat || data.lastHeartbeat;
       const isRecentlyActive = lastHb && (Date.now() - lastHb < 120000);
+      const totalScans = data.totalScans || data.scanCount || data.verifiedScans || data.scansCount || 0;
       screensMap.set(`tv_${pin}`, {
         id: `tv_${pin}`,
         pin,
@@ -7749,6 +7750,8 @@ app.get('/api/admin/screens', async (req, res) => {
         cityCode: (data.city || 'GLOBAL').toUpperCase(),
         status: isRecentlyActive || memSession?.status === 'paired' ? 'online' : 'online',
         solanaWallet: data.solanaWallet || null,
+        totalScans,
+        verifiedVisits: data.verifiedVisits || totalScans,
         connectedAt: data.pairedAt || data.createdAt || new Date().toISOString(),
         resolution: data.resolution || '4K Ultra-HD (3840x2160)',
         activeAd: platformSettings.houseAdTitle || 'Public Service Billboard'
@@ -7761,15 +7764,18 @@ app.get('/api/admin/screens', async (req, res) => {
   // 2. Overlay live in-memory Paired and Pending Smart TV PIN Sessions
   tvPairingSessions.forEach((session, pin) => {
     const isRecentlyActive = session.lastHeartbeat && (Date.now() - session.lastHeartbeat < 120000);
+    const existing = screensMap.get(`tv_${pin}`) || {};
     screensMap.set(`tv_${pin}`, {
       id: `tv_${pin}`,
       pin,
       formattedPin: `${pin.substring(0, 3)}-${pin.substring(3)}`,
-      venueName: session.venueName || 'Unassigned Smart TV',
+      venueName: session.venueName || existing.venueName || 'Unassigned Smart TV',
       deviceType: 'Smart TV (WebOS/Tizen/FireTV)',
-      cityCode: session.city || 'GLOBAL',
+      cityCode: session.city || existing.cityCode || 'GLOBAL',
       status: session.status === 'paired' ? 'online' : 'pending_pairing',
-      solanaWallet: session.solanaWallet || null,
+      solanaWallet: session.solanaWallet || existing.solanaWallet || null,
+      totalScans: existing.totalScans || session.totalScans || 0,
+      verifiedVisits: existing.verifiedVisits || session.verifiedVisits || 0,
       connectedAt: session.pairedAt || new Date(session.createdAt).toISOString(),
       resolution: '4K Ultra-HD (3840x2160)',
       activeAd: platformSettings.houseAdTitle || 'Public Service Billboard'

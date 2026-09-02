@@ -70,15 +70,41 @@ interface AdminDashboardProps {
   selectedCountry: string;
 }
 
+const getInitialAdminSubTab = (): 'settings' | 'moderation' | 'users' | 'vouchers' | 'streamers' | 'attention' | 'solana' | 'affiliates' | 'screens' | 'house_ads' | 'creators' | 'overrides' | 'cities' | 'tech_tools' => {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    const subtabParam = params.get('subtab') || params.get('tab') || window.location.hash.replace(/^#/, '');
+    const valid = ['settings', 'moderation', 'users', 'vouchers', 'streamers', 'attention', 'solana', 'affiliates', 'screens', 'house_ads', 'creators', 'overrides', 'cities', 'tech_tools'];
+    if (subtabParam && valid.includes(subtabParam)) {
+      return subtabParam as any;
+    }
+    const saved = localStorage.getItem('vb_admin_subtab');
+    if (saved && valid.includes(saved)) {
+      return saved as any;
+    }
+  }
+  return 'settings';
+};
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   telemetryLogs,
   addToast,
   selectedCity,
   selectedCountry
 }) => {
-  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'vouchers' | 'streamers' | 'attention' | 'solana' | 'affiliates' | 'screens' | 'house_ads' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>('settings');
+  const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'vouchers' | 'streamers' | 'attention' | 'solana' | 'affiliates' | 'screens' | 'house_ads' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>(() => getInitialAdminSubTab());
   const [techTool, setTechTool] = useState<'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger'>('architecture');
   const [creatorFilter, setCreatorFilter] = useState('');
+
+  const handleSelectAdminSubTab = (tabId: any) => {
+    setActiveAdminSubTab(tabId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('vb_admin_subtab', tabId);
+      const url = new URL(window.location.href);
+      url.searchParams.set('subtab', tabId);
+      window.history.replaceState({ subtab: tabId }, '', url.toString());
+    }
+  };
 
   // Live Streamers & OBS Overlays Fleet State
   const [streamersData, setStreamersData] = useState<any>(null);
@@ -1333,7 +1359,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveAdminSubTab(tab.id as any)}
+                onClick={() => handleSelectAdminSubTab(tab.id as any)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${
                   isActive
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 shadow-cyan-500/20 font-extrabold scale-[1.02]'
@@ -3056,8 +3082,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* Quick Fleet Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
+            {/* Quick Fleet Metrics with Total Verified Scans */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">TOTAL ACTIVE DISPLAYS</div>
                 <div className="text-2xl font-black text-white">{screensList.length}</div>
@@ -3069,6 +3095,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {screensList.filter(s => s.status === 'online').length}
                 </div>
                 <div className="text-[10px] text-emerald-500/80 mt-1">Receiving live WS auction frames</div>
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
+                <div className="text-amber-400 mb-1 flex items-center gap-1.5 font-bold">
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  <span>TOTAL VERIFIED SCANS</span>
+                </div>
+                <div className="text-2xl font-black text-amber-300 font-mono">
+                  {screensList.reduce((acc, s) => acc + (s.totalScans || s.scanCount || s.verifiedVisits || 0), 0).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-amber-500/80 mt-1">Proof-of-Physical-Presence QR Scans</div>
               </div>
               <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4">
                 <div className="text-slate-400 mb-1">DEFAULT RESOLUTION</div>
@@ -3118,6 +3154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <th className="py-3 px-4 font-bold">CITY GEOFENCE</th>
                       <th className="py-3 px-4 font-bold">STATUS</th>
                       <th className="py-3 px-4 font-bold">LIVE AD STREAMING</th>
+                      <th className="py-3 px-4 font-bold text-amber-400">VERIFIED QR SCANS</th>
                       <th className="py-3 px-4 font-bold">SOLANA PAYOUT</th>
                       <th className="py-3 px-4 font-bold text-right">ACTION</th>
                     </tr>
@@ -3151,6 +3188,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </td>
                         <td className="py-3.5 px-4 text-slate-300 font-sans max-w-[200px] truncate" title={screen.activeAd}>
                           {screen.activeAd || 'Fallback House Ad'}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-950/40 border border-amber-500/30 rounded-xl text-amber-300 font-bold font-mono text-xs">
+                            <Zap className="w-3.5 h-3.5 text-amber-400 fill-current" />
+                            <span>{(screen.totalScans || screen.scanCount || screen.verifiedVisits || 0).toLocaleString()} Scans</span>
+                          </div>
                         </td>
                         <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
                           {screen.solanaWallet ? `${screen.solanaWallet.slice(0, 4)}...${screen.solanaWallet.slice(-4)}` : '70% Rev-Share'}

@@ -207,6 +207,12 @@ function detectInitialTabFromUrl(): TabType {
   if (searchTab && validTabs.has(searchTab)) return searchTab;
   if (hashTab && validTabs.has(hashTab)) return hashTab;
   if (validTabs.has(path as TabType)) return path as TabType;
+
+  const savedTab = localStorage.getItem('vb_last_active_tab') as TabType | null;
+  if (savedTab && validTabs.has(savedTab) && path === '') {
+    return savedTab;
+  }
+
   return 'live';
 }
 
@@ -267,8 +273,10 @@ export default function App() {
     setSelectedCreatorHandle(null);
     setActiveTab(newTab);
     if (typeof window !== 'undefined') {
-      const newPath = newTab === 'live' ? '/' : `/${newTab}`;
-      if (window.location.pathname !== newPath) {
+      localStorage.setItem('vb_last_active_tab', newTab);
+      const search = newTab === 'admin' ? window.location.search : '';
+      const newPath = newTab === 'live' ? '/' : `/${newTab}${search}`;
+      if (window.location.pathname !== (newTab === 'live' ? '/' : `/${newTab}`)) {
         window.history.pushState({ tab: newTab }, '', newPath);
       }
     }
