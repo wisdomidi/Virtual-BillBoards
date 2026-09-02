@@ -345,13 +345,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (res.ok) {
         const data = await res.json();
         if (data.ads && Array.isArray(data.ads)) {
-          setAllAdminAds((prevList) => {
-            const map = new Map(prevList.map(a => [a.id, a]));
-            data.ads.forEach((ad: any) => {
-              map.set(ad.id, { ...map.get(ad.id), ...ad });
-            });
-            return Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-          });
+          setAllAdminAds(data.ads.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
         }
       }
     } catch (err) {
@@ -1043,28 +1037,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       const campaignsCol = collection(db, 'campaigns');
       const unsubscribe = onSnapshot(query(campaignsCol, limit(200)), (snap) => {
-        setAllAdminAds((prevList) => {
-          const map = new Map(prevList.map(a => [a.id, a]));
-          snap.docs.forEach((docSnap) => {
-            const data = docSnap.data();
-            const id = docSnap.id;
-            const cents = data.bidAmountCents || (data.bidAmountTokens ? Math.round(data.bidAmountTokens / 10) : 100);
-            map.set(id, {
-              id,
-              title: data.title || 'User Campaign',
-              imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
-              advertiserName: data.advertiserName || data.displayName || 'Verified Advertiser',
-              targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
-              bidAmountDollars: (cents / 100).toFixed(2),
-              bidAmountCents: cents,
-              status: data.status || 'approved',
-              isHouseAd: Boolean(data.isHouseAd),
-              impressions: data.impressions || 15200,
-              createdAt: data.createdAt || new Date().toISOString()
-            });
+        const list: any[] = [];
+        snap.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          const id = docSnap.id;
+          const cents = data.bidAmountCents || (data.bidAmountTokens ? Math.round(data.bidAmountTokens / 10) : 100);
+          list.push({
+            id,
+            title: data.title || 'User Campaign',
+            imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+            advertiserName: data.advertiserName || data.displayName || 'Verified Advertiser',
+            targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
+            bidAmountDollars: (cents / 100).toFixed(2),
+            bidAmountCents: cents,
+            status: data.status || 'approved',
+            isHouseAd: Boolean(data.isHouseAd),
+            impressions: data.impressions || 15200,
+            scansCount: data.scansCount || data.scanCount || 0,
+            createdAt: data.createdAt || new Date().toISOString()
           });
-          return Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
         });
+        setAllAdminAds(list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
       }, (err) => {
         console.warn('Real-time campaigns onSnapshot notice:', err);
       });

@@ -764,10 +764,8 @@ export default function App() {
         // Instant Local Campaign Persistence (Resilient to any deployment or server restart)
         if (typeof window !== 'undefined') {
           try {
-            const isHugeBase64 = imageUrl && imageUrl.startsWith('data:') && imageUrl.length > 10000;
-            const safeStoredImageUrl = isHugeBase64
-              ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80'
-              : imageUrl;
+            // Preserve the user's exact uploaded image creative
+            const safeStoredImageUrl = imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80';
 
             const newCampaignItem = {
               id: data.adId || data.ad?.id || `camp_${Date.now()}`,

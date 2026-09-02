@@ -2679,8 +2679,8 @@ const handleBidSubmission = async (req: Request, res: Response) => {
 
     // 6. Save campaign to Firestore database reliably
     try {
-      const cleanImageUrl = (newAd.imageUrl && newAd.imageUrl.startsWith('data:') && newAd.imageUrl.length > 5000)
-        ? 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80'
+      const cleanImageUrl = (newAd.imageUrl && newAd.imageUrl.length > 850000)
+        ? newAd.imageUrl.substring(0, 850000)
         : (newAd.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80');
 
       const cleanAd = {
