@@ -1566,6 +1566,28 @@ app.get('/api/billboard/active', (req, res) => {
   });
 });
 
+// Aliases for active billboard slot lookups across different client SDKs
+app.get('/api/slots/active', (req, res) => {
+  const city = ((req.query.city as string) || req.geo?.cityCode || 'KUL').toUpperCase();
+  const country = ((req.query.country as string) || req.geo?.countryCode || 'MY').toUpperCase();
+  const cacheKey = `billboard:active:${city}`;
+  let activeRecord = redisActiveSlots[cacheKey] || redisActiveSlots[`billboard:active:GLOBAL`];
+  if (!activeRecord) {
+    const cascadeResult = evaluateCascade(city, country);
+    activeRecord = {
+      slotId: currentSlotId,
+      winningAd: cascadeResult.winningAd,
+      remainingSeconds
+    };
+  }
+  res.json(activeRecord);
+});
+
+app.get('/api/active-slot', (req, res) => {
+  const city = ((req.query.city as string) || 'KUL').toUpperCase();
+  res.json(redisActiveSlots[`billboard:active:${city}`] || redisActiveSlots[`billboard:active:GLOBAL`] || {});
+});
+
 // Get Regional Bidding Queue (Redis ZSET)
 app.get('/api/bids/queue', (req, res) => {
   const region = (req.query.region as string) || 'KUL';

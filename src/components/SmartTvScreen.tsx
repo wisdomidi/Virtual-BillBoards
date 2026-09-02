@@ -170,11 +170,18 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
     }
   }, [isPaired]);
 
+  // Synchronize parent slot data if available
+  useEffect(() => {
+    if (initialSlotData && (initialSlotData.winningAd || (initialSlotData as any).ad)) {
+      setCurrentSlot(initialSlotData);
+    }
+  }, [initialSlotData]);
+
   // 2. Fetch Active Slot for City / Global Broadcast
   const fetchActiveSlot = async () => {
     try {
       const city = venueInfo.city || selectedCity || 'GLOBAL';
-      const res = await fetch(`/api/slots/active?city=${encodeURIComponent(city)}`);
+      const res = await fetch(`/api/billboard/active?city=${encodeURIComponent(city)}`);
       if (res.ok) {
         const data = await res.json();
         if (data && (data.winningAd || data.ad)) {
@@ -192,6 +199,13 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
     // If no active winning slot ad, rotate to next house ad
     setHouseAdIndex((prev) => (prev + 1) % (houseAdsCatalog.length || 1));
   };
+
+  // Continuous 4-second live slot fetcher for bulletproof real-time TV broadcasts
+  useEffect(() => {
+    fetchActiveSlot();
+    const pollTimer = setInterval(fetchActiveSlot, 4000);
+    return () => clearInterval(pollTimer);
+  }, [venueInfo.city, selectedCity, houseAdsCatalog.length]);
 
   // Fetch house ads catalog
   useEffect(() => {
@@ -223,7 +237,6 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
       } catch {}
     };
     fetchHouseAds();
-    fetchActiveSlot();
   }, [venueInfo.city, selectedCity]);
 
   // 3. WebSocket Connection for Real-Time Slot Rotations & TV Commands
@@ -271,6 +284,9 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
                 setRemainingSeconds(msg.payload.remainingSeconds ?? 15);
                 soundEffects.playSlideClick();
               }
+            } else if (msg.type === 'NEW_BID_PLACED') {
+              // Immediately fetch active slot on incoming bid
+              fetchActiveSlot();
             } else if (msg.type === 'SLOT_TICK' || msg.type === 'TICK') {
               if (typeof msg.payload?.remainingSeconds === 'number') {
                 setRemainingSeconds(msg.payload.remainingSeconds);
