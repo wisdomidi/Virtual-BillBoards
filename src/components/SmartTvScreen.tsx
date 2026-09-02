@@ -252,13 +252,26 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
         ws.onmessage = (event) => {
           try {
             const msg = JSON.parse(event.data);
-            if (msg.type === 'SLOT_CHANGED' || msg.type === 'SLOT_DATA' || msg.type === 'INIT') {
+            if (msg.type === 'SLOT_TRANSITION' || msg.type === 'SLOT_LIVE_START' || msg.type === 'SLOT_CHANGED' || msg.type === 'SLOT_DATA' || msg.type === 'INIT' || msg.type === 'INIT_STATE') {
               if (msg.payload) {
-                setCurrentSlot(msg.payload);
+                // If payload has winningAd directly or adTitle
+                const payloadAd = msg.payload.winningAd || (msg.payload.adTitle ? {
+                  id: msg.payload.slotId,
+                  title: msg.payload.adTitle,
+                  imageUrl: msg.payload.imageUrl,
+                  advertiserName: msg.payload.advertiser || 'Verified Advertiser',
+                  bidAmountDollars: msg.payload.bidAmountDollars,
+                  qrCodeUrl: msg.payload.dynamicQrUrl
+                } : null);
+
+                setCurrentSlot({
+                  ...msg.payload,
+                  winningAd: payloadAd || msg.payload.winningAd
+                });
                 setRemainingSeconds(msg.payload.remainingSeconds ?? 15);
                 soundEffects.playSlideClick();
               }
-            } else if (msg.type === 'TICK') {
+            } else if (msg.type === 'SLOT_TICK' || msg.type === 'TICK') {
               if (typeof msg.payload?.remainingSeconds === 'number') {
                 setRemainingSeconds(msg.payload.remainingSeconds);
               }

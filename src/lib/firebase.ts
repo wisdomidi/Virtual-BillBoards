@@ -118,25 +118,20 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
       return { ...baseProfile, walletBalanceCents: 0 };
     }
     const userRef = doc(db, 'users', user.uid);
-    // Strict 1200ms timeout for instant snappy sign in
-    const timeoutPromise = new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Firestore read timeout')), 1200));
-    const snap: any = await Promise.race([getDoc(userRef), timeoutPromise]);
+    const snap = await getDoc(userRef);
 
-    if (snap && snap.exists && snap.exists()) {
+    if (snap && snap.exists()) {
       const data = snap.data();
       const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
       const hasClaimed = Boolean(data.starterGrantClaimed || data.freeSlotClaimed || bidsCount > 0);
-      let tokensBalance = typeof data.tokensBalance === 'number'
-        ? data.tokensBalance
-        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isAnon || hasClaimed ? 0 : 1000));
+      
+      // Accurately read true Firestore wallet balance ($6 = 600 cents, etc.)
       let walletBalanceCents = typeof data.walletBalanceCents === 'number'
         ? data.walletBalanceCents
-        : Math.round(tokensBalance / 10);
-
-      if (!isAnon && !hasClaimed && data.tokensBalance === undefined && bidsCount === 0) {
-        tokensBalance = 1000;
-        walletBalanceCents = 100;
-      }
+        : (typeof data.tokensBalance === 'number' ? Math.round(data.tokensBalance / 10) : (isAnon || hasClaimed ? 0 : 100));
+      let tokensBalance = typeof data.tokensBalance === 'number'
+        ? data.tokensBalance
+        : Math.round(walletBalanceCents * 10);
 
       const isAdmin = isUserAdmin(user.email || data.email, data.role);
       const finalRole: UserRole = isAdmin ? 'admin' : ((data.role as UserRole) || defaultRole);
@@ -162,7 +157,7 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
       };
     }
 
-    // Brand-new registered user: grant 1,000 starter tokens ($1.00 USD)
+    // Brand-new registered user: grant 1,000 starter tokens ($1.00 USD) ONLY on first signup
     if (!isAnon) {
       const isAdmin = isUserAdmin(user.email, defaultRole);
       const cleanDoc: Record<string, any> = {
@@ -190,13 +185,20 @@ export async function syncUserProfile(user: FirebaseUser, defaultRole: UserRole 
     // Anonymous user: no starter grant
     return baseProfile;
   } catch (err: any) {
-    // Optimistic instant return on timeout or offline
+    console.warn('Firestore syncUserProfile offline/read notice:', err);
+    let fallbackCents = 0;
+    if (typeof window !== 'undefined' && user?.uid) {
+      const raw = localStorage.getItem(`vb_cached_balance_${user.uid}`);
+      if (raw !== null && !isNaN(Number(raw))) {
+        fallbackCents = Number(raw);
+      }
+    }
     const isAdmin = isUserAdmin(user.email, defaultRole);
     return {
       ...baseProfile,
       role: isAdmin ? 'admin' : defaultRole,
-      walletBalanceCents: isAnon ? 0 : 100,
-      tokensBalance: isAnon ? 0 : 1000,
+      walletBalanceCents: fallbackCents,
+      tokensBalance: fallbackCents * 10,
       displayName: user.displayName || (isAnon ? 'Guest Advertiser' : user.email?.split('@')[0] || 'User')
     };
   }

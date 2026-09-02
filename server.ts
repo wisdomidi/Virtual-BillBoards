@@ -436,9 +436,7 @@ async function getUserWalletFromFirestore(userId: string, userEmail?: string) {
 
   try {
     const userRef = doc(db, 'users', userId);
-    // Strict 1200ms timeout for Firestore network reads
-    const timeoutPromise = new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 1200));
-    const snap: any = await Promise.race([getDoc(userRef), timeoutPromise]);
+    const snap: any = await getDoc(userRef);
 
     if (snap && snap.exists && snap.exists()) {
       const data = snap.data();
@@ -449,13 +447,9 @@ async function getUserWalletFromFirestore(userId: string, userEmail?: string) {
         ? data.tokensBalance
         : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isGuest || hasClaimed ? 0 : 1000));
 
-      // ONLY grant 1,000 starter tokens ($1.00) if new registered user NEVER claimed starter grant and tokensBalance is undefined
-      if (!isGuest && !hasClaimed && data.tokensBalance === undefined && bidsCount === 0) {
-        tokensBalance = 1000;
-        setDoc(userRef, { tokensBalance: 1000, walletBalanceCents: 100, starterGrantClaimed: true, freeSlotClaimed: true, bidsPlacedCount: 0, email: resolvedEmail }, { merge: true }).catch(() => {});
-      }
-
-      const walletBalanceCents = Math.round(tokensBalance / 10);
+      const walletBalanceCents = typeof data.walletBalanceCents === 'number'
+        ? data.walletBalanceCents
+        : Math.round(tokensBalance / 10);
 
       userWalletsMemoryMap.set(userId, {
         tokensBalance,
@@ -1090,14 +1084,46 @@ wss.on('connection', (ws, req) => {
     }
   }));
 
-  // Handle incoming client messages (e.g. room switching, ping)
+  // Handle incoming client messages (e.g. room switching, TV SUBSCRIBE, ping)
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message.toString());
-      if (data.type === 'JOIN_ROOM') {
-        const city = data.city || 'KUL';
-        const country = data.country || 'MY';
+      if (data.type === 'JOIN_ROOM' || data.type === 'SUBSCRIBE') {
+        let city = data.city;
+        let country = data.country;
+        if (data.channel && typeof data.channel === 'string') {
+          // e.g. "billboard:KUL" or "room_MY_KUL"
+          const clean = data.channel.replace(/^billboard:/i, '').replace(/^room_/i, '');
+          const parts = clean.split('_');
+          if (parts.length === 2) {
+            country = parts[0];
+            city = parts[1];
+          } else {
+            city = clean;
+          }
+        }
+        city = (city || 'KUL').toUpperCase();
+        const cityMatch = activeCitiesStore.find(c => c.cityCode.toUpperCase() === city);
+        country = country || (cityMatch ? cityMatch.countryCode : 'MY');
         joinRoom(ws, country, city);
+
+        // Immediately send active slot for this city to the newly connected/subscribed Smart TV
+        const activeRecord = redisActiveSlots[`billboard:active:${city}`] || redisActiveSlots[`billboard:active:GLOBAL`];
+        if (activeRecord && activeRecord.winningAd) {
+          ws.send(JSON.stringify({
+            type: 'SLOT_TRANSITION',
+            payload: {
+              slotId: activeRecord.slotId || currentSlotId,
+              rotationToken: activeRecord.rotationToken,
+              dynamicQrUrl: activeRecord.dynamicQrUrl,
+              remainingSeconds,
+              city,
+              country,
+              winningAd: activeRecord.winningAd,
+              fallbackLevel: activeRecord.fallbackLevel
+            }
+          }));
+        }
       } else if (data.type === 'PING') {
         ws.send(JSON.stringify({ type: 'PONG', timestamp: Date.now() }));
       }
