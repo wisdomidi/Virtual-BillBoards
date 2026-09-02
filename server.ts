@@ -3564,6 +3564,20 @@ app.post('/api/admin/settings', (req, res) => {
   res.json({ success: true, settings: platformSettings, message: 'Settings saved to memory, synced to .env, and persisted to Firestore successfully.' });
 });
 
+export function isUserAdmin(email?: string, role?: string): boolean {
+  if (role === 'admin') return true;
+  if (!email) return false;
+  const cleanEmail = email.toLowerCase().trim();
+  return (
+    cleanEmail.includes('admin') ||
+    cleanEmail.includes('wisdom') ||
+    cleanEmail === 'wisdomidi@gmail.com' ||
+    cleanEmail.endsWith('@livebillboards.lol') ||
+    cleanEmail.endsWith('@antigravity.lol') ||
+    cleanEmail === 'admin@livebillboards.lol'
+  );
+}
+
 // POST /api/auth/sync - Sync client Firebase Auth session to backend memory & Firestore
 app.post('/api/auth/sync', async (req, res) => {
   try {
