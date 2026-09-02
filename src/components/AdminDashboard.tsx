@@ -177,6 +177,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [cities, setCities] = useState<CityConfig[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
 
+  // Interactive Confirmation Modal System for Destructive/Modifying Admin Actions
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    confirmVariant?: 'danger' | 'warning' | 'primary' | 'success';
+    onConfirm: () => Promise<void> | void;
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmLabel: 'Confirm',
+    confirmVariant: 'danger',
+    onConfirm: () => {}
+  });
+
+  const askConfirmation = (opts: {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    confirmVariant?: 'danger' | 'warning' | 'primary' | 'success';
+    onConfirm: () => Promise<void> | void;
+  }) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: opts.title,
+      message: opts.message,
+      confirmLabel: opts.confirmLabel || 'Confirm Action',
+      confirmVariant: opts.confirmVariant || 'danger',
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isLoading: true }));
+        try {
+          await opts.onConfirm();
+        } finally {
+          setConfirmDialog({
+            isOpen: false,
+            title: '',
+            message: '',
+            confirmLabel: 'Confirm',
+            confirmVariant: 'danger',
+            onConfirm: () => {},
+            isLoading: false
+          });
+        }
+      }
+    });
+  };
+
   // Emergency Ad Injector Form State
   const [injectTitle, setInjectTitle] = useState('SPECIAL ANNOUNCEMENT: Cyberpunk Esports World Cup');
   const [injectImg, setInjectImg] = useState('https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80');
@@ -190,25 +241,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [populateReport, setPopulateReport] = useState<any>(null);
 
   const handlePopulateCityCampaigns = async () => {
-    setPopulatingCampaigns(true);
-    setPopulateReport(null);
-    try {
-      const res = await fetch('/api/admin/populate-city-campaigns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cityCode: 'ALL' })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPopulateReport(data);
-        addToast('success', '10 Campaigns Populated Per City!', `Populated 10 industry ads for ${data.totalCities} city billboards.`);
+    askConfirmation({
+      title: 'Populate 10 High-Res Ads Per City?',
+      message: 'This will seed 10 rich industry sample campaigns across all geofenced city billboards. Existing live user bids will remain untouched.',
+      confirmLabel: 'Populate Campaigns',
+      confirmVariant: 'primary',
+      onConfirm: async () => {
+        setPopulatingCampaigns(true);
+        setPopulateReport(null);
+        try {
+          const res = await fetch('/api/admin/populate-city-campaigns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cityCode: 'ALL' })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setPopulateReport(data);
+            addToast('success', '10 Campaigns Populated Per City!', `Populated 10 industry ads for ${data.totalCities} city billboards.`);
+          }
+        } catch (err: any) {
+          console.error(err);
+          addToast('error', 'Seeding Failed', err.message);
+        } finally {
+          setPopulatingCampaigns(false);
+        }
       }
-    } catch (err: any) {
-      console.error(err);
-      addToast('error', 'Seeding Failed', err.message);
-    } finally {
-      setPopulatingCampaigns(false);
-    }
+    });
   };
 
   const fetchSettings = async () => {
@@ -269,49 +328,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleRejectLiveAd = async (adId: string) => {
-    try {
-      const res = await fetch('/api/admin/ads/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adId, reason: 'Admin safety removal' })
-      });
-      const data = await res.json();
-      if (data.success) {
-        addToast('info', 'Ad Removed', data.message || 'Ad rejected from rotation.');
-        fetchAllAdminAds();
-        fetchFlaggedAds();
+    askConfirmation({
+      title: 'Reject Ad From Live Rotation?',
+      message: `Are you sure you want to reject ad #${adId.slice(0, 8)}? It will be removed immediately from active broadcasts and queues.`,
+      confirmLabel: 'Reject Ad',
+      confirmVariant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/admin/ads/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adId, reason: 'Admin safety removal' })
+          });
+          const data = await res.json();
+          if (data.success) {
+            addToast('info', 'Ad Removed', data.message || 'Ad rejected from rotation.');
+            fetchAllAdminAds();
+            fetchFlaggedAds();
+          }
+        } catch (e: any) {
+          addToast('error', 'Error', e.message);
+        }
       }
-    } catch (e: any) {
-      addToast('error', 'Error', e.message);
-    }
+    });
   };
 
   const handleOverrideFlaggedAd = async (id: string) => {
-    try {
-      const res = await fetch(`/api/admin/flagged-ads/${id}/override`, { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        addToast('success', 'Ad Overridden & Approved', data.message || 'Ad injected into live broadcast queue.');
-        fetchFlaggedAds();
-      } else {
-        addToast('error', 'Override Failed', data.error || 'Could not override ad.');
+    askConfirmation({
+      title: 'Override AI Flag & Approve Ad?',
+      message: 'Manually override the AI moderation flag and immediately inject this ad creative into the live broadcast rotation?',
+      confirmLabel: 'Approve & Inject',
+      confirmVariant: 'success',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/flagged-ads/${id}/override`, { method: 'POST' });
+          const data = await res.json();
+          if (data.success) {
+            addToast('success', 'Ad Overridden & Approved', data.message || 'Ad injected into live broadcast queue.');
+            fetchFlaggedAds();
+          } else {
+            addToast('error', 'Override Failed', data.error || 'Could not override ad.');
+          }
+        } catch (e: any) {
+          addToast('error', 'Error', e.message);
+        }
       }
-    } catch (e: any) {
-      addToast('error', 'Error', e.message);
-    }
+    });
   };
 
   const handleDismissFlaggedAd = async (id: string) => {
-    try {
-      const res = await fetch(`/api/admin/flagged-ads/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        addToast('info', 'Ad Dismissed', 'Flagged ad permanently dismissed.');
-        fetchFlaggedAds();
+    askConfirmation({
+      title: 'Dismiss Flagged Creative?',
+      message: 'Permanently dismiss this flagged ad from the moderation queue?',
+      confirmLabel: 'Dismiss',
+      confirmVariant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/flagged-ads/${id}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (data.success) {
+            addToast('info', 'Ad Dismissed', 'Flagged ad permanently dismissed.');
+            fetchFlaggedAds();
+          }
+        } catch (e: any) {
+          console.error(e);
+        }
       }
-    } catch (e: any) {
-      console.error(e);
-    }
+    });
   };
 
   const fetchUsers = async () => {
@@ -392,43 +475,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleAdjustBalance = async (targetUserId: string, addTokens: number, newRole?: string) => {
-    try {
-      // 1. Direct Firestore write
-      if (db) {
+    const userObj = usersList.find(u => u.uid === targetUserId);
+    const name = userObj?.displayName || userObj?.email || targetUserId.slice(-6);
+    const actionText = addTokens !== 0 
+      ? `${addTokens > 0 ? 'Grant' : 'Deduct'} ${Math.abs(addTokens).toLocaleString()} tokens (${addTokens > 0 ? '+' : '-'}$${Math.abs(addTokens / 100).toFixed(2)})`
+      : `Change role to ${newRole}`;
+
+    askConfirmation({
+      title: 'Confirm User Adjustment',
+      message: `Are you sure you want to ${actionText} for user "${name}" (${targetUserId.slice(0, 8)}...)?`,
+      confirmLabel: 'Apply Adjustment',
+      confirmVariant: addTokens < 0 ? 'danger' : 'primary',
+      onConfirm: async () => {
         try {
-          const userDocRef = doc(db, 'users', targetUserId);
-          const updates: Record<string, any> = {};
-          if (newRole) updates.role = newRole;
-          if (addTokens !== 0) {
-            const current = usersList.find(u => u.uid === targetUserId);
-            const currentTokens = current?.tokensBalance || 0;
-            const newTokens = Math.max(0, currentTokens + addTokens);
-            updates.tokensBalance = newTokens;
-            updates.walletBalanceCents = Math.round(newTokens / 10);
+          // 1. Direct Firestore write
+          if (db) {
+            try {
+              const userDocRef = doc(db, 'users', targetUserId);
+              const updates: Record<string, any> = {};
+              if (newRole) updates.role = newRole;
+              if (addTokens !== 0) {
+                const current = usersList.find(u => u.uid === targetUserId);
+                const currentTokens = current?.tokensBalance || 0;
+                const newTokens = Math.max(0, currentTokens + addTokens);
+                updates.tokensBalance = newTokens;
+                updates.walletBalanceCents = Math.round(newTokens / 10);
+              }
+              if (Object.keys(updates).length > 0) {
+                await updateDoc(userDocRef, updates);
+              }
+            } catch (fsErr) {
+              console.warn('Firestore updateDoc warning:', fsErr);
+            }
           }
-          if (Object.keys(updates).length > 0) {
-            await updateDoc(userDocRef, updates);
+
+          // 2. Server API adjust
+          const res = await fetch('/api/admin/user/adjust-balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetUserId, addTokens, newRole, reason: 'Admin manual adjustment' })
+          });
+          const data = await res.json();
+          if (data.success) {
+            addToast('success', 'Balance Updated', `User ${targetUserId.slice(-6)} updated successfully.`);
+            fetchUsers();
+            setAdjustingUser(null);
           }
-        } catch (fsErr) {
-          console.warn('Firestore updateDoc warning:', fsErr);
+        } catch (e: any) {
+          addToast('error', 'Update Failed', e.message);
         }
       }
-
-      // 2. Server API adjust
-      const res = await fetch('/api/admin/user/adjust-balance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId, addTokens, newRole, reason: 'Admin manual adjustment' })
-      });
-      const data = await res.json();
-      if (data.success) {
-        addToast('success', 'Balance Updated', `User ${targetUserId.slice(-6)} updated successfully.`);
-        fetchUsers();
-        setAdjustingUser(null);
-      }
-    } catch (e: any) {
-      addToast('error', 'Update Failed', e.message);
-    }
+    });
   };
 
   const fetchVouchers = async () => {
@@ -450,49 +547,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     e.preventDefault();
     if (!newVoucherCode.trim()) return;
 
-    setCreatingVoucher(true);
-    try {
-      const res = await fetch('/api/admin/vouchers/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: newVoucherCode.trim().toUpperCase(),
-          tokens: Number(newVoucherTokens),
-          maxClaims: Number(newVoucherMaxClaims),
-          description: newVoucherDesc || `Promo Voucher ${newVoucherCode.toUpperCase()}`
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        addToast('success', 'Promo Voucher Created!', `Code [${data.voucher.code}] for ${data.voucher.tokens.toLocaleString()} tokens ($${data.voucher.dollars.toFixed(2)}) is live.`);
-        setNewVoucherCode('');
-        setNewVoucherDesc('');
-        fetchVouchers();
-      } else {
-        addToast('error', 'Creation Failed', data.error || 'Could not create voucher.');
+    askConfirmation({
+      title: 'Issue New Promo Voucher?',
+      message: `Generate promo code "${newVoucherCode.trim().toUpperCase()}" with ${Number(newVoucherTokens).toLocaleString()} free tokens ($${(Number(newVoucherTokens)/100).toFixed(2)}) across ${newVoucherMaxClaims} maximum claims?`,
+      confirmLabel: 'Issue Voucher',
+      confirmVariant: 'success',
+      onConfirm: async () => {
+        setCreatingVoucher(true);
+        try {
+          const res = await fetch('/api/admin/vouchers/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              code: newVoucherCode.trim().toUpperCase(),
+              tokens: Number(newVoucherTokens),
+              maxClaims: Number(newVoucherMaxClaims),
+              description: newVoucherDesc || `Promo Voucher ${newVoucherCode.toUpperCase()}`
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            addToast('success', 'Promo Voucher Created!', `Code [${data.voucher.code}] for ${data.voucher.tokens.toLocaleString()} tokens ($${data.voucher.dollars.toFixed(2)}) is live.`);
+            setNewVoucherCode('');
+            setNewVoucherDesc('');
+            fetchVouchers();
+          } else {
+            addToast('error', 'Creation Failed', data.error || 'Could not create voucher.');
+          }
+        } catch (err: any) {
+          addToast('error', 'Error', err.message);
+        } finally {
+          setCreatingVoucher(false);
+        }
       }
-    } catch (err: any) {
-      addToast('error', 'Error', err.message);
-    } finally {
-      setCreatingVoucher(false);
-    }
+    });
   };
 
   const handleToggleVoucher = async (code: string) => {
-    try {
-      const res = await fetch('/api/admin/vouchers/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code })
-      });
-      const data = await res.json();
-      if (data.success) {
-        addToast('info', 'Voucher Status Changed', `Promo code ${code} is now ${data.active ? 'ACTIVE' : 'PAUSED'}.`);
-        fetchVouchers();
+    askConfirmation({
+      title: 'Toggle Voucher Status?',
+      message: `Are you sure you want to change the active redemption status for promo code "${code}"?`,
+      confirmLabel: 'Toggle Status',
+      confirmVariant: 'warning',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/admin/vouchers/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code })
+          });
+          const data = await res.json();
+          if (data.success) {
+            addToast('info', 'Voucher Status Changed', `Promo code ${code} is now ${data.active ? 'ACTIVE' : 'PAUSED'}.`);
+            fetchVouchers();
+          }
+        } catch (err: any) {
+          addToast('error', 'Toggle Error', err.message);
+        }
       }
-    } catch (err: any) {
-      addToast('error', 'Toggle Error', err.message);
-    }
+    });
   };
 
   const fetchPayouts = async () => {
@@ -511,20 +624,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleUpdatePayoutStatus = async (payoutId: string, status: 'approved' | 'rejected') => {
-    try {
-      const res = await fetch(`/api/admin/payouts/${payoutId}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      const data = await res.json();
-      if (data.success) {
-        addToast('success', 'Payout Status Updated', `Payout ${payoutId} marked as ${status.toUpperCase()}.`);
-        fetchPayouts();
+    askConfirmation({
+      title: `${status === 'approved' ? 'Approve & Release' : 'Reject'} Payout Request?`,
+      message: `Are you sure you want to mark payout request #${payoutId.slice(0, 8)} as ${status.toUpperCase()}?`,
+      confirmLabel: status === 'approved' ? 'Approve Payout' : 'Reject Payout',
+      confirmVariant: status === 'approved' ? 'success' : 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/payouts/${payoutId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+          });
+          const data = await res.json();
+          if (data.success) {
+            addToast('success', 'Payout Status Updated', `Payout ${payoutId} marked as ${status.toUpperCase()}.`);
+            fetchPayouts();
+          }
+        } catch (err: any) {
+          addToast('error', 'Payout Update Error', err.message);
+        }
       }
-    } catch (err: any) {
-      addToast('error', 'Payout Update Error', err.message);
-    }
+    });
   };
 
   const handleCopyShareablePromoLink = (code: string) => {
@@ -542,7 +663,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await fetch('/api/admin/screens');
       if (res.ok) {
         const data = await res.json();
-        if (data.screens) setScreensList(data.screens);
+        if (data.screens && Array.isArray(data.screens)) {
+          setScreensList(data.screens);
+          setLoadingScreens(false);
+          return;
+        }
+      }
+      // Direct Firestore fallback if backend API was temporarily unreachable
+      if (db) {
+        const screensCol = collection(db, 'screens');
+        const snap = await getDocs(query(screensCol, limit(100)));
+        const list: any[] = [];
+        snap.docs.forEach((d) => {
+          const dt = d.data();
+          list.push({
+            id: `tv_${d.id}`,
+            pin: dt.pin || d.id,
+            formattedPin: dt.formattedPin || d.id,
+            venueName: dt.venueName || 'Verified Smart TV',
+            deviceType: dt.deviceType || 'Smart TV (WebOS/Tizen/FireTV)',
+            cityCode: dt.city || 'GLOBAL',
+            status: 'online',
+            solanaWallet: dt.solanaWallet || null,
+            connectedAt: dt.pairedAt || dt.createdAt || new Date().toISOString(),
+            resolution: dt.resolution || '4K Ultra-HD (3840x2160)',
+            activeAd: 'Live Billboard Feed'
+          });
+        });
+        if (list.length > 0) setScreensList(list);
       }
     } catch (err) {
       console.error('Failed to fetch screens:', err);
@@ -552,15 +700,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleEjectScreen = async (pin: string) => {
-    try {
-      const res = await fetch(`/api/admin/screens/${pin}/eject`, { method: 'POST' });
-      if (res.ok) {
-        addToast('info', 'Screen Unpaired', `Screen ${pin} has been disconnected and reset.`);
-        fetchScreens();
+    askConfirmation({
+      title: 'Disconnect TV Display Hardware?',
+      message: `Force disconnect screen with pairing PIN "${pin}"? The screen will be reset and required to re-pair.`,
+      confirmLabel: 'Disconnect Screen',
+      confirmVariant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/screens/${pin}/eject`, { method: 'POST' });
+          if (res.ok) {
+            addToast('info', 'Screen Unpaired', `Screen ${pin} has been disconnected and reset.`);
+            fetchScreens();
+          }
+        } catch (err: any) {
+          addToast('error', 'Screen Eject Error', err.message);
+        }
       }
-    } catch (err: any) {
-      addToast('error', 'Screen Eject Error', err.message);
-    }
+    });
   };
 
   const fetchHouseAds = async () => {
@@ -611,34 +767,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteHouseAd = async (id: string) => {
-    try {
-      const res = await fetch(`/api/admin/house-ads/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        addToast('info', 'House Ad Deleted', 'Asset removed from library.');
-        fetchHouseAds();
+    askConfirmation({
+      title: 'Delete Fallback House Ad?',
+      message: 'Remove this fallback house ad asset permanently from the system?',
+      confirmLabel: 'Delete House Ad',
+      confirmVariant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/house-ads/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            addToast('info', 'House Ad Deleted', 'Asset removed from library.');
+            fetchHouseAds();
+          }
+        } catch (err: any) {
+          addToast('error', 'Delete Error', err.message);
+        }
       }
-    } catch (err: any) {
-      addToast('error', 'Delete Error', err.message);
-    }
+    });
   };
 
   const handleSetLiveHouseAd = async (ad: any) => {
-    const updatedSettings = {
-      ...settings,
-      houseAdTitle: ad.title,
-      houseAdImageUrl: ad.imageUrl
-    };
-    setSettings(updatedSettings);
-    try {
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedSettings)
-      });
-      addToast('success', 'Active House Ad Set', `"${ad.title}" set as global fallback billboard.`);
-    } catch (err: any) {
-      addToast('error', 'Setting Update Error', err.message);
-    }
+    askConfirmation({
+      title: 'Set as Active Fallback Billboard?',
+      message: `Make "${ad.title}" the default global fallback ad when no user auction bids are active?`,
+      confirmLabel: 'Set as Fallback',
+      confirmVariant: 'primary',
+      onConfirm: async () => {
+        const updatedSettings = {
+          ...settings,
+          houseAdTitle: ad.title,
+          houseAdImageUrl: ad.imageUrl
+        };
+        setSettings(updatedSettings);
+        try {
+          await fetch('/api/admin/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedSettings)
+          });
+          addToast('success', 'Active House Ad Set', `"${ad.title}" set as global fallback billboard.`);
+        } catch (err: any) {
+          addToast('error', 'Setting Update Error', err.message);
+        }
+      }
+    });
   };
 
   const fetchLiveStreamers = async () => {
@@ -657,22 +829,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleFireCelebration = async (handle: string, eventType: string = 'victory_royale') => {
-    setFiringCelebration(handle);
-    try {
-      const res = await fetch('/api/admin/streamers/fire-celebration', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle, eventType, sponsorName: 'AEGIS AUTONOMOUS SPONSOR' })
-      });
-      if (res.ok) {
-        addToast('success', `Takeover Fired!`, `Broadcasted ${eventType.toUpperCase()} takeover to @${handle}'s live OBS overlay.`);
-        fetchLiveStreamers();
+    askConfirmation({
+      title: 'Fire Game-State Celebration VFX?',
+      message: `Trigger dynamic takeover overlay (${eventType.replace('_', ' ').toUpperCase()}) on @${handle}'s live stream?`,
+      confirmLabel: 'Fire Celebration',
+      confirmVariant: 'success',
+      onConfirm: async () => {
+        setFiringCelebration(handle);
+        try {
+          const res = await fetch('/api/admin/streamers/fire-celebration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ handle, eventType, sponsorName: 'AEGIS AUTONOMOUS SPONSOR' })
+          });
+          if (res.ok) {
+            addToast('success', 'Celebration Fired!', `Broadcasted ${eventType.toUpperCase()} to @${handle}'s OBS overlay.`);
+            fetchLiveStreamers();
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setFiringCelebration(null);
+        }
       }
-    } catch (err: any) {
-      addToast('error', 'Takeover Error', err.message);
-    } finally {
-      setTimeout(() => setFiringCelebration(null), 1000);
-    }
+    });
   };
 
   const fetchAttentionTelemetry = async () => {
@@ -784,35 +964,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveSettings = async () => {
     setSavingSettings(true);
-    try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.settings) setSettings(data.settings);
-        addToast('success', 'Admin Settings Saved', 'Platform configuration updated dynamically and broadcasted to connected clients.');
-      } else {
-        addToast('warning', 'Save Error', 'Failed to save settings.');
+    askConfirmation({
+      title: 'Apply & Broadcast Platform Configuration?',
+      message: 'This will persist new slot duration, rev-share splits, and reserve prices across Cloud Firestore, sync to .env, and push updates live via WebSockets.',
+      confirmLabel: 'Save & Broadcast',
+      confirmVariant: 'primary',
+      onConfirm: async () => {
+        setSavingSettings(true);
+        try {
+          const res = await fetch('/api/admin/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.settings) setSettings(data.settings);
+            addToast('success', 'Admin Settings Saved', 'Platform configuration updated dynamically and broadcasted to connected clients.');
+          } else {
+            addToast('warning', 'Save Error', 'Failed to save settings.');
+          }
+        } catch (err) {
+          addToast('warning', 'Network Error', 'Could not communicate with admin endpoint.');
+        } finally {
+          setSavingSettings(false);
+        }
       }
-    } catch (err) {
-      addToast('warning', 'Network Error', 'Could not communicate with admin endpoint.');
-    } finally {
-      setSavingSettings(false);
-    }
+    });
   };
 
   const handleForceEjectSlot = async () => {
-    try {
-      const res = await fetch('/api/admin/override-slot', { method: 'POST' });
-      if (res.ok) {
-        addToast('info', 'Active Slot Force Ejected', 'Auction loop ticker reset. Next slot rotation initiated immediately.');
+    askConfirmation({
+      title: 'Force Eject Active Rotation?',
+      message: 'This will immediately reset the current live rotation ticker on all billboards and streamer feeds, advancing to the next highest queued bid.',
+      confirmLabel: '⚡ Force Eject',
+      confirmVariant: 'warning',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/admin/override-slot', { method: 'POST' });
+          if (res.ok) {
+            addToast('info', 'Active Slot Force Ejected', 'Auction loop ticker reset. Next slot rotation initiated immediately.');
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   const handleSendTestEmail = async () => {
@@ -841,61 +1038,85 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleClearQueue = async (cityCode: string) => {
-    try {
-      const res = await fetch('/api/admin/clear-queue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cityCode })
-      });
-      if (res.ok) {
-        addToast('warning', `Queue Cleared (${cityCode})`, `Redis ZSET auction queue for ${cityCode} has been purged.`);
+    askConfirmation({
+      title: `Purge Auction Queue (${cityCode})?`,
+      message: `Are you sure you want to permanently delete all queued and pending bids for ${cityCode}? This action cannot be undone.`,
+      confirmLabel: `Purge ${cityCode} Queue`,
+      confirmVariant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/admin/clear-queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cityCode })
+          });
+          if (res.ok) {
+            addToast('warning', `Queue Cleared (${cityCode})`, `Redis ZSET auction queue for ${cityCode} has been purged.`);
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   const handleToggleCity = async (cityCode: string) => {
-    try {
-      const res = await fetch('/api/cities/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cityCode })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.cities) setCities(data.cities);
-        addToast('info', 'City Geofence Updated', `Active status toggled for ${cityCode}.`);
+    askConfirmation({
+      title: `Toggle Geofence Status (${cityCode})?`,
+      message: `Change the operational status for ${cityCode}? When disabled, this city billboard will not receive external advertiser bids.`,
+      confirmLabel: 'Toggle Status',
+      confirmVariant: 'warning',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/cities/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cityCode })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.cities) setCities(data.cities);
+            addToast('info', 'City Geofence Updated', `Active status toggled for ${cityCode}.`);
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   const handleInjectAd = async (e: React.FormEvent) => {
     e.preventDefault();
-    setInjecting(true);
-    try {
-      const res = await fetch('/api/admin/inject-ad', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: injectTitle,
-          imageUrl: injectImg,
-          advertiserName: injectAdvertiser,
-          bidAmountDollars: injectBidDollars,
-          targetCityCode: injectCity,
-          targetCountryCode: 'MY'
-        })
-      });
-      if (res.ok) {
-        addToast('success', 'Emergency Ad Injected', `Ad "${injectTitle}" directly placed at top of ${injectCity} queue and activated.`);
+    askConfirmation({
+      title: 'Inject High-Priority Emergency Ad?',
+      message: `Inject "${injectTitle}" immediately at the top of the queue for ${injectCity}?`,
+      confirmLabel: 'Inject Ad',
+      confirmVariant: 'warning',
+      onConfirm: async () => {
+        setInjecting(true);
+        try {
+          const res = await fetch('/api/admin/inject-ad', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: injectTitle,
+              imageUrl: injectImg,
+              advertiserName: injectAdvertiser,
+              bidAmountDollars: injectBidDollars,
+              targetCityCode: injectCity,
+              targetCountryCode: 'MY'
+            })
+          });
+          if (res.ok) {
+            addToast('success', 'Emergency Ad Injected', `Ad "${injectTitle}" directly placed at top of ${injectCity} queue and activated.`);
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setInjecting(false);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setInjecting(false);
-    }
+    });
   };
 
   return (
@@ -2671,14 +2892,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href="/tv"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-bold rounded-xl transition-all border border-cyan-500/40 flex items-center gap-1.5"
+                >
+                  <Tv className="w-3.5 h-3.5" />
+                  <span>Open /tv (Smart TV App)</span>
+                </a>
+                <a
+                  href="/pair"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold rounded-xl transition-all border border-amber-500/40 flex items-center gap-1.5"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Open /pair (Pairing Portal)</span>
+                </a>
+                <a
+                  href="/screen"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-bold rounded-xl transition-all border border-purple-500/40 flex items-center gap-1.5"
+                >
+                  <Monitor className="w-3.5 h-3.5" />
+                  <span>Open /screen (OBS Feed)</span>
+                </a>
                 <button
                   onClick={fetchScreens}
                   disabled={loadingScreens}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-700 flex items-center gap-2 cursor-pointer"
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-700 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Monitor className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>{loadingScreens ? 'Scanning Fleet...' : 'Refresh Screen Fleet'}</span>
+                  <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${loadingScreens ? 'animate-spin' : ''}`} />
+                  <span>{loadingScreens ? 'Scanning Fleet...' : 'Refresh Fleet'}</span>
                 </button>
               </div>
             </div>
@@ -2706,12 +2954,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Display Fleet Table */}
             {screensList.length === 0 ? (
-              <div className="bg-slate-950/60 border border-slate-800/60 rounded-2xl p-12 text-center">
-                <Tv className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <h4 className="text-sm font-bold text-slate-300">No Physical Displays Paired Yet</h4>
-                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                  Launch the Smart TV app or open a venue screen URL at <code className="text-cyan-400 bg-cyan-950/50 px-1.5 py-0.5 rounded font-mono">/screen</code> to generate an instant 6-digit PIN and pair physical screens.
-                </p>
+              <div className="bg-slate-950/60 border border-slate-800/60 rounded-2xl p-12 text-center space-y-4">
+                <Tv className="w-12 h-12 text-slate-600 mx-auto" />
+                <div>
+                  <h4 className="text-sm font-bold text-slate-300">No Physical Displays Paired Yet</h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-lg mx-auto">
+                    Launch the Smart TV app at <code className="text-cyan-400 bg-cyan-950/50 px-1.5 py-0.5 rounded font-mono">/tv</code> on any TV display to generate an instant 6-digit PIN, then enter it on <code className="text-amber-400 bg-amber-950/50 px-1.5 py-0.5 rounded font-mono">/pair</code> to link the screen with your venue name & Solana payout wallet.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <a
+                    href="/tv"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 bg-cyan-500 text-slate-950 font-bold rounded-xl text-xs hover:bg-cyan-400 transition-all flex items-center gap-2"
+                  >
+                    <Tv className="w-4 h-4" />
+                    <span>Launch Smart TV (/tv)</span>
+                  </a>
+                  <a
+                    href="/pair"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl text-xs border border-slate-700 hover:bg-slate-700 transition-all flex items-center gap-2"
+                  >
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    <span>Pairing Portal (/pair)</span>
+                  </a>
+                </div>
               </div>
             ) : (
               <div className="overflow-x-auto rounded-2xl border border-slate-800/80">
@@ -3292,6 +3562,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {techTool === 'redis' && <RedisCacheInspector selectedCity={selectedCity} selectedCountry={selectedCountry} />}
             {techTool === 'cascade' && <CascadeSandbox selectedCity={selectedCity} selectedCountry={selectedCountry} />}
             {techTool === 'ledger' && <PayoutLedger viewerPoints={120} onPointsEarned={() => {}} />}
+          </div>
+        </div>
+      )}
+
+      {/* Global Safety Confirmation Modal for Destructive & Modifying Admin Actions */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-3xl p-6 max-w-md w-full shadow-2xl relative text-left">
+            <div className="flex items-start gap-3.5 mb-4">
+              <div className={`p-3 rounded-2xl shrink-0 ${
+                confirmDialog.confirmVariant === 'danger'
+                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                  : confirmDialog.confirmVariant === 'warning'
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                    : confirmDialog.confirmVariant === 'success'
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+              }`}>
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-extrabold text-white tracking-tight">{confirmDialog.title}</h3>
+                <p className="text-xs text-slate-300 font-sans mt-1 leading-relaxed">
+                  {confirmDialog.message}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800/80">
+              <button
+                type="button"
+                disabled={confirmDialog.isLoading}
+                onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-all border border-slate-700 cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={confirmDialog.isLoading}
+                onClick={() => confirmDialog.onConfirm()}
+                className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg cursor-pointer disabled:opacity-50 ${
+                  confirmDialog.confirmVariant === 'danger'
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+                    : confirmDialog.confirmVariant === 'warning'
+                      ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/30'
+                      : confirmDialog.confirmVariant === 'success'
+                        ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/30'
+                        : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 shadow-cyan-500/30'
+                }`}
+              >
+                {confirmDialog.isLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                <span>{confirmDialog.isLoading ? 'Processing...' : confirmDialog.confirmLabel}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

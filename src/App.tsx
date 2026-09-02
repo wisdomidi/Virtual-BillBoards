@@ -304,14 +304,6 @@ export default function App() {
   const [viewerPoints, setViewerPoints] = useState(120);
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryLog[]>([]);
 
-  if (isTvMode) {
-    return <SmartTvScreen slotData={slotData} selectedCity={selectedCity} />;
-  }
-
-  if (isScreenOnlyMode) {
-    return <StreamerObsOverlay />;
-  }
-
   // Auto-detect server IP geolocation fallback
   useEffect(() => {
     const fetchServerGeo = async () => {
@@ -966,6 +958,14 @@ export default function App() {
   useEffect(() => {
     fetchActiveSlot(selectedCity, selectedCountry);
   }, [selectedCity, selectedCountry]);
+
+  if (isTvMode) {
+    return <SmartTvScreen slotData={slotData} selectedCity={selectedCity} />;
+  }
+
+  if (isScreenOnlyMode) {
+    return <StreamerObsOverlay />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">

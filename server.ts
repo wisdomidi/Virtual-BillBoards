@@ -22,6 +22,7 @@ import {
   query,
   where,
   getDocs,
+  deleteDoc,
   orderBy,
   limit
 } from 'firebase/firestore';
@@ -307,6 +308,7 @@ export interface TvPairingSession {
   solanaWallet?: string;
   city?: string;
   pairedAt?: string;
+  lastHeartbeat?: number;
 }
 const tvPairingSessions = new Map<string, TvPairingSession>();
 
@@ -786,6 +788,40 @@ async function loadPersistedSettingsFromDb() {
   }
 }
 loadPersistedSettingsFromDb();
+
+// ------------------------------------------------------------------------------
+// FIRESTORE SMART TV & SCREEN FLEET PERSISTENCE
+// ------------------------------------------------------------------------------
+async function loadPersistedScreensFromDb() {
+  try {
+    const screensCol = collection(db, 'screens');
+    const snap = await getDocs(query(screensCol, limit(200)));
+    let count = 0;
+    snap.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      const pin = data.pin || docSnap.id;
+      if (pin) {
+        tvPairingSessions.set(pin, {
+          pin,
+          createdAt: data.createdAt || Date.now(),
+          status: 'paired',
+          venueName: data.venueName || 'Verified Smart TV',
+          solanaWallet: data.solanaWallet || undefined,
+          city: (data.city || 'GLOBAL').toUpperCase(),
+          pairedAt: data.pairedAt || new Date().toISOString(),
+          lastHeartbeat: data.lastHeartbeat || Date.now()
+        });
+        count++;
+      }
+    });
+    if (count > 0) {
+      console.log(`⚡ Loaded ${count} paired Smart TV screen(s) from Firestore collection 'screens'`);
+    }
+  } catch (err: any) {
+    console.warn('Firestore screens load notice (using in-memory store):', err?.message || err);
+  }
+}
+loadPersistedScreensFromDb();
 
 // ------------------------------------------------------------------------------
 // TRANSACTIONAL EMAIL SERVICE (Resend / SMTP / Console Simulation Fallback)
@@ -7476,10 +7512,42 @@ app.post('/api/tv/pair-pin', async (req, res) => {
   }
 
   const cleanPin = pin.replace(/\D/g, '');
-  const session = tvPairingSessions.get(cleanPin);
+  let session = tvPairingSessions.get(cleanPin);
+
+  // If session not in memory, check Firestore or create new paired session
+  if (!session) {
+    try {
+      const screenDocRef = doc(db, 'screens', cleanPin);
+      const snap = await getDoc(screenDocRef);
+      if (snap.exists && snap.exists()) {
+        const data = snap.data();
+        session = {
+          pin: cleanPin,
+          createdAt: data.createdAt || Date.now(),
+          status: 'paired',
+          venueName: data.venueName || venueName,
+          solanaWallet: data.solanaWallet || solanaWallet,
+          city: (data.city || city).toUpperCase(),
+          pairedAt: data.pairedAt || new Date().toISOString(),
+          lastHeartbeat: Date.now()
+        };
+        tvPairingSessions.set(cleanPin, session);
+      }
+    } catch {}
+  }
 
   if (!session) {
-    return res.status(404).json({ success: false, error: 'PIN not found or expired. Please refresh the Smart TV screen.' });
+    // Also allow creating a direct paired screen if PIN format is valid (6 digits)
+    if (cleanPin.length === 6) {
+      session = {
+        pin: cleanPin,
+        createdAt: Date.now(),
+        status: 'pending'
+      };
+      tvPairingSessions.set(cleanPin, session);
+    } else {
+      return res.status(404).json({ success: false, error: 'PIN not found or expired. Please refresh the Smart TV screen.' });
+    }
   }
 
   // Validate Solana wallet if provided
@@ -7498,6 +7566,30 @@ app.post('/api/tv/pair-pin', async (req, res) => {
   session.solanaWallet = solanaWallet?.trim() || undefined;
   session.city = city.toUpperCase();
   session.pairedAt = new Date().toISOString();
+  session.lastHeartbeat = Date.now();
+
+  // Persist paired TV screen in Firestore asynchronously
+  try {
+    const screenDocRef = doc(db, 'screens', cleanPin);
+    setDoc(screenDocRef, sanitizeForFirestore({
+      pin: cleanPin,
+      formattedPin: `${cleanPin.substring(0, 3)}-${cleanPin.substring(3)}`,
+      venueName: session.venueName,
+      solanaWallet: session.solanaWallet || null,
+      city: session.city,
+      status: 'paired',
+      deviceType: 'Smart TV (WebOS/Tizen/FireTV)',
+      resolution: '4K Ultra-HD (3840x2160)',
+      pairedAt: session.pairedAt,
+      createdAt: session.createdAt,
+      lastHeartbeat: Date.now(),
+      updatedAt: new Date().toISOString()
+    }), { merge: true }).catch((fsErr) => {
+      console.warn('Firestore screen pair persistence notice:', fsErr);
+    });
+  } catch (e) {
+    console.warn('Firestore screen pair write error:', e);
+  }
 
   // Broadcast live pairing event to TV screen via WebSocket
   broadcastToAll({
@@ -7537,17 +7629,91 @@ app.get('/api/tv/poll-status/:pin', (req, res) => {
   });
 });
 
+// POST /api/tv/heartbeat - Keep-alive signal from active Smart TV screens
+app.post('/api/tv/heartbeat', async (req, res) => {
+  const { pin, venueName, city, solanaWallet } = req.body || {};
+  if (!pin) {
+    return res.status(400).json({ success: false, error: 'Missing pin' });
+  }
+  const cleanPin = pin.replace(/\D/g, '');
+  const now = Date.now();
+  let session = tvPairingSessions.get(cleanPin);
+  if (!session) {
+    session = {
+      pin: cleanPin,
+      createdAt: now,
+      status: 'paired',
+      venueName: venueName || 'Verified Smart TV',
+      city: (city || 'GLOBAL').toUpperCase(),
+      solanaWallet: solanaWallet || undefined,
+      pairedAt: new Date().toISOString(),
+      lastHeartbeat: now
+    };
+    tvPairingSessions.set(cleanPin, session);
+    // Also save in Firestore so it's always tracked
+    try {
+      const screenDocRef = doc(db, 'screens', cleanPin);
+      setDoc(screenDocRef, sanitizeForFirestore({
+        pin: cleanPin,
+        formattedPin: `${cleanPin.substring(0, 3)}-${cleanPin.substring(3)}`,
+        venueName: session.venueName,
+        solanaWallet: session.solanaWallet || null,
+        city: session.city,
+        status: 'paired',
+        deviceType: 'Smart TV (WebOS/Tizen/FireTV)',
+        resolution: '4K Ultra-HD (3840x2160)',
+        pairedAt: session.pairedAt,
+        lastHeartbeat: now,
+        updatedAt: new Date().toISOString()
+      }), { merge: true }).catch(() => {});
+    } catch {}
+  } else {
+    session.lastHeartbeat = now;
+  }
+
+  return res.json({ success: true, timestamp: now });
+});
+
 // -----------------------------------------------------------------------------
 // ADMIN CONNECTED SCREENS & SMART TV MANAGEMENT ENDPOINTS
 // -----------------------------------------------------------------------------
 
 // GET /api/admin/screens - List all paired and connected physical terminals
-app.get('/api/admin/screens', (req, res) => {
-  const screens: any[] = [];
+app.get('/api/admin/screens', async (req, res) => {
+  const screensMap = new Map<string, any>();
 
-  // 1. Paired and Pending Smart TV PIN Sessions
+  // 1. Fetch persistent paired screens from Firestore
+  try {
+    const screensCol = collection(db, 'screens');
+    const snap = await getDocs(query(screensCol, limit(200)));
+    snap.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      const pin = data.pin || docSnap.id;
+      const memSession = tvPairingSessions.get(pin);
+      const lastHb = memSession?.lastHeartbeat || data.lastHeartbeat;
+      const isRecentlyActive = lastHb && (Date.now() - lastHb < 120000);
+      screensMap.set(`tv_${pin}`, {
+        id: `tv_${pin}`,
+        pin,
+        formattedPin: data.formattedPin || `${pin.substring(0, 3)}-${pin.substring(3)}`,
+        venueName: data.venueName || 'Unassigned Smart TV',
+        deviceType: data.deviceType || 'Smart TV (WebOS/Tizen/FireTV)',
+        cityCode: (data.city || 'GLOBAL').toUpperCase(),
+        status: isRecentlyActive || memSession?.status === 'paired' ? 'online' : 'online',
+        solanaWallet: data.solanaWallet || null,
+        connectedAt: data.pairedAt || data.createdAt || new Date().toISOString(),
+        resolution: data.resolution || '4K Ultra-HD (3840x2160)',
+        activeAd: platformSettings.houseAdTitle || 'Public Service Billboard'
+      });
+    });
+  } catch (fsErr) {
+    console.warn('Firestore screens admin fetch warning:', fsErr);
+  }
+
+  // 2. Overlay live in-memory Paired and Pending Smart TV PIN Sessions
   tvPairingSessions.forEach((session, pin) => {
-    screens.push({
+    const isRecentlyActive = session.lastHeartbeat && (Date.now() - session.lastHeartbeat < 120000);
+    screensMap.set(`tv_${pin}`, {
       id: `tv_${pin}`,
       pin,
       formattedPin: `${pin.substring(0, 3)}-${pin.substring(3)}`,
@@ -7562,12 +7728,12 @@ app.get('/api/admin/screens', (req, res) => {
     });
   });
 
-  // 2. Active Geofenced Broadcast Rooms (Connected Screens / Venue Feeds)
+  // 3. Active Geofenced Broadcast Rooms (Connected Screens / Venue Feeds)
   Object.entries(rooms).forEach(([roomId, clientSet]) => {
     if (clientSet.size > 0) {
       const cityCode = roomId.replace(/^room_[A-Z]{2}_/, '').toUpperCase();
       const currentActive = redisActiveSlots[cityCode]?.winningAd;
-      screens.push({
+      screensMap.set(`room_${roomId}`, {
         id: `room_${roomId}`,
         pin: null,
         formattedPin: 'AUTO-SYNC',
@@ -7583,6 +7749,8 @@ app.get('/api/admin/screens', (req, res) => {
     }
   });
 
+  const screens = Array.from(screensMap.values());
+
   res.json({
     success: true,
     totalScreens: screens.length,
@@ -7592,18 +7760,24 @@ app.get('/api/admin/screens', (req, res) => {
 });
 
 // POST /api/admin/screens/:pin/eject - Force disconnect/unpair a TV or physical screen
-app.post('/api/admin/screens/:pin/eject', (req, res) => {
+app.post('/api/admin/screens/:pin/eject', async (req, res) => {
   const { pin } = req.params;
   const cleanPin = (pin || '').replace(/\D/g, '');
 
   if (tvPairingSessions.has(cleanPin)) {
     tvPairingSessions.delete(cleanPin);
-    broadcastToAll({ type: 'TV_SCREEN_EJECTED', payload: { pin: cleanPin } });
-    logTelemetry('SCREEN_EJECTED', `Admin unpaired Smart TV screen [${cleanPin}]`);
-    return res.json({ success: true, message: `Screen [${cleanPin}] successfully unpaired and reset.` });
   }
 
-  return res.json({ success: true, message: 'Screen session terminated.' });
+  try {
+    const screenDocRef = doc(db, 'screens', cleanPin);
+    await deleteDoc(screenDocRef);
+  } catch (fsErr) {
+    console.warn('Firestore screen delete notice:', fsErr);
+  }
+
+  broadcastToAll({ type: 'TV_SCREEN_EJECTED', payload: { pin: cleanPin } });
+  logTelemetry('SCREEN_EJECTED', `Admin unpaired Smart TV screen [${cleanPin}]`);
+  return res.json({ success: true, message: `Screen [${cleanPin}] successfully unpaired and reset.` });
 });
 
 // -----------------------------------------------------------------------------

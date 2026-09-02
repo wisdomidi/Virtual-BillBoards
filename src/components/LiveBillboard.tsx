@@ -201,6 +201,13 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [activeQrModalData, setActiveQrModalData] = useState<{
+    isOpen: boolean;
+    url: string;
+    title: string;
+    advertiser: string;
+  } | null>(null);
+  const [copiedQrLink, setCopiedQrLink] = useState(false);
 
   // 1-Click AI Smart Ad Fill State (Ultra-low token cost)
   const [aiPromptInput, setAiPromptInput] = useState('');
@@ -1004,54 +1011,67 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                     {winningAd.title}
                   </h2>
 
-                  {/* Single CTA Button Overlay & Live Scannable QR Code */}
-                  {((winningAd as any).ctaType !== 'none') && (
-                    <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-                      {((winningAd as any).ctaType === 'whatsapp' || (!(winningAd as any).ctaType && !(winningAd as any).landingPageUrl && (winningAd as any).whatsappLink)) ? (
-                        <div className="flex items-center gap-1.5">
-                          <a
-                            href={(winningAd as any).ctaUrl || ((winningAd as any).whatsappLink?.startsWith('http') ? (winningAd as any).whatsappLink : `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}`)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md"
+                  {/* Single CTA Button Overlay & Live Scannable Dynamic QR Code */}
+                  {winningAd && (
+                    <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                      {/* WhatsApp CTA */}
+                      {((winningAd as any).ctaType === 'whatsapp' || (!(winningAd as any).ctaType && !(winningAd as any).landingPageUrl && (winningAd as any).whatsappLink)) && (
+                        <a
+                          href={(winningAd as any).ctaUrl || ((winningAd as any).whatsappLink?.startsWith('http') ? (winningAd as any).whatsappLink : `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md transition-transform active:scale-95"
+                        >
+                          <MessageSquare className="w-3 h-3 fill-current" />
+                          <span>WhatsApp</span>
+                          <span className="text-[8px]">↗</span>
+                        </a>
+                      )}
+
+                      {/* Website Landing Page CTA */}
+                      {((winningAd as any).ctaType === 'url' || (!['whatsapp', 'none'].includes((winningAd as any).ctaType) && ((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl))) && (
+                        <a
+                          href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md font-mono transition-transform active:scale-95"
+                        >
+                          <Globe className="w-3 h-3" />
+                          <span className="max-w-[120px] truncate">{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
+                          <span className="text-[8px]">↗</span>
+                        </a>
+                      )}
+
+                      {/* Universal Interactive Scannable Dynamic QR Code Button */}
+                      {(() => {
+                        const resolvedTarget = (winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || ((winningAd as any).whatsappLink ? `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}` : `https://livebillboards.lol/?city=${selectedCity}&ad=${winningAd.id}`);
+                        const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=6&data=${encodeURIComponent(resolvedTarget)}`;
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setActiveQrModalData({
+                              isOpen: true,
+                              url: resolvedTarget,
+                              title: winningAd.title,
+                              advertiser: winningAd.advertiserName || 'Live Billboard Sponsor'
+                            })}
+                            className="flex items-center gap-1.5 bg-white text-slate-950 px-2 py-1 rounded-lg border border-cyan-400 shadow-md shadow-black/40 hover:bg-cyan-50 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                            title="Click to Enlarge Scannable QR Code"
                           >
-                            <MessageSquare className="w-3 h-3 fill-current" />
-                            <span>WhatsApp</span>
-                            <span className="text-[8px]">↗</span>
-                          </a>
-                          {/* Scannable Dynamic QR Code for Mobile Phones */}
-                          <div className="hidden sm:flex items-center gap-1 bg-white/95 px-1.5 py-0.5 rounded-lg border border-emerald-500/40 shadow-sm" title="Scan with Phone Camera for Direct Attribution">
                             <img
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent((winningAd as any).qrCodeUrl || (slotData as any)?.dynamicQrUrl || (winningAd as any).ctaUrl || (winningAd as any).whatsappLink || 'https://livebillboards.lol')}`}
+                              src={qrImageUrl}
                               alt="Scan QR"
-                              className="w-5 h-5 object-contain"
+                              className="w-4 h-4 object-contain rounded-xs"
+                              onError={(e: any) => {
+                                e.currentTarget.src = `https://quickchart.io/qr?size=150&text=${encodeURIComponent(resolvedTarget)}`;
+                              }}
                             />
-                            <span className="text-[9px] font-black text-slate-900 font-mono">SCAN</span>
-                          </div>
-                        </div>
-                      ) : ((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl) ? (
-                        <div className="flex items-center gap-1.5">
-                          <a
-                            href={(winningAd as any).ctaUrl || (winningAd as any).landingPageUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[9px] sm:text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md font-mono"
-                          >
-                            <Globe className="w-3 h-3" />
-                            <span>{((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || '').replace(/^https?:\/\//, '')}</span>
-                            <span className="text-[8px]">↗</span>
-                          </a>
-                          {/* Scannable Dynamic QR Code for Mobile Phones */}
-                          <div className="hidden sm:flex items-center gap-1 bg-white/95 px-1.5 py-0.5 rounded-lg border border-cyan-500/40 shadow-sm" title="Scan with Phone Camera for Direct Attribution">
-                            <img
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent((winningAd as any).qrCodeUrl || (slotData as any)?.dynamicQrUrl || (winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || 'https://livebillboards.lol')}`}
-                              alt="Scan QR"
-                              className="w-5 h-5 object-contain"
-                            />
-                            <span className="text-[9px] font-black text-slate-900 font-mono">SCAN</span>
-                          </div>
-                        </div>
-                      ) : null}
+                            <span className="text-[9px] font-black tracking-wider font-mono uppercase">SCAN QR</span>
+                            <Maximize2 className="w-2.5 h-2.5 text-slate-600" />
+                          </button>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -1713,6 +1733,71 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
         selectedCity={selectedCity}
         selectedCityName={currentCityConfig.cityName}
       />
+
+      {/* Dynamic High-Res Scannable QR Code Modal */}
+      {activeQrModalData?.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-cyan-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative text-center">
+            <button
+              onClick={() => setActiveQrModalData(null)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full bg-slate-800/80 hover:bg-slate-700 transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400">
+                <QrCode className="w-6 h-6" />
+              </div>
+            </div>
+
+            <h3 className="text-base font-black text-white">{activeQrModalData.title}</h3>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">Sponsor: {activeQrModalData.advertiser}</p>
+
+            {/* High Contrast Scannable Container */}
+            <div className="bg-white p-4 rounded-2xl my-4 mx-auto w-fit shadow-xl border-4 border-cyan-400/30">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(activeQrModalData.url)}`}
+                alt="Campaign QR Code"
+                className="w-52 h-52 object-contain"
+                onError={(e: any) => {
+                  e.currentTarget.src = `https://quickchart.io/qr?size=300&text=${encodeURIComponent(activeQrModalData.url)}`;
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-400 font-bold mb-4 font-mono">
+              <Camera className="w-4 h-4 animate-pulse" />
+              <span>Point your phone camera to scan & open</span>
+            </div>
+
+            <div className="space-y-2">
+              <a
+                href={activeQrModalData.url}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+              >
+                <span>Open Destination Link Directly</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(activeQrModalData.url);
+                  setCopiedQrLink(true);
+                  setTimeout(() => setCopiedQrLink(false), 2000);
+                }}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>{copiedQrLink ? 'Destination URL Copied!' : 'Copy Destination Link'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
