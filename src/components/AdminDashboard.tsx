@@ -318,7 +318,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await fetch('/api/admin/ads/all');
       if (res.ok) {
         const data = await res.json();
-        if (data.ads) setAllAdminAds(data.ads);
+        if (data.ads && Array.isArray(data.ads)) {
+          setAllAdminAds((prevList) => {
+            const map = new Map(prevList.map(a => [a.id, a]));
+            data.ads.forEach((ad: any) => {
+              map.set(ad.id, { ...map.get(ad.id), ...ad });
+            });
+            return Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          });
+        }
       }
     } catch (err) {
       console.warn('Failed to fetch all admin ads:', err);

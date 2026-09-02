@@ -553,50 +553,46 @@ async function deductUserTokensInFirestore(
   // Update memory state immediately
   userWalletsMemoryMap.set(userId, memoryRecord);
 
-  // Sync to Firestore in the background asynchronously (non-blocking) - STRICTLY for registered users only
-  const isGuest = !userId || userId.startsWith('guest_') || userId === 'guest_default' || userId === 'default_user' || userId === 'usr_anonymous';
-  if (!isGuest) {
-    setTimeout(async () => {
-      try {
-        const userRef = doc(db, 'users', userId);
-        await setDoc(userRef, {
-          tokensBalance: newTokens,
-          walletBalanceCents: newCents,
-          starterGrantClaimed: true,
-          freeSlotClaimed: true,
-          bidsPlacedCount: memoryRecord.bidsPlacedCount
-        }, { merge: true });
+  // Sync to Firestore immediately so balances and starter grants persist across all rollouts
+  if (userId && db) {
+    try {
+      const userRef = doc(db, 'users', userId);
+      setDoc(userRef, {
+        tokensBalance: newTokens,
+        walletBalanceCents: newCents,
+        starterGrantClaimed: true,
+        freeSlotClaimed: true,
+        bidsPlacedCount: memoryRecord.bidsPlacedCount
+      }, { merge: true }).catch((err) => console.warn('Firestore user deduction sync notice:', err));
 
-        const txnsCol = collection(db, 'users', userId, 'transactions');
-        await addDoc(txnsCol, {
-          id: `tx_token_${Date.now()}`,
-          type: 'slot_burn',
+      const txnsCol = collection(db, 'users', userId, 'transactions');
+      addDoc(txnsCol, {
+        id: `tx_token_${Date.now()}`,
+        type: 'slot_burn',
+        tokens,
+        amountCents: Math.round(tokens / 10),
+        amountDollars: (tokens * 0.001).toFixed(3),
+        description,
+        cityCode: cityCode || 'GLOBAL',
+        slotId: slotId || '',
+        timestamp: new Date().toISOString()
+      }).catch(() => {});
+      if (slotId) {
+        const burnsCol = collection(db, 'slot_burns');
+        addDoc(burnsCol, {
+          userId,
+          slotId,
           tokens,
           amountCents: Math.round(tokens / 10),
           amountDollars: (tokens * 0.001).toFixed(3),
           description,
           cityCode: cityCode || 'GLOBAL',
-          slotId: slotId || '',
           timestamp: new Date().toISOString()
-        });
-
-        if (slotId) {
-          const burnsCol = collection(db, 'slot_burns');
-          await addDoc(burnsCol, {
-            userId,
-            slotId,
-            tokens,
-            amountCents: Math.round(tokens / 10),
-            amountDollars: (tokens * 0.001).toFixed(3),
-            description,
-            cityCode: cityCode || 'GLOBAL',
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (fsErr) {
-        console.warn('Background Firestore token deduction warning:', fsErr);
+        }).catch(() => {});
       }
-    }, 0);
+    } catch (fsErr) {
+      console.warn('Firestore token deduction warning:', fsErr);
+    }
   }
 
   return { newTokens, newCents };
