@@ -43,6 +43,10 @@ export interface UserCampaignItem {
   impressions?: number;
   landingPageUrl?: string;
   whatsappLink?: string;
+  ctaType?: 'website' | 'whatsapp' | 'none';
+  ctaUrl?: string;
+  qrCodeUrl?: string;
+  scansCount?: number;
 }
 
 interface UserCampaignsModalProps {

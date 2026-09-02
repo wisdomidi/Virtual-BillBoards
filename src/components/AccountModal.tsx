@@ -19,11 +19,12 @@ import {
   Download,
   CheckCircle2,
   Zap,
-  Globe
+  Globe,
+  FileText,
+  Crown
 } from 'lucide-react';
-import { UserProfile, UserRole } from '../types';
-import { isUserAdmin } from '../lib/firebase';
-import { Crown } from 'lucide-react';
+import { UserRole } from '../types';
+import { isUserAdmin, UserProfile } from '../lib/firebase';
 
 interface AccountModalProps {
   isOpen: boolean;

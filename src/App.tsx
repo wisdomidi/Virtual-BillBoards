@@ -50,7 +50,7 @@ import {
   isUserAdmin,
   UserProfile
 } from './lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { useProofOfAttention } from './hooks/useProofOfAttention';
 import { LocalProvider } from './context/LocalContext';
 

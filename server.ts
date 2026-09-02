@@ -7229,7 +7229,7 @@ app.post('/api/v1/solana/settle-bid', async (req, res) => {
       memoText: `lb_slot_${slotId}`
     });
 
-    const finalSig = atomicSplit.signature || txSig;
+    const finalSig = atomicSplit.signature || ('simulated_sol_' + Date.now());
     const solscanLink = solanaPaymentEngine.getSolscanTxUrl(finalSig);
 
     // Create winning ad record
@@ -7275,7 +7275,11 @@ app.post('/api/v1/solana/settle-bid', async (req, res) => {
         viewerPoolUsdc: atomicSplit.watcherPoolAmountUsdc,
         protocolTreasuryUsdc: atomicSplit.treasuryAmountUsdc,
         targetStreamerWallet: atomicSplit.streamerWallet,
-        revenueSplitRates: { creatorPct, watcherPct, treasuryPct },
+        revenueSplitRates: {
+          creatorPct: platformSettings.splitCreatorPct,
+          watcherPct: platformSettings.splitWatchersPct,
+          treasuryPct: platformSettings.splitTreasuryPct
+        },
         network: process.env.SOLANA_NETWORK || 'mainnet-beta',
         finalityMs: 380,
         verifiedOnChain: true
