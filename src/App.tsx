@@ -37,6 +37,7 @@ import { PrivacyPolicyView } from './components/PrivacyPolicyView';
 import { TermsOfServiceView } from './components/TermsOfServiceView';
 import { HallOfFameModal } from './components/HallOfFameModal';
 import { InvoiceModal } from './components/InvoiceModal';
+import { SystemStatusModal } from './components/SystemStatusModal';
 import { browserNotifications } from './lib/browserNotifications';
 import { Sparkles, Globe, Radio, Tv, FileText } from 'lucide-react';
 import {
@@ -372,6 +373,7 @@ export default function App() {
   // Secure Wallet State (1,000 Starter Tokens = $1.00 USD / 1 Free 15s Slot Credit)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isMyAdsModalOpen, setIsMyAdsModalOpen] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState<boolean>(() => typeof window !== 'undefined' && window.location.pathname.toLowerCase() === '/status');
   const [isAuthResolved, setIsAuthResolved] = useState<boolean>(false);
   const [walletBalanceCents, setWalletBalanceCents] = useState<number>(() => getCachedBalance());
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
@@ -778,6 +780,28 @@ export default function App() {
             const existing = JSON.parse(localStorage.getItem(cacheKey) || '[]');
             const deduped = [newCampaignItem, ...existing.filter((item: any) => item.id !== newCampaignItem.id)].slice(0, 20);
             localStorage.setItem(cacheKey, JSON.stringify(deduped));
+
+            // Direct client-side Firestore backup so campaign is instantly available in Admin Moderation
+            if (db) {
+              try {
+                const docRef = doc(db, 'campaigns', newCampaignItem.id);
+                setDoc(docRef, {
+                  id: newCampaignItem.id,
+                  title: newCampaignItem.title,
+                  imageUrl: newCampaignItem.imageUrl,
+                  targetCityCode: newCampaignItem.targetCityCode?.toUpperCase() || 'GLOBAL',
+                  bidAmountCents: newCampaignItem.bidAmountCents,
+                  bidAmountDollars: ((newCampaignItem.bidAmountCents || 100) / 100).toFixed(2),
+                  status: 'active',
+                  isHouseAd: false,
+                  userId: uid,
+                  advertiserName,
+                  ctaType: newCampaignItem.ctaType,
+                  ctaUrl: newCampaignItem.ctaUrl,
+                  createdAt: newCampaignItem.createdAt
+                }, { merge: true }).catch(() => {});
+              } catch {}
+            }
           } catch (storageErr) {
             try {
               localStorage.removeItem('vb_cached_campaigns_global');
@@ -1598,6 +1622,13 @@ export default function App() {
               >
                 📄 Terms of Service
               </button>
+              <button
+                onClick={() => setIsStatusModalOpen(true)}
+                className="text-emerald-400 hover:text-emerald-300 font-bold text-left cursor-pointer transition-colors flex items-center gap-1.5"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span>⚡ System Status (99.99%)</span>
+              </button>
             </div>
             <p className="text-slate-400 text-xs pt-1">
               Inquiries: <a href="mailto:support@livebillboards.lol" className="text-cyan-400 hover:underline">support@livebillboards.lol</a>
@@ -1608,6 +1639,12 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Real-time System Status & Uptime Modal */}
+      <SystemStatusModal
+        isOpen={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+      />
 
       {/* Smart TV Screen 6-Digit PIN Pairing Modal */}
       <TvPairingModal

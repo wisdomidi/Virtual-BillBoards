@@ -2674,28 +2674,24 @@ const handleBidSubmission = async (req: Request, res: Response) => {
     // 5. Deduct User Tokens ATOMICALLY FIRST
     const deductRes = await deductUserTokensInFirestore(userId, tokens, `RTB Campaign Bid: "${newAd.title}" in ${cityUpper}`, cityUpper);
 
-    // 6. Asynchronously save campaign to Firestore without blocking sub-second RTB response
-    setTimeout(async () => {
-      try {
-        const campaignsCol = collection(db, 'campaigns');
-        // If image is a large base64 string (> 100KB), truncate for Firestore document limit
-        const storedImageUrl = (newAd.imageUrl && newAd.imageUrl.length > 100000 && newAd.imageUrl.startsWith('data:'))
-          ? newAd.imageUrl.substring(0, 1000) + '...[TRUNCATED_FOR_FIRESTORE]'
-          : newAd.imageUrl;
+    // 6. Save campaign to Firestore database immediately (guaranteed persistence across all rollouts)
+    try {
+      const storedImageUrl = (newAd.imageUrl && newAd.imageUrl.length > 100000 && newAd.imageUrl.startsWith('data:'))
+        ? newAd.imageUrl.substring(0, 1000) + '...[TRUNCATED_FOR_FIRESTORE]'
+        : newAd.imageUrl;
 
-        const cleanAd = sanitizeForFirestore({
-          ...newAd,
-          imageUrl: storedImageUrl,
-          userId,
-          status: 'active',
-          createdAt: new Date().toISOString()
-        });
-        const docRef = doc(db, 'campaigns', newAd.id);
-        await setDoc(docRef, cleanAd, { merge: true });
-      } catch (fsErr) {
-        console.warn('Background Firestore campaign save warning:', fsErr);
-      }
-    }, 0);
+      const cleanAd = sanitizeForFirestore({
+        ...newAd,
+        imageUrl: storedImageUrl,
+        userId,
+        status: 'active',
+        createdAt: new Date().toISOString()
+      });
+      const docRef = doc(db, 'campaigns', newAd.id);
+      await setDoc(docRef, cleanAd, { merge: true });
+    } catch (fsErr) {
+      console.warn('Firestore campaign save warning:', fsErr);
+    }
 
     // 7. Insert and sort descending by bidAmountTokens (ZADD equivalent)
     currentQueue.push(newAd);

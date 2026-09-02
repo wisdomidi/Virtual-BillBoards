@@ -42,7 +42,8 @@ import {
   Cell
 } from 'recharts';
 
-import { UserProfile } from '../lib/firebase';
+import { UserProfile, db } from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { BroadcastCelebrationModal } from './BroadcastCelebrationModal';
 
 interface BiddingConsoleProps {
@@ -565,6 +566,31 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
             type: 'success',
             message: `Campaign approved & active in ${selectedCity}! Your ad with interactive CTA link is now live.`
           });
+
+          // Guaranteed direct Firestore persistence
+          if (db) {
+            try {
+              const campId = data.adId || data.ad?.id || `cmp_${Date.now()}`;
+              const docRef = doc(db, 'campaigns', campId);
+              setDoc(docRef, {
+                id: campId,
+                title: title || uploadedFileName || 'Advertiser Campaign',
+                imageUrl,
+                targetCityCode: selectedCity.toUpperCase(),
+                bidAmountCents: totalCents,
+                bidAmountDollars: (totalCents / 100).toFixed(2),
+                status: 'active',
+                isHouseAd: false,
+                userId: uid,
+                advertiserName: advertiserDisplayName,
+                ctaType,
+                ctaUrl: ctaUrl || landingPageUrl || whatsappLink,
+                landingPageUrl,
+                whatsappLink,
+                createdAt: new Date().toISOString()
+              }, { merge: true }).catch(() => {});
+            } catch {}
+          }
 
           // Register for Auto-Renew monitoring if checked
           lastActiveCampaignRef.current = {

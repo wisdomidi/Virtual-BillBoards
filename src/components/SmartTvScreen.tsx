@@ -677,7 +677,9 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
         <div className="bg-slate-950/95 border-2 border-amber-400/70 backdrop-blur-md p-3 rounded-2xl shadow-2xl flex items-center gap-3 pointer-events-auto">
           <div className="p-1 bg-white rounded-xl shadow-md">
             <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(activeAd.ctaUrl || 'https://www.livebillboards.lol/watcher')}`}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
+                activeAd.qrCodeUrl || (activeAd.id ? `https://www.livebillboards.lol/api/qr-scan/${activeAd.id}?screen=${pin || 'tv'}` : (activeAd.ctaUrl || 'https://www.livebillboards.lol/watcher'))
+              )}`}
               alt="Scan Offer QR"
               className="w-14 h-14 object-contain"
             />
