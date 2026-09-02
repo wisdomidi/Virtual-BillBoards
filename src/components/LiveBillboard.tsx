@@ -378,6 +378,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
 
   // Dynamic Cities List loaded from API
   const [cities, setCities] = useState<CityConfig[]>([
+    { cityCode: 'GLOBAL', countryCode: 'GLOBAL', cityName: 'Global Distributed Feed (All Screens Everywhere)', countryName: 'Worldwide', flagEmoji: '🌐', active: true, reserveFloorCents: 100 },
     { cityCode: 'TYO', countryCode: 'JP', cityName: 'Tokyo Shibuya', countryName: 'Japan', flagEmoji: '🇯🇵', active: true, reserveFloorCents: 100 },
     { cityCode: 'NYC', countryCode: 'US', cityName: 'Times Square NYC', countryName: 'United States', flagEmoji: '🇺🇸', active: true, reserveFloorCents: 100 },
     { cityCode: 'LON', countryCode: 'UK', cityName: 'London City', countryName: 'United Kingdom', flagEmoji: '🇬🇧', active: true, reserveFloorCents: 100 },

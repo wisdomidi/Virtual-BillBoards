@@ -245,6 +245,7 @@ app.use('/__/auth', (req, res) => {
 
 // Active Geofenced Billboard Cities Store - Top 20 Global Cities
 const activeCitiesStore = [
+  { cityCode: 'GLOBAL', countryCode: 'GLOBAL', cityName: 'Global Distributed Feed (All Screens Everywhere)', countryName: 'Worldwide', flagEmoji: '🌐', active: true, reserveFloorCents: 100 },
   { cityCode: 'TYO', countryCode: 'JP', cityName: 'Tokyo Shibuya', countryName: 'Japan', flagEmoji: '🇯🇵', active: true, reserveFloorCents: 100 },
   { cityCode: 'NYC', countryCode: 'US', cityName: 'Times Square NYC', countryName: 'United States', flagEmoji: '🇺🇸', active: true, reserveFloorCents: 100 },
   { cityCode: 'LON', countryCode: 'UK', cityName: 'London City', countryName: 'United Kingdom', flagEmoji: '🇬🇧', active: true, reserveFloorCents: 100 },
@@ -2645,7 +2646,8 @@ const handleBidSubmission = async (req: Request, res: Response) => {
           status: 'active',
           createdAt: new Date().toISOString()
         });
-        await addDoc(campaignsCol, cleanAd);
+        const docRef = doc(db, 'campaigns', newAd.id);
+        await setDoc(docRef, cleanAd, { merge: true });
       } catch (fsErr) {
         console.warn('Background Firestore campaign save warning:', fsErr);
       }
