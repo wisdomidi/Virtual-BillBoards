@@ -436,7 +436,9 @@ async function getUserWalletFromFirestore(userId: string, userEmail?: string) {
 
   try {
     const userRef = doc(db, 'users', userId);
-    const snap: any = await getDoc(userRef);
+    const snapPromise = getDoc(userRef);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 1500));
+    const snap: any = await Promise.race([snapPromise, timeoutPromise]).catch(() => null);
 
     if (snap && snap.exists && snap.exists()) {
       const data = snap.data();
@@ -2671,10 +2673,10 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       createdAt: new Date().toISOString()
     };
 
-    // 5. Deduct User Tokens ATOMICALLY FIRST
+    // 5. Deduct User Tokens ATOMICALLY (Instant Memory Update + Background Firestore Sync)
     const deductRes = await deductUserTokensInFirestore(userId, tokens, `RTB Campaign Bid: "${newAd.title}" in ${cityUpper}`, cityUpper);
 
-    // 6. Save campaign to Firestore database immediately (guaranteed persistence across all rollouts)
+    // 6. Save campaign to Firestore database in non-blocking background promise (Zero latency penalty)
     try {
       const storedImageUrl = (newAd.imageUrl && newAd.imageUrl.length > 100000 && newAd.imageUrl.startsWith('data:'))
         ? newAd.imageUrl.substring(0, 1000) + '...[TRUNCATED_FOR_FIRESTORE]'
@@ -2688,9 +2690,11 @@ const handleBidSubmission = async (req: Request, res: Response) => {
         createdAt: new Date().toISOString()
       });
       const docRef = doc(db, 'campaigns', newAd.id);
-      await setDoc(docRef, cleanAd, { merge: true });
+      setDoc(docRef, cleanAd, { merge: true }).catch((fsErr) => {
+        console.warn('Background Firestore campaign save notice:', fsErr);
+      });
     } catch (fsErr) {
-      console.warn('Firestore campaign save warning:', fsErr);
+      console.warn('Firestore campaign preparation notice:', fsErr);
     }
 
     // 7. Insert and sort descending by bidAmountTokens (ZADD equivalent)
