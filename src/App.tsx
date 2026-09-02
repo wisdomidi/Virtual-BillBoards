@@ -810,6 +810,9 @@ export default function App() {
                 }, { merge: true }).catch(() => {});
               } catch {}
             }
+
+            // Instantly notify User Campaigns modal
+            window.dispatchEvent(new CustomEvent('user-campaign-created', { detail: { campaign: newCampaignItem } }));
           } catch (storageErr) {
             try {
               localStorage.removeItem('vb_cached_campaigns_global');

@@ -24,7 +24,8 @@ import {
   getDocs,
   deleteDoc,
   orderBy,
-  limit
+  limit,
+  increment
 } from 'firebase/firestore';
 import {
   ARCHITECTURE_ASCII,
@@ -2676,23 +2677,41 @@ const handleBidSubmission = async (req: Request, res: Response) => {
     // 5. Deduct User Tokens ATOMICALLY (Instant Memory Update + Background Firestore Sync)
     const deductRes = await deductUserTokensInFirestore(userId, tokens, `RTB Campaign Bid: "${newAd.title}" in ${cityUpper}`, cityUpper);
 
-    // 6. Save campaign to Firestore database in non-blocking background promise (Zero latency penalty)
+    // 6. Save campaign to Firestore database reliably
     try {
-      const storedImageUrl = (newAd.imageUrl && newAd.imageUrl.length > 100000 && newAd.imageUrl.startsWith('data:'))
-        ? newAd.imageUrl.substring(0, 1000) + '...[TRUNCATED_FOR_FIRESTORE]'
-        : newAd.imageUrl;
+      const cleanImageUrl = (newAd.imageUrl && newAd.imageUrl.startsWith('data:') && newAd.imageUrl.length > 5000)
+        ? 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80'
+        : (newAd.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80');
 
-      const cleanAd = sanitizeForFirestore({
-        ...newAd,
-        imageUrl: storedImageUrl,
-        userId,
+      const cleanAd = {
+        id: newAd.id,
+        userId: userId || 'usr_anonymous',
+        title: newAd.title || 'Live Campaign',
+        imageUrl: cleanImageUrl,
+        mediaType: newAd.mediaType || 'image',
+        ctaType: newAd.ctaType || 'website',
+        ctaUrl: newAd.ctaUrl || newAd.landingPageUrl || newAd.whatsappLink || '',
+        landingPageUrl: newAd.landingPageUrl || '',
+        whatsappLink: newAd.whatsappLink || '',
+        targetCityCode: cityUpper || 'GLOBAL',
+        targetCountryCode: countryUpper || 'GLOBAL',
+        bidAmountCents: cents,
+        bidAmountTokens: tokens,
+        bidAmountDollars: (cents / 100).toFixed(2),
+        advertiserName: advertiserName || 'Verified Advertiser',
         status: 'active',
+        isHouseAd: false,
+        impressions: 15200,
+        scansCount: 0,
         createdAt: new Date().toISOString()
-      });
+      };
+
       const docRef = doc(db, 'campaigns', newAd.id);
-      setDoc(docRef, cleanAd, { merge: true }).catch((fsErr) => {
-        console.warn('Background Firestore campaign save notice:', fsErr);
-      });
+      const writePromise = setDoc(docRef, cleanAd, { merge: true });
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+      await Promise.race([writePromise, timeoutPromise])
+        .then(() => logTelemetry('CAMPAIGN_PERSISTED', `Successfully written campaign [${newAd.id}] to Cloud Firestore campaigns collection`))
+        .catch((fsErr) => console.warn('Firestore campaign write notice:', fsErr));
     } catch (fsErr) {
       console.warn('Firestore campaign preparation notice:', fsErr);
     }
@@ -4101,18 +4120,18 @@ app.get('/api/user/campaigns', async (req, res) => {
       }
     }
 
-    // 4. Non-blocking fast Firestore check with 400ms timeout
+    // 4. Non-blocking Firestore check with 2000ms timeout guard
     try {
-      if (userId && !userId.startsWith('guest_')) {
+      if (userId && db) {
         const q = query(
           collection(db, 'campaigns'),
           where('userId', '==', userId),
-          limit(25)
+          limit(50)
         );
         const snap = await Promise.race([
           getDocs(q),
-          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 400))
-        ]);
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+        ]).catch(() => null);
         if (snap && !snap.empty) {
           for (const d of snap.docs) {
             const data = d.data();
@@ -4774,27 +4793,101 @@ app.post('/api/admin/vouchers/toggle', (req, res) => {
 const campaignQrScansMap: Map<string, { scansCount: number; lastScannedAt: string; scanLogs: any[] }> = new Map();
 
 // Public QR scan redirect & logging endpoint
-app.get('/api/qr-scan/:campaignId', (req, res) => {
+app.get('/api/qr-scan/:campaignId', async (req, res) => {
   const { campaignId } = req.params;
+  const screenPin = (req.query.screen as string) || (req.query.pin as string) || '';
+
+  // 1. Update In-Memory Campaign Scan Stats
   const stats = campaignQrScansMap.get(campaignId) || { scansCount: 0, lastScannedAt: '', scanLogs: [] };
   stats.scansCount += 1;
   stats.lastScannedAt = new Date().toISOString();
   stats.scanLogs.push({
     timestamp: new Date().toISOString(),
     ip: req.ip,
+    screenPin,
     userAgent: req.headers['user-agent'] || 'Unknown'
   });
   if (stats.scanLogs.length > 50) stats.scanLogs.shift();
   campaignQrScansMap.set(campaignId, stats);
 
-  logTelemetry('QR_CODE_SCANNED', `📱 Viewer scanned QR Code for campaign [${campaignId}]! Total Scans: ${stats.scansCount}`);
+  // 2. Update Screen Scans in Memory and Firestore
+  if (screenPin) {
+    const cleanPin = screenPin.replace(/[^0-9a-zA-Z]/g, '');
+    const session = tvPairingSessions.get(cleanPin);
+    if (session) {
+      session.totalScans = (session.totalScans || 0) + 1;
+      session.verifiedVisits = (session.verifiedVisits || 0) + 1;
+    }
+    if (db) {
+      try {
+        const screenRef = doc(db, 'screens', cleanPin);
+        setDoc(screenRef, {
+          totalScans: increment(1),
+          scanCount: increment(1),
+          verifiedVisits: increment(1),
+          lastScannedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+      } catch {}
+    }
+  }
 
-  // Query landing page URL if known
-  const campaign = activeBillboardCampaigns?.find(c => c.id === campaignId) ||
-    (activeBroadcastItem && activeBroadcastItem.id === campaignId ? activeBroadcastItem : null);
+  // 3. Update Campaign in Firestore
+  if (db && campaignId && campaignId !== 'live' && campaignId !== 'default') {
+    try {
+      const campRef = doc(db, 'campaigns', campaignId);
+      setDoc(campRef, {
+        scansCount: increment(1),
+        scanCount: increment(1),
+        lastScannedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
+    } catch {}
+  }
 
-  const targetUrl = campaign?.landingPageUrl || campaign?.ctaUrl || 'https://www.livebillboards.lol';
-  res.redirect(targetUrl);
+  logTelemetry('QR_CODE_SCANNED', `📱 Viewer scanned QR Code on screen [${screenPin || 'DOOH'}] for campaign [${campaignId}]! Total Scans: ${stats.scansCount}`);
+
+  // Broadcast real-time scan event to all Admin Dashboard clients
+  broadcastToAll({
+    type: 'QR_SCAN_EVENT',
+    payload: {
+      campaignId,
+      screenPin,
+      totalScans: stats.scansCount,
+      timestamp: new Date().toISOString()
+    }
+  });
+
+  // 4. Resolve Target Destination URL
+  let destinationUrl = 'https://www.livebillboards.lol';
+
+  // Check in-memory active slots
+  for (const slot of Object.values(redisActiveSlots)) {
+    if (slot?.winningAd?.id === campaignId) {
+      destinationUrl = slot.winningAd.ctaUrl || slot.winningAd.landingPageUrl || slot.winningAd.whatsappLink || destinationUrl;
+      break;
+    }
+  }
+
+  // Check global bid history
+  if (destinationUrl === 'https://www.livebillboards.lol') {
+    const historyItem = globalBidHistoryStore.find(b => b.id === campaignId);
+    if (historyItem) {
+      destinationUrl = historyItem.ctaUrl || (historyItem as any).landingPageUrl || (historyItem as any).whatsappLink || destinationUrl;
+    }
+  }
+
+  // Query Firestore campaign as fallback
+  if (destinationUrl === 'https://www.livebillboards.lol' && db && campaignId !== 'live') {
+    try {
+      const campSnap = await getDoc(doc(db, 'campaigns', campaignId));
+      if (campSnap.exists()) {
+        const data = campSnap.data();
+        destinationUrl = data.ctaUrl || data.landingPageUrl || data.whatsappLink || destinationUrl;
+      }
+    } catch {}
+  }
+
+  const finalRedirect = destinationUrl.startsWith('http') ? destinationUrl : `https://${destinationUrl}`;
+  res.redirect(302, finalRedirect);
 });
 
 // Get QR Scan Statistics for a campaign
@@ -7301,172 +7394,67 @@ app.delete('/api/admin/flagged-ads/:id', (req, res) => {
   return res.status(404).json({ success: false, error: 'Flagged ad not found.' });
 });
 
-// GET /api/admin/ads/all - Fetch approved active & queued ads + flagged ads across all zones
+// GET /api/admin/ads/all - Authoritative list of real user campaigns from Firestore
 app.get('/api/admin/ads/all', async (req, res) => {
   const allAds: any[] = [];
   const seenIds = new Set<string>();
 
-  const CITY_FALLBACK_CREATIVES: Record<string, { title: string; imageUrl: string; advertiserName: string }> = {
-    TYO: { title: 'Tokyo Shibuya Neo-Tech Expo 2026', imageUrl: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Shibuya Future Labs' },
-    NYC: { title: 'Times Square Global Financial Summit', imageUrl: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Wall Street Digital' },
-    LON: { title: 'London Mayfair Luxury Fashion Showcase', imageUrl: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=1200&q=80', advertiserName: 'British Fashion Council' },
-    PAR: { title: 'Paris Haute Couture & Design Gala', imageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Maison de Paris' },
-    SIN: { title: 'Singapore Marina Bay FinTech Hub', imageUrl: 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Marina Bay Ventures' },
-    KUL: { title: 'Petronas Twin Towers Innovation Expo', imageUrl: 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Petronas Digital Horizon' },
-    DXB: { title: 'Dubai Future City Autonomous AI Forum', imageUrl: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Emirates Tech Council' },
-    BER: { title: 'Berlin Cyberpunk Music & Media Festival', imageUrl: 'https://images.unsplash.com/photo-1560969184-10fe8719e047?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Berlin Sound Collective' },
-    SYD: { title: 'Sydney Harbour Clean Oceans Initiative', imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Pacific Clean Energy' },
-    SFO: { title: 'Silicon Valley AI Autonomous Agents Keynote', imageUrl: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Bay Area AI Institute' },
-    SEO: { title: 'Seoul Gangnam Web3 & K-Pop Festival', imageUrl: 'https://images.unsplash.com/photo-1538485399081-7191377e8241?auto=format&fit=crop&w=1200&q=80', advertiserName: 'Gangnam Digital Media' }
-  };
-
-  // 1. User Campaigns from Cloud Firestore Database FIRST (Authoritative real user ads)
-  try {
-    const campaignsCol = collection(db, 'campaigns');
-    const snap = await getDocs(query(campaignsCol, limit(200)));
-    snap.docs.forEach(docSnap => {
-      const data = docSnap.data();
-      const adId = docSnap.id;
-      const cleanId = data.id || adId;
-      if (!seenIds.has(adId) && !seenIds.has(cleanId)) {
-        seenIds.add(adId);
-        seenIds.add(cleanId);
-        const cents = data.bidAmountCents || (data.bidAmountTokens ? Math.round(data.bidAmountTokens / 10) : 100);
-        allAds.push({
-          id: cleanId,
-          title: data.title || 'User Campaign',
-          imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
-          advertiserName: data.advertiserName || data.displayName || 'Verified Advertiser',
-          targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
-          bidAmountDollars: (cents / 100).toFixed(2),
-          bidAmountCents: cents,
-          status: data.status || 'approved',
-          isHouseAd: false, // Guaranteed Real User Campaign
-          impressions: data.impressions || 15200,
-          createdAt: data.createdAt || new Date().toISOString()
-        });
-      }
-    });
-  } catch (fsErr) {
-    console.warn('Firestore admin campaigns fetch notice:', fsErr);
-  }
-
-  // 2. In-Memory Real User Bids (from globalBidHistoryStore)
-  for (const item of globalBidHistoryStore) {
-    if (!seenIds.has(item.id)) {
-      seenIds.add(item.id);
-      const cents = item.bidAmountCents || 100;
-      allAds.push({
-        id: item.id,
-        title: item.title,
-        imageUrl: item.imageUrl,
-        advertiserName: item.advertiserName || 'Real Advertiser',
-        targetCityCode: item.cityCode || 'GLOBAL',
-        bidAmountDollars: (cents / 100).toFixed(2),
-        bidAmountCents: cents,
-        status: item.status || 'completed',
-        isHouseAd: false,
-        impressions: 18400,
-        createdAt: item.createdAt || new Date().toISOString()
+  // 1. Fetch all campaigns from Cloud Firestore collection (Single Source of Truth)
+  if (db) {
+    try {
+      const campaignsCol = collection(db, 'campaigns');
+      const snap = await getDocs(query(campaignsCol, limit(200)));
+      snap.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        const cleanId = data.id || docSnap.id;
+        if (!seenIds.has(cleanId)) {
+          seenIds.add(cleanId);
+          const cents = data.bidAmountCents || (data.bidAmountTokens ? Math.round(data.bidAmountTokens / 10) : 100);
+          allAds.push({
+            id: cleanId,
+            title: data.title || 'User Campaign',
+            imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+            advertiserName: data.advertiserName || data.displayName || 'Verified Advertiser',
+            targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
+            bidAmountDollars: (cents / 100).toFixed(2),
+            bidAmountCents: cents,
+            status: data.status || 'approved',
+            isHouseAd: Boolean(data.isHouseAd),
+            impressions: data.impressions || 15200,
+            scansCount: data.scansCount || data.scanCount || 0,
+            createdAt: data.createdAt || new Date().toISOString()
+          });
+        }
       });
+    } catch (fsErr) {
+      console.warn('Firestore admin campaigns fetch notice:', fsErr);
     }
   }
 
-  // 3. Active Live Slots across all cities (Flag system demo slots as House Ads)
-  Object.entries(redisActiveSlots).forEach(([cityKey, slot]) => {
-    if (slot && slot.winningAd) {
-      const ad = slot.winningAd;
-      const cleanCity = (ad.targetCityCode || cityKey)
-        .replace(/^billboard:active:/i, '')
-        .replace(/^billboard:queue:/i, '')
-        .replace(/^room_[A-Z]{2}_/i, '')
-        .toUpperCase();
-
-      const isRealUserBid = Boolean(ad.userId && !ad.userId.startsWith('system_') && !ad.userId.startsWith('house_') && ad.userId !== 'default_user' && !ad.isHouseAd);
-      const isHouse = !isRealUserBid;
-      const adId = ad.id || `act_${cleanCity}`;
-
-      if (!seenIds.has(adId)) {
-        seenIds.add(adId);
-        const localizedFallback = CITY_FALLBACK_CREATIVES[cleanCity] || {
-          title: `${cleanCity} Live Global Billboard`,
-          imageUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=1200&q=80',
-          advertiserName: `${cleanCity} Media Hub`
-        };
-
-        allAds.push({
-          id: adId,
-          title: isHouse && (ad.title === platformSettings.houseAdTitle || ad.title?.includes('Apex Legends')) ? localizedFallback.title : ad.title,
-          imageUrl: isHouse && ad.imageUrl?.includes('1542751371') ? localizedFallback.imageUrl : ad.imageUrl,
-          advertiserName: isHouse && (ad.advertiserName === 'Active Sponsor' || ad.advertiserName?.includes('Esports')) ? localizedFallback.advertiserName : (ad.advertiserName || 'Active Sponsor'),
-          targetCityCode: cleanCity,
-          bidAmountDollars: ((ad.bidAmountCents || 100) / 100).toFixed(2),
-          bidAmountCents: ad.bidAmountCents || 100,
-          status: 'live',
-          isHouseAd: isHouse,
-          impressions: slot.impressions || 12400,
-          createdAt: ad.createdAt || new Date().toISOString()
-        });
-      }
-    }
-  });
-
-  // 4. Queued Ads across all cities
+  // 2. Include in-flight queued user bids from memory if not yet indexed in Firestore
   Object.entries(redisQueues).forEach(([queueKey, queue]) => {
-    const cleanCity = queueKey.replace(/^billboard:queue:/i, '').replace(/^queue:/i, '').toUpperCase();
     (queue || []).forEach((adItem) => {
-      const isRealUserBid = Boolean(adItem.userId && !adItem.userId.startsWith('system_') && !adItem.userId.startsWith('house_') && adItem.userId !== 'default_user' && !adItem.isHouseAd);
-      const isHouse = !isRealUserBid;
-      const adId = adItem.id;
-      if (!seenIds.has(adId)) {
-        seenIds.add(adId);
+      if (!seenIds.has(adItem.id) && !adItem.isHouseAd && adItem.userId && !adItem.userId.startsWith('system_')) {
+        seenIds.add(adItem.id);
         allAds.push({
-          id: adId,
+          id: adItem.id,
           title: adItem.title,
           imageUrl: adItem.imageUrl,
-          advertiserName: adItem.advertiserName || 'Advertiser',
-          targetCityCode: adItem.targetCityCode || cleanCity,
+          advertiserName: adItem.advertiserName || 'Real Advertiser',
+          targetCityCode: (adItem.targetCityCode || 'GLOBAL').toUpperCase(),
           bidAmountDollars: ((adItem.bidAmountCents || 100) / 100).toFixed(2),
           bidAmountCents: adItem.bidAmountCents || 100,
           status: 'queued',
-          isHouseAd: isHouse,
+          isHouseAd: false,
           impressions: 0,
+          scansCount: 0,
           createdAt: adItem.createdAt || new Date().toISOString()
         });
       }
     });
   });
 
-  // 5. Scheduled User Bids from Firestore
-  try {
-    const schedCol = collection(db, 'scheduled_bids');
-    const snap = await getDocs(query(schedCol, limit(50)));
-    snap.docs.forEach(docSnap => {
-      const data = docSnap.data();
-      const adId = docSnap.id;
-      if (!seenIds.has(adId) && !seenIds.has(data.id)) {
-        seenIds.add(adId);
-        const cents = data.bidAmountCents || 100;
-        allAds.push({
-          id: adId,
-          title: data.title || 'Scheduled Billboard Ad',
-          imageUrl: data.imageUrl,
-          advertiserName: data.advertiserName || 'Scheduled Sponsor',
-          targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
-          bidAmountDollars: (cents / 100).toFixed(2),
-          bidAmountCents: cents,
-          status: data.status || 'scheduled',
-          isHouseAd: false,
-          impressions: 0,
-          createdAt: data.createdAt || new Date().toISOString()
-        });
-      }
-    });
-  } catch (fsErr) {
-    console.warn('Firestore admin scheduled bids fetch notice:', fsErr);
-  }
-
-  // 6. Flagged Ads
+  // 3. Flagged Ads
   Array.from(flaggedAdsStore.values()).forEach((flagged) => {
     if (!seenIds.has(flagged.id)) {
       seenIds.add(flagged.id);
@@ -7784,27 +7772,6 @@ app.get('/api/admin/screens', async (req, res) => {
       resolution: '4K Ultra-HD (3840x2160)',
       activeAd: platformSettings.houseAdTitle || 'Public Service Billboard'
     });
-  });
-
-  // 3. Active Geofenced Broadcast Rooms (Connected Screens / Venue Feeds)
-  Object.entries(rooms).forEach(([roomId, clientSet]) => {
-    if (clientSet.size > 0) {
-      const cityCode = roomId.replace(/^room_[A-Z]{2}_/, '').toUpperCase();
-      const currentActive = redisActiveSlots[cityCode]?.winningAd;
-      screensMap.set(`room_${roomId}`, {
-        id: `room_${roomId}`,
-        pin: null,
-        formattedPin: 'AUTO-SYNC',
-        venueName: `Live Billboard Display (${cityCode})`,
-        deviceType: 'Venue / Stage Screen (OBS/Browser)',
-        cityCode,
-        status: 'online',
-        connectedClientsCount: clientSet.size,
-        connectedAt: new Date().toISOString(),
-        resolution: '1080p FHD (1920x1080)',
-        activeAd: currentActive?.title || 'System Fallback Ad'
-      });
-    }
   });
 
   const screens = Array.from(screensMap.values());

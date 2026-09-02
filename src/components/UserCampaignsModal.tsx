@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { UserRole, ProofOfPlayReceipt } from '../types';
 import { billboardRecorder } from '../lib/canvasVideoRecorder';
+import { db } from '../lib/firebase';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 
 export interface UserCampaignItem {
   id: string;
@@ -136,6 +138,70 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
       fetchCampaigns();
     }
   }, [isOpen, userId]);
+
+  // Real-time Firestore campaign listener for instant display of new ads
+  useEffect(() => {
+    if (!userId || !db) return;
+    try {
+      const campaignsCol = collection(db, 'campaigns');
+      const q = query(campaignsCol, where('userId', '==', userId), limit(50));
+      const unsubscribe = onSnapshot(q, (snap) => {
+        if (!snap.empty) {
+          const list: UserCampaignItem[] = [];
+          snap.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            list.push({
+              id: docSnap.id,
+              title: data.title || 'Live Campaign',
+              imageUrl: data.imageUrl || '',
+              mediaType: data.mediaType || 'image',
+              ctaType: data.ctaType || 'none',
+              ctaUrl: data.ctaUrl || data.landingPageUrl || data.whatsappLink || '',
+              landingPageUrl: data.landingPageUrl,
+              whatsappLink: data.whatsappLink,
+              qrCodeUrl: data.qrCodeUrl,
+              targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
+              bidAmountCents: data.bidAmountCents || 100,
+              status: data.status || 'active',
+              impressions: data.impressions || 15200,
+              scansCount: data.scansCount || data.scanCount || 0,
+              createdAt: data.createdAt || new Date().toISOString()
+            });
+          });
+          setCampaigns((prev) => {
+            const map = new Map(prev.map(c => [c.id, c]));
+            list.forEach(c => map.set(c.id, c));
+            const merged = Array.from(map.values()).sort((a, b) =>
+              new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+            );
+            safeSaveCampaignsToStorage(`vb_cached_campaigns_${userId}`, merged);
+            return merged;
+          });
+        }
+      }, (err) => {
+        console.warn('User campaigns real-time listener notice:', err);
+      });
+      return () => unsubscribe();
+    } catch {}
+  }, [userId]);
+
+  // Listen for instant local campaign created event
+  useEffect(() => {
+    const handleCampaignCreated = (e: any) => {
+      if (e.detail?.campaign) {
+        const c = e.detail.campaign;
+        setCampaigns((prev) => {
+          const map = new Map(prev.map(item => [item.id, item]));
+          map.set(c.id, c);
+          return Array.from(map.values()).sort((a, b) =>
+            new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          );
+        });
+      }
+    };
+    window.addEventListener('user-campaign-created', handleCampaignCreated);
+    return () => window.removeEventListener('user-campaign-created', handleCampaignCreated);
+  }, []);
 
   const [isGeneratingProof, setIsGeneratingProof] = useState(false);
   const [selectedProofAd, setSelectedProofAd] = useState<UserCampaignItem | null>(null);

@@ -676,13 +676,20 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
         {/* Right: Dynamic Interactive Customer Scan QR Code (Proof-of-Physical-Presence) */}
         <div className="bg-slate-950/95 border-2 border-amber-400/70 backdrop-blur-md p-3 rounded-2xl shadow-2xl flex items-center gap-3 pointer-events-auto">
           <div className="p-1 bg-white rounded-xl shadow-md">
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
-                activeAd.qrCodeUrl || (activeAd.id ? `https://www.livebillboards.lol/api/qr-scan/${activeAd.id}?screen=${pin || 'tv'}` : (activeAd.ctaUrl || 'https://www.livebillboards.lol/watcher'))
-              )}`}
-              alt="Scan Offer QR"
-              className="w-14 h-14 object-contain"
-            />
+            {(() => {
+              const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://www.livebillboards.lol';
+              const activeScreenPin = pin || (typeof window !== 'undefined' ? localStorage.getItem('vb_tv_saved_pin') : '') || 'tv';
+              const scanQrUrl = activeAd.id
+                ? `${origin}/api/qr-scan/${activeAd.id}?screen=${activeScreenPin}`
+                : `${origin}/watcher`;
+              return (
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(scanQrUrl)}`}
+                  alt="Scan Offer QR"
+                  className="w-14 h-14 object-contain"
+                />
+              );
+            })()}
           </div>
           <div className="text-left">
             <div className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1">

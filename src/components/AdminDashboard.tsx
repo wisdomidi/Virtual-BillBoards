@@ -719,6 +719,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             cityCode: dt.city || 'GLOBAL',
             status: 'online',
             solanaWallet: dt.solanaWallet || null,
+            totalScans: dt.totalScans || dt.scanCount || dt.verifiedVisits || 0,
+            verifiedVisits: dt.verifiedVisits || dt.totalScans || 0,
             connectedAt: dt.pairedAt || dt.createdAt || new Date().toISOString(),
             resolution: dt.resolution || '4K Ultra-HD (3840x2160)',
             activeAd: 'Live Billboard Feed'
@@ -1017,6 +1019,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               cityCode: (data.city || 'GLOBAL').toUpperCase(),
               status: data.status === 'paired' || data.status === 'online' ? 'online' : (data.status || 'online'),
               solanaWallet: data.solanaWallet || null,
+              totalScans: data.totalScans || data.scanCount || data.verifiedVisits || 0,
+              verifiedVisits: data.verifiedVisits || data.totalScans || 0,
               connectedAt: data.pairedAt || data.createdAt || new Date().toISOString(),
               resolution: data.resolution || '4K Ultra-HD (3840x2160)',
               activeAd: data.activeAd || settings.houseAdTitle || 'Live Billboard Feed'
