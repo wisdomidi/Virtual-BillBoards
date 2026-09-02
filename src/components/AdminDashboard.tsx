@@ -999,10 +999,83 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   }, []);
 
-  // Fetch screens immediately when screens tab becomes active
+  // Real-time Firestore campaigns listener (instant real-time user ads in Admin Dashboard)
   useEffect(() => {
-    if (activeAdminSubTab === 'screens') {
-      fetchScreens();
+    if (!db) return;
+    try {
+      const campaignsCol = collection(db, 'campaigns');
+      const unsubscribe = onSnapshot(query(campaignsCol, limit(200)), (snap) => {
+        setAllAdminAds((prevList) => {
+          const map = new Map(prevList.map(a => [a.id, a]));
+          snap.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const id = docSnap.id;
+            const cents = data.bidAmountCents || (data.bidAmountTokens ? Math.round(data.bidAmountTokens / 10) : 100);
+            map.set(id, {
+              id,
+              title: data.title || 'User Campaign',
+              imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+              advertiserName: data.advertiserName || data.displayName || 'Verified Advertiser',
+              targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
+              bidAmountDollars: (cents / 100).toFixed(2),
+              bidAmountCents: cents,
+              status: data.status || 'approved',
+              isHouseAd: Boolean(data.isHouseAd),
+              impressions: data.impressions || 15200,
+              createdAt: data.createdAt || new Date().toISOString()
+            });
+          });
+          return Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        });
+      }, (err) => {
+        console.warn('Real-time campaigns onSnapshot notice:', err);
+      });
+      return () => unsubscribe();
+    } catch (err) {
+      console.warn('Real-time campaigns listener setup notice:', err);
+    }
+  }, []);
+
+  // Automatically fetch freshest live data whenever switching between any Admin subtab
+  useEffect(() => {
+    switch (activeAdminSubTab) {
+      case 'moderation':
+        fetchAllAdminAds();
+        fetchFlaggedAds();
+        break;
+      case 'screens':
+        fetchScreens();
+        break;
+      case 'users':
+        fetchUsers();
+        break;
+      case 'vouchers':
+        fetchVouchers();
+        fetchPayouts();
+        break;
+      case 'streamers':
+        fetchLiveStreamers();
+        break;
+      case 'house_ads':
+        fetchHouseAds();
+        break;
+      case 'affiliates':
+        fetchAffiliates();
+        break;
+      case 'treasury':
+        fetchSolanaLedger();
+        break;
+      case 'telemetry':
+        fetchAttentionTelemetry();
+        break;
+      case 'cities':
+        fetchCities();
+        break;
+      case 'settings':
+        fetchSettings();
+        break;
+      default:
+        break;
     }
   }, [activeAdminSubTab]);
 
@@ -1355,7 +1428,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               return true;
             });
 
-            const sourceApprovedAds = sourceBaseAds.filter(a => a.status === 'live' || a.status === 'approved' || a.status === 'active');
+            const sourceApprovedAds = sourceBaseAds.filter(a => a.status === 'live' || a.status === 'approved' || a.status === 'active' || a.status === 'completed' || a.status === 'playing');
             const sourceQueuedAds = sourceBaseAds.filter(a => a.status === 'queued' || a.status === 'scheduled');
             const sourceFlaggedAds = flaggedAds.filter(a => {
               if (adCityFilter !== 'ALL' && a.targetCityCode?.toUpperCase() !== adCityFilter.toUpperCase()) return false;
