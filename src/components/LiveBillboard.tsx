@@ -860,7 +860,18 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                         <div className="text-[9px] uppercase font-mono font-bold text-slate-400 px-2 py-0.5">
                           Featured Global Hubs
                         </div>
-                        {cities.slice(0, 12).map((city) => (
+                        {cities
+                          .filter((c) => {
+                            if (!citySearchTerm.trim()) return true;
+                            const term = citySearchTerm.toLowerCase();
+                            return (
+                              c.cityName.toLowerCase().includes(term) ||
+                              c.cityCode.toLowerCase().includes(term) ||
+                              c.countryName.toLowerCase().includes(term)
+                            );
+                          })
+                          .slice(0, 20)
+                          .map((city) => (
                           <button
                             key={city.cityCode}
                             onClick={() => {
