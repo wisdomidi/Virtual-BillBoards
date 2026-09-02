@@ -478,7 +478,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const userObj = usersList.find(u => u.uid === targetUserId);
     const name = userObj?.displayName || userObj?.email || targetUserId.slice(-6);
     const actionText = addTokens !== 0 
-      ? `${addTokens > 0 ? 'Grant' : 'Deduct'} ${Math.abs(addTokens).toLocaleString()} tokens (${addTokens > 0 ? '+' : '-'}$${Math.abs(addTokens / 100).toFixed(2)})`
+      ? `${addTokens > 0 ? 'Grant' : 'Deduct'} ${Math.abs(addTokens).toLocaleString()} tokens (${addTokens > 0 ? '+' : '-'}$${Math.abs(addTokens / 1000).toFixed(2)})`
       : `Change role to ${newRole}`;
 
     askConfirmation({

@@ -41,6 +41,7 @@ import { browserNotifications } from './lib/browserNotifications';
 import { Sparkles, Globe, Radio, Tv, FileText } from 'lucide-react';
 import {
   auth,
+  db,
   onAuthStateChanged,
   signInAnonymously,
   signOut,
@@ -48,6 +49,7 @@ import {
   isUserAdmin,
   UserProfile
 } from './lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useProofOfAttention } from './hooks/useProofOfAttention';
 import { LocalProvider } from './context/LocalContext';
 
@@ -350,7 +352,7 @@ export default function App() {
         if (!isNaN(parsed) && parsed >= 0) return parsed;
       }
     }
-    return 100; // Instant 0ms render ($1.00 / 1,000 Tokens) for brand-new users
+    return 0; // Starts at 0 until verified account profile is loaded from Firestore
   });
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
   const [hasClaimedStarter, setHasClaimedStarter] = useState<boolean>(false);
@@ -361,6 +363,37 @@ export default function App() {
   const safeWalletBalanceCents = Math.max(0, walletBalanceCents || 0);
   const safeWalletBalanceDollars = (safeWalletBalanceCents / 100).toFixed(2);
   const tokensBalance = Math.round(safeWalletBalanceCents * 10);
+
+  // Real-time Firestore user balance listener (instant sync when admin credits user or bid is processed)
+  useEffect(() => {
+    if (!currentUser?.uid || !db || currentUser.isAnonymous) return;
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const unsubscribe = onSnapshot(userRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (typeof data.walletBalanceCents === 'number' && !isNaN(data.walletBalanceCents)) {
+            setWalletBalanceCents(data.walletBalanceCents);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('vb_cached_balance_cents', String(data.walletBalanceCents));
+            }
+          } else if (typeof data.tokensBalance === 'number' && !isNaN(data.tokensBalance)) {
+            const cents = Math.round(data.tokensBalance / 10);
+            setWalletBalanceCents(cents);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('vb_cached_balance_cents', String(cents));
+            }
+          }
+          if (data.role && data.role !== userRole) {
+            setUserRole(data.role as UserRole);
+          }
+        }
+      }, (err) => {
+        console.warn('User doc real-time snapshot notice:', err);
+      });
+      return () => unsubscribe();
+    } catch {}
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
