@@ -80,11 +80,9 @@ const firebaseApp = !getApps().length ? initializeApp(firebaseServerConfig) : ge
 const databaseId = process.env.FIREBASE_DATABASE_ID || process.env.VITE_FIREBASE_DATABASE_ID;
 const db = (() => {
   try {
-    return initializeFirestore(
-      firebaseApp,
-      { experimentalAutoDetectLongPolling: true },
-      databaseId && databaseId !== '(default)' ? databaseId : undefined
-    );
+    return databaseId && databaseId !== '(default)'
+      ? initializeFirestore(firebaseApp, { experimentalAutoDetectLongPolling: true }, databaseId)
+      : initializeFirestore(firebaseApp, { experimentalAutoDetectLongPolling: true });
   } catch (e) {
     return databaseId && databaseId !== '(default)'
       ? getFirestore(firebaseApp, databaseId)
@@ -440,44 +438,70 @@ async function getUserWalletFromFirestore(userId: string, userEmail?: string) {
     try {
       const userRef = doc(db, 'users', userId);
       const snapPromise = getDoc(userRef);
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 6000));
+      const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Firestore timeout (10s)')), 10000));
       const snap: any = await Promise.race([snapPromise, timeoutPromise]).catch(() => null);
 
-      if (snap && snap.exists && snap.exists()) {
-        const data = snap.data();
-        const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
-        const hasClaimed = Boolean(data.starterGrantClaimed === true || data.freeSlotClaimed === true || bidsCount > 0);
-        
-        let tokensBalance = typeof data.tokensBalance === 'number'
-          ? data.tokensBalance
-          : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (hasClaimed ? 0 : 1000));
+      if (snap && typeof snap.exists === 'function') {
+        if (snap.exists()) {
+          const data = snap.data();
+          const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
+          const hasClaimed = Boolean(data.starterGrantClaimed === true || data.freeSlotClaimed === true || bidsCount > 0);
+          
+          let tokensBalance = typeof data.tokensBalance === 'number'
+            ? data.tokensBalance
+            : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (hasClaimed ? 0 : 1000));
 
-        const walletBalanceCents = typeof data.walletBalanceCents === 'number'
-          ? data.walletBalanceCents
-          : Math.round(tokensBalance / 10);
+          const walletBalanceCents = typeof data.walletBalanceCents === 'number'
+            ? data.walletBalanceCents
+            : Math.round(tokensBalance / 10);
 
-        userWalletsMemoryMap.set(userId, {
-          tokensBalance,
-          walletBalanceCents,
-          freeSlotClaimed: hasClaimed,
-          bidsPlacedCount: bidsCount
-        });
+          userWalletsMemoryMap.set(userId, {
+            tokensBalance,
+            walletBalanceCents,
+            freeSlotClaimed: hasClaimed,
+            bidsPlacedCount: bidsCount
+          });
 
-        return {
-          uid: userId,
-          tokensBalance,
-          walletBalanceCents,
-          starterGrantClaimed: hasClaimed,
-          email: data.email || resolvedEmail,
-          role: data.role || 'advertiser'
-        };
+          return {
+            uid: userId,
+            tokensBalance,
+            walletBalanceCents,
+            starterGrantClaimed: hasClaimed,
+            email: data.email || resolvedEmail,
+            role: data.role || 'advertiser'
+          };
+        } else {
+          // Document explicitly confirmed not found in Firestore: create first-time profile
+          const initialTokens = 1000;
+          const initialCents = 100;
+          const memoryRecord = {
+            tokensBalance: initialTokens,
+            walletBalanceCents: initialCents,
+            freeSlotClaimed: true,
+            bidsPlacedCount: 0
+          };
+          userWalletsMemoryMap.set(userId, memoryRecord);
+          const newProfile = {
+            uid: userId,
+            email: resolvedEmail,
+            role: 'advertiser',
+            tokensBalance: initialTokens,
+            walletBalanceCents: initialCents,
+            starterGrantClaimed: true,
+            freeSlotClaimed: true,
+            isGuest: false,
+            createdAt: new Date().toISOString()
+          };
+          setDoc(userRef, newProfile, { merge: true }).catch(() => {});
+          return newProfile;
+        }
       }
     } catch (fsErr) {
       console.warn('Firestore user fetch notice:', fsErr);
     }
   }
 
-  // 2. Fast return from memory if user is guest or Firestore was unreachable
+  // 2. Return cached memory state if user is guest or Firestore was unreachable
   if (cached) {
     return {
       uid: userId,
@@ -489,103 +513,16 @@ async function getUserWalletFromFirestore(userId: string, userEmail?: string) {
     };
   }
 
-  try {
-    const userRef = doc(db, 'users', userId);
-    const snapPromise = getDoc(userRef);
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000));
-    const snap: any = await Promise.race([snapPromise, timeoutPromise]).catch(() => null);
-
-    if (snap && snap.exists && snap.exists()) {
-      const data = snap.data();
-      const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
-      const hasClaimed = Boolean(data.starterGrantClaimed === true || data.freeSlotClaimed === true || bidsCount > 0);
-      
-      let tokensBalance = typeof data.tokensBalance === 'number'
-        ? data.tokensBalance
-        : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (isGuest || hasClaimed ? 0 : 1000));
-
-      const walletBalanceCents = typeof data.walletBalanceCents === 'number'
-        ? data.walletBalanceCents
-        : Math.round(tokensBalance / 10);
-
-      userWalletsMemoryMap.set(userId, {
-        tokensBalance,
-        walletBalanceCents,
-        freeSlotClaimed: hasClaimed,
-        bidsPlacedCount: bidsCount
-      });
-
-      return {
-        uid: userId,
-        tokensBalance,
-        walletBalanceCents,
-        starterGrantClaimed: hasClaimed,
-        email: data.email || resolvedEmail,
-        role: data.role || 'advertiser'
-      };
-    } else {
-      // First-time registered user gets 1,000 starter tokens once; guests start with 0
-      const initialTokens = isGuest ? 0 : 1000;
-      const initialCents = isGuest ? 0 : 100;
-      const memoryRecord = {
-        tokensBalance: initialTokens,
-        walletBalanceCents: initialCents,
-        freeSlotClaimed: !isGuest,
-        bidsPlacedCount: 0
-      };
-
-      const newProfile = {
-        uid: userId,
-        email: resolvedEmail,
-        role: 'advertiser',
-        tokensBalance: initialTokens,
-        walletBalanceCents: initialCents,
-        starterGrantClaimed: false,
-        freeSlotClaimed: false,
-        isGuest,
-        createdAt: new Date().toISOString()
-      };
-      userWalletsMemoryMap.set(userId, memoryRecord);
-      if (!isGuest) {
-        setDoc(userRef, {
-          ...newProfile,
-          starterGrantClaimed: true,
-          freeSlotClaimed: true,
-          bidsPlacedCount: 0
-        }, { merge: true }).catch((e) => console.warn('Background user init warning:', e));
-      }
-      return newProfile;
-    }
-  } catch (err: any) {
-    console.warn(`Firestore read fallback for [${userId}]:`, err.message);
-    const cachedItem = userWalletsMemoryMap.get(userId);
-    if (cachedItem) {
-      return {
-        uid: userId,
-        tokensBalance: cachedItem.tokensBalance,
-        walletBalanceCents: cachedItem.walletBalanceCents,
-        starterGrantClaimed: cachedItem.freeSlotClaimed,
-        email: resolvedEmail,
-        role: 'advertiser'
-      };
-    }
-    const initialTokens = isGuest ? 0 : 1000;
-    const initialCents = isGuest ? 0 : 100;
-    userWalletsMemoryMap.set(userId, {
-      tokensBalance: initialTokens,
-      walletBalanceCents: initialCents,
-      freeSlotClaimed: false,
-      bidsPlacedCount: 0
-    });
-    return {
-      uid: userId,
-      tokensBalance: initialTokens,
-      walletBalanceCents: initialCents,
-      starterGrantClaimed: false,
-      email: resolvedEmail,
-      role: 'advertiser'
-    };
-  }
+  const initialTokens = isGuest ? 0 : 1000;
+  const initialCents = isGuest ? 0 : 100;
+  return {
+    uid: userId,
+    tokensBalance: initialTokens,
+    walletBalanceCents: initialCents,
+    starterGrantClaimed: !isGuest,
+    email: resolvedEmail,
+    role: 'advertiser'
+  };
 }
 
 async function deductUserTokensInFirestore(
