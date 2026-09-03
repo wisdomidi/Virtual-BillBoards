@@ -579,7 +579,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await fetch('/api/admin/vouchers');
       if (res.ok) {
         const data = await res.json();
-        if (data.vouchers) setVouchersList(data.vouchers);
+        if (data.vouchers && Array.isArray(data.vouchers) && data.vouchers.length > 0) {
+          setVouchersList(data.vouchers);
+          setLoadingVouchers(false);
+          return;
+        }
+      }
+      // Direct Firestore fallback
+      if (db) {
+        const vCol = collection(db, 'vouchers');
+        const snap = await getDocs(vCol);
+        if (!snap.empty) {
+          const list = snap.docs.map(d => d.data());
+          setVouchersList(list);
+        }
       }
     } catch (e) {
       console.warn('Failed to load vouchers:', e);

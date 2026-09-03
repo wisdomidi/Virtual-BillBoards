@@ -4776,6 +4776,29 @@ const promoVouchersMap: Map<string, PromoVoucher> = new Map([
   ]
 ]);
 
+async function syncVouchersFromFirestore() {
+  if (!db) return;
+  try {
+    const vCol = collection(db, 'vouchers');
+    const snap = await getDocs(vCol);
+    snap.docs.forEach((d) => {
+      const data = d.data() as PromoVoucher;
+      if (data && data.code) {
+        const cleanCode = data.code.toUpperCase();
+        const existing = promoVouchersMap.get(cleanCode);
+        promoVouchersMap.set(cleanCode, {
+          ...(existing || {}),
+          ...data,
+          claimedCount: Math.max(existing?.claimedCount || 0, data.claimedCount || 0),
+          claimedByUsers: Array.from(new Set([...(existing?.claimedByUsers || []), ...(data.claimedByUsers || [])]))
+        });
+      }
+    });
+  } catch (err) {
+    console.warn('Firestore vouchers sync notice:', err);
+  }
+}
+
 // Claim Promo Voucher (User endpoint)
 app.post('/api/wallet/claim-voucher', async (req, res) => {
   const { userId, voucherCode } = req.body;
@@ -4784,6 +4807,24 @@ app.post('/api/wallet/claim-voucher', async (req, res) => {
   }
 
   const cleanCode = String(voucherCode).trim().toUpperCase();
+
+  // Always sync latest state from Cloud Firestore before evaluating claims
+  if (db) {
+    try {
+      const vDoc = await getDoc(doc(db, 'vouchers', cleanCode));
+      if (vDoc.exists()) {
+        const vData = vDoc.data() as PromoVoucher;
+        const existing = promoVouchersMap.get(cleanCode);
+        promoVouchersMap.set(cleanCode, {
+          ...(existing || {}),
+          ...vData,
+          claimedCount: Math.max(existing?.claimedCount || 0, vData.claimedCount || 0),
+          claimedByUsers: Array.from(new Set([...(existing?.claimedByUsers || []), ...(vData.claimedByUsers || [])]))
+        });
+      }
+    } catch {}
+  }
+
   const voucher = promoVouchersMap.get(cleanCode);
 
   if (!voucher || !voucher.active) {
@@ -4816,23 +4857,32 @@ app.post('/api/wallet/claim-voucher', async (req, res) => {
     voucher.claimedCount += 1;
     voucher.claimedByUsers.push(userId);
 
-    // 4. Record in Firestore
-    try {
-      const userRef = doc(db, 'users', userId);
-      await setDoc(userRef, { tokensBalance: newTokens, walletBalanceCents: newCents }, { merge: true });
-      const txnsCol = collection(db, 'users', userId, 'transactions');
-      await addDoc(txnsCol, {
-        id: `tx_voucher_${Date.now()}`,
-        type: 'voucher_redemption',
-        code: cleanCode,
-        tokens: voucher.tokens,
-        amountCents: voucher.tokens / 10,
-        amountDollars: (voucher.tokens * 0.001).toFixed(2),
-        description: `Promo Code Redeemed: ${cleanCode} (+$${voucher.dollars.toFixed(2)})`,
-        timestamp: new Date().toISOString()
-      });
-    } catch (fsErr) {
-      console.warn('Voucher Firestore sync non-fatal error:', fsErr);
+    // 4. Record in Firestore (both user wallet and vouchers collection)
+    if (db) {
+      try {
+        const userRef = doc(db, 'users', userId);
+        const voucherRef = doc(db, 'vouchers', cleanCode);
+        await Promise.all([
+          setDoc(userRef, { tokensBalance: newTokens, walletBalanceCents: newCents }, { merge: true }),
+          setDoc(voucherRef, {
+            claimedCount: voucher.claimedCount,
+            claimedByUsers: voucher.claimedByUsers,
+            lastClaimedAt: new Date().toISOString()
+          }, { merge: true }),
+          addDoc(collection(db, 'users', userId, 'transactions'), {
+            id: `tx_voucher_${Date.now()}`,
+            type: 'voucher_redemption',
+            code: cleanCode,
+            tokens: voucher.tokens,
+            amountCents: voucher.tokens / 10,
+            amountDollars: (voucher.tokens * 0.001).toFixed(2),
+            description: `Promo Code Redeemed: ${cleanCode} (+$${voucher.dollars.toFixed(2)})`,
+            timestamp: new Date().toISOString()
+          })
+        ]);
+      } catch (fsErr) {
+        console.warn('Voucher Firestore sync non-fatal error:', fsErr);
+      }
     }
 
     logTelemetry('PROMO_VOUCHER_REDEEMED', `🎟️ User [${userId}] successfully redeemed promo code [${cleanCode}] for +${voucher.tokens.toLocaleString()} tokens ($${voucher.dollars.toFixed(2)} USD). New balance: ${newTokens.toLocaleString()} tokens.`);
@@ -4852,14 +4902,15 @@ app.post('/api/wallet/claim-voucher', async (req, res) => {
   }
 });
 
-// Admin: Get all promo vouchers
-app.get('/api/admin/vouchers', (req, res) => {
+// Admin: Get all promo vouchers (Reads authoritative state from Firestore)
+app.get('/api/admin/vouchers', async (req, res) => {
+  await syncVouchersFromFirestore();
   const vouchersList = Array.from(promoVouchersMap.values());
   res.json({ success: true, totalVouchers: vouchersList.length, vouchers: vouchersList });
 });
 
 // Admin: Create new promo voucher
-app.post('/api/admin/vouchers/create', (req, res) => {
+app.post('/api/admin/vouchers/create', async (req, res) => {
   const { code, tokens, dollars, maxClaims, description, expiresAt } = req.body;
   if (!code || (!tokens && !dollars)) {
     return res.status(400).json({ success: false, error: 'code and tokens/dollars are required' });
@@ -4883,19 +4934,34 @@ app.post('/api/admin/vouchers/create', (req, res) => {
   };
 
   promoVouchersMap.set(cleanCode, newVoucher);
-  logTelemetry('PROMO_VOUCHER_CREATED', `Admin created promo voucher [${cleanCode}] worth ${tokenVal.toLocaleString()} tokens with limit ${newVoucher.maxClaims}.`);
+  if (db) {
+    try {
+      await setDoc(doc(db, 'vouchers', cleanCode), newVoucher, { merge: true });
+    } catch (fsErr) {
+      console.warn('Firestore voucher create sync notice:', fsErr);
+    }
+  }
 
+  logTelemetry('PROMO_VOUCHER_CREATED', `Admin created promo voucher [${cleanCode}] worth ${tokenVal.toLocaleString()} tokens with limit ${newVoucher.maxClaims}.`);
   res.json({ success: true, voucher: newVoucher });
 });
 
 // Admin: Toggle promo voucher status
-app.post('/api/admin/vouchers/toggle', (req, res) => {
+app.post('/api/admin/vouchers/toggle', async (req, res) => {
   const { code } = req.body;
   const cleanCode = String(code || '').trim().toUpperCase();
   const voucher = promoVouchersMap.get(cleanCode);
   if (!voucher) return res.status(404).json({ success: false, error: 'Voucher not found' });
 
   voucher.active = !voucher.active;
+  if (db) {
+    try {
+      await setDoc(doc(db, 'vouchers', cleanCode), { active: voucher.active }, { merge: true });
+    } catch (fsErr) {
+      console.warn('Firestore voucher toggle sync notice:', fsErr);
+    }
+  }
+
   res.json({ success: true, code: cleanCode, active: voucher.active });
 });
 
