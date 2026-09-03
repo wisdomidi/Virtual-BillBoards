@@ -43,7 +43,8 @@ import {
   ExternalLink,
   Link2,
   QrCode,
-  Camera
+  Camera,
+  Loader2
 } from 'lucide-react';
 import { getCityLocalTime } from '../lib/timezones';
 import { ShareProofModal } from './ShareProofModal';
@@ -197,6 +198,8 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   const [bidMediaType, setBidMediaType] = useState<'image' | 'video'>('image');
   const [creativeInputMode, setCreativeInputMode] = useState<'url' | 'upload'>('url');
   const [mediaUrlInput, setMediaUrlInput] = useState('');
+  const [isResolvingSocialMedia, setIsResolvingSocialMedia] = useState(false);
+  const [socialResolveError, setSocialResolveError] = useState<string | null>(null);
   const [bidCtaType, setBidCtaType] = useState<'website' | 'whatsapp' | 'none'>('website');
   const [bidCtaUrl, setBidCtaUrl] = useState('');
   const [bidAmountDollars, setBidAmountDollars] = useState<number>(1.00);
@@ -385,16 +388,50 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
     loadCities();
   }, []);
 
-  // Handle Media URL Input (Image, Animated GIF, or MP4/WebM Video link)
+  // Handle Media URL Input (Image, Animated GIF, MP4/WebM Video link, or X / Twitter Post)
   const handleMediaUrlChange = (url: string) => {
     setMediaUrlInput(url);
+    setSocialResolveError(null);
     const trimmed = url.trim();
     if (!trimmed) {
       setBidImageUrl('');
       setUploadedFileName(null);
       setBidMediaType('image');
+      setIsResolvingSocialMedia(false);
       return;
     }
+
+    // Check if it's an X (Twitter) post link (e.g., https://x.com/ZTHAcademy/status/2095569487814623610)
+    const isXPost = /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/[0-9]+/i.test(trimmed);
+    if (isXPost) {
+      setIsResolvingSocialMedia(true);
+      setUploadedFileName('⚡ Resolving X Video stream...');
+      fetch(`/api/media/resolve-social?url=${encodeURIComponent(trimmed)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.mediaUrl) {
+            setBidImageUrl(data.mediaUrl);
+            setBidMediaType(data.mediaType || 'video');
+            setUploadedFileName(data.mediaType === 'video' ? '🎬 X Video (MP4)' : '🖼️ X Image');
+            if (data.title && (!bidTitle || bidTitle === 'Live Virtual Billboard')) {
+              setBidTitle(data.title);
+            }
+          } else {
+            setSocialResolveError(data.error || 'Could not extract media from this X post.');
+            setUploadedFileName(null);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to resolve social URL:', err);
+          setSocialResolveError('Could not reach media resolver service.');
+          setUploadedFileName(null);
+        })
+        .finally(() => {
+          setIsResolvingSocialMedia(false);
+        });
+      return;
+    }
+
     setBidImageUrl(trimmed);
     const lower = trimmed.toLowerCase();
     const isVideo = lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.includes('video/mp4') || lower.includes('video/webm');
@@ -1094,7 +1131,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                               alt="Scan QR"
                               className="w-4 h-4 object-contain rounded-xs"
                               onError={(e: any) => {
-                                e.currentTarget.src = `https://quickchart.io/qr?size=150&text=${encodeURIComponent(resolvedTarget)}`;
+                                e.currentTarget.src = `https://quickchart.io/qr?size=150&text=${encodeURIComponent(trackableQrUrl)}`;
                               }}
                             />
                             <span className="text-[9px] font-black tracking-wider font-mono uppercase">SCAN QR</span>
@@ -1582,7 +1619,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                         type="url"
                         value={mediaUrlInput}
                         onChange={(e) => handleMediaUrlChange(e.target.value)}
-                        placeholder="Paste image, GIF, or MP4 URL (e.g. from X, Giphy, Unsplash)"
+                        placeholder="Paste X/Twitter video or post link, GIF, or MP4 URL"
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 pl-8 pr-16 text-xs text-white placeholder:text-slate-500 font-mono focus:outline-none focus:border-cyan-500"
                       />
                       <Link2 className="w-3.5 h-3.5 text-cyan-400 absolute left-2.5 top-2.5" />
@@ -1599,16 +1636,25 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
 
                     {/* Detected Type Pill & Quick One-Click Presets */}
                     <div className="flex items-center justify-between gap-1 flex-wrap text-[10px]">
-                      {bidImageUrl ? (
+                      {isResolvingSocialMedia ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-500/50 animate-pulse text-[10px]">
+                          <Loader2 className="w-3 h-3 animate-spin text-cyan-400" />
+                          <span>Extracting X Video Stream...</span>
+                        </span>
+                      ) : socialResolveError ? (
+                        <span className="text-amber-400 text-[10px] font-medium flex items-center gap-1">
+                          ⚠️ {socialResolveError}
+                        </span>
+                      ) : bidImageUrl ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-500/40">
-                          {bidMediaType === 'video'
+                          {uploadedFileName || (bidMediaType === 'video'
                             ? '🎬 MP4/WebM Video'
                             : bidImageUrl.toLowerCase().includes('.gif') || bidImageUrl.toLowerCase().includes('giphy') || bidImageUrl.toLowerCase().includes('tenor')
                             ? '👾 Animated GIF'
-                            : '🖼️ Online Image'}
+                            : '🖼️ Online Image')}
                         </span>
                       ) : (
-                        <span className="text-slate-500 text-[10px]">Supports PNG, JPG, Animated GIF, MP4, WebM</span>
+                        <span className="text-slate-500 text-[10px]">Supports X (Twitter) video links, GIF, MP4, WebM, PNG, JPG</span>
                       )}
 
                       <div className="flex items-center gap-1 overflow-x-auto py-0.5">

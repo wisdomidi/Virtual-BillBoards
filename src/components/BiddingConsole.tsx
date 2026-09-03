@@ -30,7 +30,8 @@ import {
   Bell,
   AlertTriangle,
   Info,
-  Link2
+  Link2,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -78,6 +79,8 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [creativeInputMode, setCreativeInputMode] = useState<'url' | 'upload'>('url');
   const [mediaUrlInput, setMediaUrlInput] = useState('');
+  const [isResolvingSocialMedia, setIsResolvingSocialMedia] = useState(false);
+  const [socialResolveError, setSocialResolveError] = useState<string | null>(null);
   const [ctaType, setCtaType] = useState<'website' | 'whatsapp' | 'none'>('website');
   const [ctaUrl, setCtaUrl] = useState('https://yourbrand.com/promo');
   const [bidAmountTokens, setBidAmountTokens] = useState<string>('1');
@@ -343,13 +346,47 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
 
   const handleMediaUrlChange = (url: string) => {
     setMediaUrlInput(url);
+    setSocialResolveError(null);
     const trimmed = url.trim();
     if (!trimmed) {
       setImageUrl('');
       setUploadedFileName(null);
       setMediaType('image');
+      setIsResolvingSocialMedia(false);
       return;
     }
+
+    // Check if it's an X (Twitter) post link (e.g., https://x.com/ZTHAcademy/status/2095569487814623610)
+    const isXPost = /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/[0-9]+/i.test(trimmed);
+    if (isXPost) {
+      setIsResolvingSocialMedia(true);
+      setUploadedFileName('⚡ Resolving X Video stream...');
+      fetch(`/api/media/resolve-social?url=${encodeURIComponent(trimmed)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.mediaUrl) {
+            setImageUrl(data.mediaUrl);
+            setMediaType(data.mediaType || 'video');
+            setUploadedFileName(data.mediaType === 'video' ? '🎬 X Video (MP4)' : '🖼️ X Image');
+            if (data.title && (!title || title === 'Live Billboard Ad')) {
+              setTitle(data.title);
+            }
+          } else {
+            setSocialResolveError(data.error || 'Could not extract media from this X post.');
+            setUploadedFileName(null);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to resolve social URL:', err);
+          setSocialResolveError('Could not reach media resolver service.');
+          setUploadedFileName(null);
+        })
+        .finally(() => {
+          setIsResolvingSocialMedia(false);
+        });
+      return;
+    }
+
     setImageUrl(trimmed);
     const lower = trimmed.toLowerCase();
     const isVideo = lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.includes('video/mp4') || lower.includes('video/webm');
@@ -1205,7 +1242,7 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
                       type="url"
                       value={mediaUrlInput}
                       onChange={(e) => handleMediaUrlChange(e.target.value)}
-                      placeholder="e.g. https://media.giphy.com/.../giphy.gif"
+                      placeholder="Paste X/Twitter video or post link, GIF, or MP4 URL"
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-16 py-2 text-xs text-white placeholder:text-slate-500 font-mono focus:outline-none focus:border-cyan-500"
                     />
                     <Link2 className="w-3.5 h-3.5 text-cyan-400 absolute left-2.5 top-2.5" />
@@ -1223,16 +1260,25 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
 
                 {/* Detected Badge & Trending GIFs */}
                 <div className="flex items-center justify-between gap-1 flex-wrap pt-1 border-t border-slate-800/80">
-                  {imageUrl ? (
+                  {isResolvingSocialMedia ? (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-500/50 animate-pulse text-[10px]">
+                      <Loader2 className="w-3 h-3 animate-spin text-cyan-400" />
+                      <span>Extracting X Video Stream...</span>
+                    </span>
+                  ) : socialResolveError ? (
+                    <span className="text-amber-400 text-[10px] font-medium flex items-center gap-1">
+                      ⚠️ {socialResolveError}
+                    </span>
+                  ) : imageUrl ? (
                     <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
-                      {mediaType === 'video'
+                      {uploadedFileName || (mediaType === 'video'
                         ? '🎬 Video (MP4/WebM)'
                         : imageUrl.toLowerCase().includes('.gif') || imageUrl.toLowerCase().includes('giphy') || imageUrl.toLowerCase().includes('tenor')
                         ? '👾 Animated GIF'
-                        : '🖼️ Online Image'}
+                        : '🖼️ Online Image')}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-500">Supports PNG, JPG, GIF, MP4, WebM</span>
+                    <span className="text-[10px] text-slate-500">Supports X (Twitter) video links, GIF, MP4, WebM, PNG, JPG</span>
                   )}
 
                   <div className="flex items-center gap-1">

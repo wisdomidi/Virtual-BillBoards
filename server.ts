@@ -5509,6 +5509,146 @@ app.get('/api/video-cdn/stream', async (req, res) => {
 });
 
 // ------------------------------------------------------------------------------
+// SOCIAL MEDIA CREATIVE RESOLVER (X/Twitter, Direct Video, GIF Streams)
+// ------------------------------------------------------------------------------
+
+app.get('/api/media/resolve-social', async (req: Request, res: Response) => {
+  const targetUrl = (req.query.url as string || '').trim();
+  if (!targetUrl) {
+    return res.status(400).json({ success: false, error: 'Missing url query parameter' });
+  }
+
+  // 1. Detect X (Twitter) status post URLs
+  const xMatch = targetUrl.match(/(?:twitter\.com|x\.com)\/([a-zA-Z0-9_]+)\/status\/([0-9]+)/i);
+  if (xMatch) {
+    const [, user, tweetId] = xMatch;
+
+    // Primary resolver: FxTwitter API
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      const fxRes = await fetch(`https://api.fxtwitter.com/${user}/status/${tweetId}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VirtualBillboardBot/1.0)' },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      if (fxRes.ok) {
+        const data: any = await fxRes.json();
+        if (data && data.tweet) {
+          const tweet = data.tweet;
+          const cleanText = tweet.text ? tweet.text.slice(0, 80).replace(/[\n\r]+/g, ' ').replace(/https?:\/\/\S+/g, '').trim() : '';
+
+          // Check for video first
+          if (tweet.media?.videos && tweet.media.videos.length > 0) {
+            const vid = tweet.media.videos[0];
+            return res.json({
+              success: true,
+              platform: 'x',
+              mediaType: 'video',
+              mediaUrl: vid.url,
+              thumbnailUrl: vid.thumbnail_url || null,
+              title: cleanText || `${tweet.author?.name || user}'s Video`,
+              author: tweet.author?.name || user,
+              handle: tweet.author?.screen_name || user,
+              tweetUrl: tweet.url
+            });
+          }
+
+          // Check for photos/images
+          if (tweet.media?.photos && tweet.media.photos.length > 0) {
+            const pic = tweet.media.photos[0];
+            return res.json({
+              success: true,
+              platform: 'x',
+              mediaType: 'image',
+              mediaUrl: pic.url,
+              title: cleanText || `${tweet.author?.name || user}'s Creative`,
+              author: tweet.author?.name || user,
+              handle: tweet.author?.screen_name || user,
+              tweetUrl: tweet.url
+            });
+          }
+
+          // Check generic media list
+          if (tweet.media?.all && tweet.media.all.length > 0) {
+            const item = tweet.media.all[0];
+            const isVid = item.type === 'video' || item.type === 'gif' || (item.url && item.url.includes('.mp4'));
+            return res.json({
+              success: true,
+              platform: 'x',
+              mediaType: isVid ? 'video' : 'image',
+              mediaUrl: item.url,
+              thumbnailUrl: item.thumbnail_url || null,
+              title: cleanText || `${tweet.author?.name || user}'s Media`,
+              author: tweet.author?.name || user,
+              handle: tweet.author?.screen_name || user,
+              tweetUrl: tweet.url
+            });
+          }
+
+          return res.status(404).json({
+            success: false,
+            error: 'This X post does not contain any video or image media.'
+          });
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Social Resolver] FxTwitter error, falling back to VxTwitter:', err?.message);
+    }
+
+    // Fallback resolver: VxTwitter API
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      const vxRes = await fetch(`https://api.vxtwitter.com/${user}/status/${tweetId}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VirtualBillboardBot/1.0)' },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      if (vxRes.ok) {
+        const vxData: any = await vxRes.json();
+        if (vxData && vxData.mediaURLs && vxData.mediaURLs.length > 0) {
+          const directMedia = vxData.mediaURLs[0];
+          const isVid = directMedia.includes('.mp4') || directMedia.includes('/vid/') || directMedia.includes('amplify_video');
+          const cleanText = vxData.text ? vxData.text.slice(0, 80).replace(/[\n\r]+/g, ' ').replace(/https?:\/\/\S+/g, '').trim() : '';
+
+          return res.json({
+            success: true,
+            platform: 'x',
+            mediaType: isVid ? 'video' : 'image',
+            mediaUrl: directMedia,
+            title: cleanText || `${vxData.user_name || user}'s Media`,
+            author: vxData.user_name || user,
+            handle: user,
+            tweetUrl: targetUrl
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error('[Social Resolver] VxTwitter fallback error:', err?.message);
+    }
+
+    return res.status(404).json({
+      success: false,
+      error: 'Could not extract media from this X post. Make sure the post is public and contains video or image.'
+    });
+  }
+
+  // 2. Direct Video / Image pass-through with metadata inference
+  const lower = targetUrl.toLowerCase();
+  const isDirectVideo = lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.includes('video/mp4');
+  return res.json({
+    success: true,
+    platform: 'direct',
+    mediaType: isDirectVideo ? 'video' : 'image',
+    mediaUrl: targetUrl
+  });
+});
+
+
+// ------------------------------------------------------------------------------
 // MACHINE-TO-MACHINE (M2M) PROGRAMMATIC PAYMENT & BIDDING ENDPOINTS
 // ------------------------------------------------------------------------------
 
