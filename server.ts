@@ -4932,22 +4932,23 @@ app.get('/api/qr-scan/:campaignId', async (req, res) => {
   const writePromises: Promise<any>[] = [];
 
   // 2. Update Screen Scans in Memory and Firestore
-  if (screenPin) {
+  if (screenPin && screenPin !== 'web' && screenPin !== 'online' && screenPin !== 'mobile') {
     const cleanPin = screenPin.replace(/[^0-9a-zA-Z]/g, '');
     const session = tvPairingSessions.get(cleanPin);
     if (session) {
       session.totalScans = (session.totalScans || 0) + 1;
       session.verifiedVisits = (session.verifiedVisits || 0) + 1;
     }
-    if (db) {
+    // Only update Firestore screen document if it is a real 6-digit PIN screen or registered pairing session
+    if (db && (/^\d{6}$/.test(cleanPin) || session)) {
       try {
         const screenRef = doc(db, 'screens', cleanPin);
-        writePromises.push(setDoc(screenRef, {
+        writePromises.push(updateDoc(screenRef, {
           totalScans: increment(1),
           scanCount: increment(1),
           verifiedVisits: increment(1),
           lastScannedAt: new Date().toISOString()
-        }, { merge: true }));
+        }).catch(() => {}));
       } catch {}
     }
   }
@@ -7921,15 +7922,18 @@ app.get('/api/admin/screens', async (req, res) => {
 // POST /api/admin/screens/:pin/eject - Force disconnect/unpair a TV or physical screen
 app.post('/api/admin/screens/:pin/eject', async (req, res) => {
   const { pin } = req.params;
-  const cleanPin = (pin || '').replace(/\D/g, '');
+  const cleanPin = (pin || '').trim();
+  const numericPin = cleanPin.replace(/\D/g, '');
 
-  if (tvPairingSessions.has(cleanPin)) {
-    tvPairingSessions.delete(cleanPin);
-  }
+  tvPairingSessions.delete(cleanPin);
+  if (numericPin) tvPairingSessions.delete(numericPin);
 
   try {
     const screenDocRef = doc(db, 'screens', cleanPin);
     await deleteDoc(screenDocRef);
+    if (numericPin && numericPin !== cleanPin) {
+      await deleteDoc(doc(db, 'screens', numericPin));
+    }
   } catch (fsErr) {
     console.warn('Firestore screen delete notice:', fsErr);
   }
