@@ -195,6 +195,8 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   const [bidTitle, setBidTitle] = useState('');
   const [bidImageUrl, setBidImageUrl] = useState('');
   const [bidMediaType, setBidMediaType] = useState<'image' | 'video'>('image');
+  const [creativeInputMode, setCreativeInputMode] = useState<'url' | 'upload'>('url');
+  const [mediaUrlInput, setMediaUrlInput] = useState('');
   const [bidCtaType, setBidCtaType] = useState<'website' | 'whatsapp' | 'none'>('website');
   const [bidCtaUrl, setBidCtaUrl] = useState('');
   const [bidAmountDollars, setBidAmountDollars] = useState<number>(1.00);
@@ -383,16 +385,44 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
     loadCities();
   }, []);
 
-  // Handle File Upload for 15s Ad Creative (Image or MP4 Video)
+  // Handle Media URL Input (Image, Animated GIF, or MP4/WebM Video link)
+  const handleMediaUrlChange = (url: string) => {
+    setMediaUrlInput(url);
+    const trimmed = url.trim();
+    if (!trimmed) {
+      setBidImageUrl('');
+      setUploadedFileName(null);
+      setBidMediaType('image');
+      return;
+    }
+    setBidImageUrl(trimmed);
+    const lower = trimmed.toLowerCase();
+    const isVideo = lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.includes('video/mp4') || lower.includes('video/webm');
+    setBidMediaType(isVideo ? 'video' : 'image');
+    const isGif = lower.endsWith('.gif') || lower.includes('giphy.com') || lower.includes('tenor.com');
+    setUploadedFileName(isGif ? '👾 Animated GIF' : isVideo ? '🎬 Video (MP4/WebM)' : '🖼️ Online Image');
+    if (!bidTitle) {
+      try {
+        const u = new URL(trimmed);
+        const pathPart = u.pathname.split('/').pop()?.split('.')[0]?.replace(/[-_]/g, ' ');
+        if (pathPart && pathPart.length > 3 && !pathPart.startsWith('giphy') && !pathPart.startsWith('tenor')) {
+          setBidTitle(pathPart.charAt(0).toUpperCase() + pathPart.slice(1));
+        }
+      } catch {}
+    }
+  };
+
+  // Handle File Upload for 15s Ad Creative (Image, Animated GIF, or MP4 Video)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const isVideo = file.type.startsWith('video/') || file.name.toLowerCase().endsWith('.mp4') || file.name.toLowerCase().endsWith('.webm');
     const isImage = file.type.startsWith('image/');
+    const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
 
     if (!isImage && !isVideo) {
-      alert('Please select an image (PNG, JPG, WebP) or video file (.mp4, .webm).');
+      alert('Please select an image (PNG, JPG, WebP, GIF) or video file (.mp4, .webm).');
       return;
     }
 
@@ -402,13 +432,20 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
     }
 
     setBidMediaType(isVideo ? 'video' : 'image');
-    setUploadedFileName(file.name);
+    setUploadedFileName(isGif ? `👾 ${file.name}` : file.name);
 
     if (isImage) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const rawUrl = event.target?.result as string;
         if (!rawUrl) return;
+
+        // If file is an animated GIF, bypass canvas flattening so animation loops natively
+        if (isGif) {
+          setBidImageUrl(rawUrl);
+          setMediaUrlInput(rawUrl.substring(0, 40) + '...');
+          return;
+        }
 
         // Auto-scale to 1280px max for ultra-fast instant sub-200ms uploads
         const img = new Image();
@@ -1346,6 +1383,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                     onClick={() => {
                       setBidTitle(tpl.title);
                       setBidImageUrl(tpl.imageUrl);
+                      setMediaUrlInput(tpl.imageUrl);
                       setBidMediaType(tpl.mediaType);
                       setBidCtaType(tpl.ctaType);
                       setBidCtaUrl(tpl.ctaUrl);
@@ -1502,40 +1540,131 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 </div>
               </div>
 
-              {/* Upload Dropzone / Change File */}
-              {!bidImageUrl ? (
-                <label className="flex items-center justify-center gap-2.5 p-2 border border-dashed border-cyan-500/40 hover:border-cyan-400 bg-slate-950/80 rounded-xl cursor-pointer hover:bg-slate-900/60 transition group">
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp, video/mp4, video/webm"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    required
-                  />
-                  <div className="w-6 h-6 rounded-full bg-cyan-950 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
-                    <UploadCloud className="w-3.5 h-3.5" />
+              {/* Creative Input Mode: Paste URL (Image/GIF/Video) vs Upload Local File */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase flex items-center gap-1.5">
+                    <span>Creative Media</span>
+                    <span className="text-cyan-400 font-mono text-[9px]">*Required</span>
+                  </span>
+                  <div className="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setCreativeInputMode('url')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        creativeInputMode === 'url'
+                          ? 'bg-cyan-500 text-slate-950 font-black shadow'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Link2 className="w-3 h-3" />
+                      <span>Paste URL</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreativeInputMode('upload')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        creativeInputMode === 'upload'
+                          ? 'bg-cyan-500 text-slate-950 font-black shadow'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <UploadCloud className="w-3 h-3" />
+                      <span>Upload File</span>
+                    </button>
                   </div>
-                  <p className="text-[11px] font-bold text-white flex items-center gap-1">
-                    <span>Upload Custom Media (Image / MP4)</span>
-                    <span className="text-cyan-400 text-[9px]">*Required</span>
-                  </p>
-                </label>
-              ) : (
-                <div className="flex items-center justify-between gap-2 bg-slate-950 p-1.5 px-2.5 rounded-xl border border-slate-800">
-                  <div className="text-[10px] text-slate-300 truncate">
-                    Asset: <strong className="text-cyan-400">{uploadedFileName || 'Billboard Asset'}</strong>
-                  </div>
-                  <label className="text-[9px] font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer underline px-2 py-0.5 bg-cyan-950 rounded-lg border border-cyan-500/30 shrink-0">
-                    Change File
-                    <input
-                      type="file"
-                      accept="image/png, image/jpeg, image/webp, video/mp4, video/webm"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </label>
                 </div>
-              )}
+
+                {creativeInputMode === 'url' ? (
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <input
+                        type="url"
+                        value={mediaUrlInput}
+                        onChange={(e) => handleMediaUrlChange(e.target.value)}
+                        placeholder="Paste image, GIF, or MP4 URL (e.g. from X, Giphy, Unsplash)"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 pl-8 pr-16 text-xs text-white placeholder:text-slate-500 font-mono focus:outline-none focus:border-cyan-500"
+                      />
+                      <Link2 className="w-3.5 h-3.5 text-cyan-400 absolute left-2.5 top-2.5" />
+                      {mediaUrlInput && (
+                        <button
+                          type="button"
+                          onClick={() => handleMediaUrlChange('')}
+                          className="absolute right-2 top-1.5 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Detected Type Pill & Quick One-Click Presets */}
+                    <div className="flex items-center justify-between gap-1 flex-wrap text-[10px]">
+                      {bidImageUrl ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-500/40">
+                          {bidMediaType === 'video'
+                            ? '🎬 MP4/WebM Video'
+                            : bidImageUrl.toLowerCase().includes('.gif') || bidImageUrl.toLowerCase().includes('giphy') || bidImageUrl.toLowerCase().includes('tenor')
+                            ? '👾 Animated GIF'
+                            : '🖼️ Online Image'}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 text-[10px]">Supports PNG, JPG, Animated GIF, MP4, WebM</span>
+                      )}
+
+                      <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+                        <span className="text-slate-500 text-[9px]">Try GIF:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleMediaUrlChange('https://media.giphy.com/media/26tn33aiTi1jkl6H6/giphy.gif')}
+                          className="px-1.5 py-0.5 bg-purple-950/70 hover:bg-purple-900 border border-purple-800/80 text-purple-300 rounded text-[9px] font-mono cursor-pointer"
+                        >
+                          👾 Cyberpunk
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMediaUrlChange('https://media.giphy.com/media/mi6DsSSNKDbUY/giphy.gif')}
+                          className="px-1.5 py-0.5 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-800/80 text-emerald-300 rounded text-[9px] font-mono cursor-pointer"
+                        >
+                          🚀 Rocket
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Upload Dropzone / Change File */
+                  !bidImageUrl ? (
+                    <label className="flex items-center justify-center gap-2.5 p-2 border border-dashed border-cyan-500/40 hover:border-cyan-400 bg-slate-950/80 rounded-xl cursor-pointer hover:bg-slate-900/60 transition group">
+                      <input
+                        type="file"
+                        accept="image/png, image/jpeg, image/webp, image/gif, video/mp4, video/webm"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <div className="w-6 h-6 rounded-full bg-cyan-950 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
+                        <UploadCloud className="w-3.5 h-3.5" />
+                      </div>
+                      <p className="text-[11px] font-bold text-white flex items-center gap-1">
+                        <span>Upload Custom Media (Image, GIF, or MP4)</span>
+                      </p>
+                    </label>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2 bg-slate-950 p-1.5 px-2.5 rounded-xl border border-slate-800">
+                      <div className="text-[10px] text-slate-300 truncate">
+                        Asset: <strong className="text-cyan-400">{uploadedFileName || 'Billboard Asset'}</strong>
+                      </div>
+                      <label className="text-[9px] font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer underline px-2 py-0.5 bg-cyan-950 rounded-lg border border-cyan-500/30 shrink-0">
+                        Change File
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/webp, image/gif, video/mp4, video/webm"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  )
+                )}
+              </div>
 
               {/* Bid Amount & Submit */}
               <div className="space-y-2 pt-1">

@@ -2665,7 +2665,7 @@ const handleBidSubmission = async (req: Request, res: Response) => {
       resolvedCtaType = 'whatsapp';
     }
 
-    const detectedMediaType: 'image' | 'video' = mediaType === 'video' || imageUrl.startsWith('data:video/') || imageUrl.toLowerCase().includes('.mp4') ? 'video' : 'image';
+    const detectedMediaType: 'image' | 'video' = mediaType === 'video' || imageUrl.startsWith('data:video/') || imageUrl.toLowerCase().includes('.mp4') || imageUrl.toLowerCase().includes('.webm') ? 'video' : 'image';
 
     // 4. Construct Queue Item
     const newAd: QueueItem = {
