@@ -401,23 +401,32 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
       return;
     }
 
-    // Check if it's an X (Twitter) post link (e.g., https://x.com/ZTHAcademy/status/2095569487814623610)
+    // Check if it's an X post, Giphy page, or Tenor page
     const isXPost = /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/[0-9]+/i.test(trimmed);
-    if (isXPost) {
+    const isGiphyPage = /giphy\.com\/(gifs\/(?:.*-)?|media\/)?([a-zA-Z0-9]+)/i.test(trimmed) && !trimmed.endsWith('.gif');
+    const isTenorPage = /tenor\.com\/(view\/)?[a-zA-Z0-9_-]+/i.test(trimmed) && !trimmed.endsWith('.gif') && !trimmed.endsWith('.mp4');
+
+    if (isXPost || isGiphyPage || isTenorPage) {
       setIsResolvingSocialMedia(true);
-      setUploadedFileName('⚡ Resolving X Video stream...');
+      setUploadedFileName(isXPost ? '⚡ Resolving X Video...' : isGiphyPage ? '👾 Resolving GIPHY...' : '⚡ Resolving Tenor GIF...');
       fetch(`/api/media/resolve-social?url=${encodeURIComponent(trimmed)}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.mediaUrl) {
-            setBidImageUrl(data.mediaUrl);
-            setBidMediaType(data.mediaType || 'video');
-            setUploadedFileName(data.mediaType === 'video' ? '🎬 X Video (MP4)' : '🖼️ X Image');
+            // For Twitter videos, use streamUrl proxy to prevent 403 Forbidden Referer blocking
+            const finalMediaUrl = data.streamUrl || data.mediaUrl;
+            setBidImageUrl(finalMediaUrl);
+            setBidMediaType(data.mediaType || (data.platform === 'giphy' ? 'image' : 'video'));
+            setUploadedFileName(
+              data.mediaType === 'video'
+                ? (data.platform === 'x' ? '🎬 X Video (MP4)' : '🎬 Video Stream')
+                : (data.platform === 'giphy' || data.mediaUrl.includes('.gif') ? '👾 Animated GIF' : '🖼️ Online Image')
+            );
             if (data.title && (!bidTitle || bidTitle === 'Live Virtual Billboard')) {
               setBidTitle(data.title);
             }
           } else {
-            setSocialResolveError(data.error || 'Could not extract media from this X post.');
+            setSocialResolveError(data.error || 'Could not extract media from this link.');
             setUploadedFileName(null);
           }
         })
@@ -1003,19 +1012,26 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
               )}
 
               {winningAd.imageUrl && !imageError ? (
-                (winningAd as any).mediaType === 'video' || winningAd.imageUrl.startsWith('data:video/') || winningAd.imageUrl.toLowerCase().includes('.mp4') ? (
+                (winningAd as any).mediaType === 'video' || winningAd.imageUrl.startsWith('data:video/') || winningAd.imageUrl.toLowerCase().includes('.mp4') || winningAd.imageUrl.toLowerCase().includes('/video-cdn/') ? (
                   <video
+                    key={winningAd.imageUrl}
                     src={winningAd.imageUrl}
                     autoPlay
                     loop
                     muted
                     playsInline
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                    onError={() => setImageError(true)}
                   />
                 ) : (
                   <img
+                    key={winningAd.imageUrl}
                     src={winningAd.imageUrl}
                     alt={winningAd.title}
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                     onError={() => setImageError(true)}
                   />
@@ -1535,20 +1551,29 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 {/* Compact Mockup Billboard Bezel */}
                 <div className="relative h-24 sm:h-28 rounded-xl bg-slate-950 border border-cyan-500/40 overflow-hidden shadow-inner flex items-center justify-center group">
                   {bidImageUrl ? (
-                    bidMediaType === 'video' || bidImageUrl.startsWith('data:video/') || bidImageUrl.toLowerCase().includes('.mp4') ? (
+                    bidMediaType === 'video' || bidImageUrl.startsWith('data:video/') || bidImageUrl.toLowerCase().includes('.mp4') || bidImageUrl.toLowerCase().includes('/video-cdn/') ? (
                       <video
+                        key={bidImageUrl}
                         src={bidImageUrl}
                         autoPlay
                         loop
                         muted
                         playsInline
+                        referrerPolicy="no-referrer"
+                        crossOrigin="anonymous"
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <img
+                        key={bidImageUrl}
                         src={bidImageUrl}
                         alt="Creative Preview"
+                        referrerPolicy="no-referrer"
+                        crossOrigin="anonymous"
                         className="w-full h-full object-cover"
+                        onError={() => {
+                          setSocialResolveError('Image failed to load. Please verify the URL or try uploading directly.');
+                        }}
                       />
                     )
                   ) : (

@@ -356,23 +356,32 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
       return;
     }
 
-    // Check if it's an X (Twitter) post link (e.g., https://x.com/ZTHAcademy/status/2095569487814623610)
+    // Check if it's an X post, Giphy page, or Tenor page
     const isXPost = /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/[0-9]+/i.test(trimmed);
-    if (isXPost) {
+    const isGiphyPage = /giphy\.com\/(gifs\/(?:.*-)?|media\/)?([a-zA-Z0-9]+)/i.test(trimmed) && !trimmed.endsWith('.gif');
+    const isTenorPage = /tenor\.com\/(view\/)?[a-zA-Z0-9_-]+/i.test(trimmed) && !trimmed.endsWith('.gif') && !trimmed.endsWith('.mp4');
+
+    if (isXPost || isGiphyPage || isTenorPage) {
       setIsResolvingSocialMedia(true);
-      setUploadedFileName('⚡ Resolving X Video stream...');
+      setUploadedFileName(isXPost ? '⚡ Resolving X Video...' : isGiphyPage ? '👾 Resolving GIPHY...' : '⚡ Resolving Tenor GIF...');
       fetch(`/api/media/resolve-social?url=${encodeURIComponent(trimmed)}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.mediaUrl) {
-            setImageUrl(data.mediaUrl);
-            setMediaType(data.mediaType || 'video');
-            setUploadedFileName(data.mediaType === 'video' ? '🎬 X Video (MP4)' : '🖼️ X Image');
+            // For Twitter videos, use streamUrl proxy to prevent 403 Forbidden Referer blocking
+            const finalMediaUrl = data.streamUrl || data.mediaUrl;
+            setImageUrl(finalMediaUrl);
+            setMediaType(data.mediaType || (data.platform === 'giphy' ? 'image' : 'video'));
+            setUploadedFileName(
+              data.mediaType === 'video'
+                ? (data.platform === 'x' ? '🎬 X Video (MP4)' : '🎬 Video Stream')
+                : (data.platform === 'giphy' || data.mediaUrl.includes('.gif') ? '👾 Animated GIF' : '🖼️ Online Image')
+            );
             if (data.title && (!title || title === 'Live Billboard Ad')) {
               setTitle(data.title);
             }
           } else {
-            setSocialResolveError(data.error || 'Could not extract media from this X post.');
+            setSocialResolveError(data.error || 'Could not extract media from this link.');
             setUploadedFileName(null);
           }
         })
@@ -1321,19 +1330,25 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex items-center justify-center">
               {imageUrl ? (
                 <div className="flex items-center gap-3 w-full">
-                  {mediaType === 'video' || imageUrl.startsWith('data:video/') || imageUrl.toLowerCase().includes('.mp4') || imageUrl.toLowerCase().includes('.webm') ? (
+                  {mediaType === 'video' || imageUrl.startsWith('data:video/') || imageUrl.toLowerCase().includes('.mp4') || imageUrl.toLowerCase().includes('.webm') || imageUrl.toLowerCase().includes('/video-cdn/') ? (
                     <video
+                      key={imageUrl}
                       src={imageUrl}
                       autoPlay
                       loop
                       muted
                       playsInline
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
                       className="w-24 h-16 object-cover rounded-xl border border-slate-700 shrink-0"
                     />
                   ) : (
                     <img
+                      key={imageUrl}
                       src={imageUrl}
                       alt="Creative Preview"
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
                       className="w-24 h-16 object-cover rounded-xl border border-slate-700 shrink-0"
                     />
                   )}

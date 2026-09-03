@@ -573,19 +573,25 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
 
           {/* Billboard 16:9 Creative Screen */}
           <div className="relative aspect-[16/9] w-full bg-black overflow-hidden group">
-            {ad.mediaType === 'video' ? (
+            {ad.mediaType === 'video' || ad.img?.includes('.mp4') || ad.img?.includes('/video-cdn/') ? (
               <video
+                key={ad.img}
                 src={ad.img}
                 autoPlay
                 muted={!audioEnabled}
                 loop
                 playsInline
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 className="w-full h-full object-cover"
               />
             ) : (
               <img
+                key={ad.img}
                 src={ad.img}
                 alt={ad.title}
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';

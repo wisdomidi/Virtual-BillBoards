@@ -5496,20 +5496,64 @@ app.post('/api/creators/connect-platform', (req, res) => {
 // HEAVY VIDEO CDN STREAMING & EDGE PRE-CACHING PROXY
 // ------------------------------------------------------------------------------
 
-app.get('/api/video-cdn/stream', async (req, res) => {
-  const videoUrl = req.query.url as string;
+app.get('/api/video-cdn/stream', async (req: Request, res: Response) => {
+  const videoUrl = (req.query.url as string || '').trim();
   if (!videoUrl) return res.status(400).send('Missing url param');
 
-  // Set low-latency video streaming & caching headers
-  res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Accept-Ranges', 'bytes');
+  try {
+    const rangeHeader = req.headers.range;
+    const fetchHeaders: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (compatible; VirtualBillboardStreamer/1.0)',
+      'Accept': '*/*'
+    };
+    if (rangeHeader) {
+      fetchHeaders['Range'] = rangeHeader;
+    }
 
-  res.redirect(videoUrl);
+    const upstreamRes = await fetch(videoUrl, { headers: fetchHeaders });
+    if (!upstreamRes.ok && upstreamRes.status !== 206) {
+      return res.redirect(videoUrl);
+    }
+
+    res.status(upstreamRes.status);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    
+    const contentType = upstreamRes.headers.get('content-type');
+    if (contentType) res.setHeader('Content-Type', contentType);
+    const contentLength = upstreamRes.headers.get('content-length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    const contentRange = upstreamRes.headers.get('content-range');
+    if (contentRange) res.setHeader('Content-Range', contentRange);
+    const acceptRanges = upstreamRes.headers.get('accept-ranges') || 'bytes';
+    res.setHeader('Accept-Ranges', acceptRanges);
+
+    if (upstreamRes.body) {
+      const reader = upstreamRes.body.getReader();
+      const pump = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            res.write(Buffer.from(value));
+          }
+          res.end();
+        } catch {
+          res.end();
+        }
+      };
+      pump();
+    } else {
+      res.end();
+    }
+  } catch (err: any) {
+    console.warn('[Video CDN Stream] Proxy error, falling back to redirect:', err?.message);
+    res.redirect(videoUrl);
+  }
 });
 
 // ------------------------------------------------------------------------------
-// SOCIAL MEDIA CREATIVE RESOLVER (X/Twitter, Direct Video, GIF Streams)
+// SOCIAL MEDIA CREATIVE RESOLVER (X/Twitter, Giphy, Tenor, Direct Streams)
 // ------------------------------------------------------------------------------
 
 app.get('/api/media/resolve-social', async (req: Request, res: Response) => {
@@ -5518,7 +5562,57 @@ app.get('/api/media/resolve-social', async (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: 'Missing url query parameter' });
   }
 
-  // 1. Detect X (Twitter) status post URLs
+  // 1. Detect GIPHY page URLs (e.g. https://giphy.com/gifs/space-rocket-26tn33aiTi1jkl6H6)
+  const giphyMatch = targetUrl.match(/giphy\.com\/(?:gifs\/(?:.*-)?|media\/)?([a-zA-Z0-9]+)/i);
+  if (giphyMatch && giphyMatch[1] && giphyMatch[1] !== 'media') {
+    const gifId = giphyMatch[1];
+    const directGifUrl = `https://media.giphy.com/media/${gifId}/giphy.gif`;
+    return res.json({
+      success: true,
+      platform: 'giphy',
+      mediaType: 'image',
+      mediaUrl: directGifUrl,
+      title: 'Trending GIPHY Animation',
+      author: 'Giphy'
+    });
+  }
+
+  // 2. Detect TENOR page URLs (e.g. https://tenor.com/view/helly-shah-vishal-vashishtha-ishq-gif-18491823)
+  if (targetUrl.includes('tenor.com/view/') || targetUrl.includes('tenor.com/')) {
+    try {
+      const tenorRes = await fetch(targetUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      });
+      if (tenorRes.ok) {
+        const html = await tenorRes.text();
+        const gifMatch = html.match(/https:\/\/media\.tenor\.com\/[a-zA-Z0-9_\-\/]+\.gif/i);
+        const mp4Match = html.match(/https:\/\/media\.tenor\.com\/[a-zA-Z0-9_\-\/]+\.mp4/i);
+        if (gifMatch) {
+          return res.json({
+            success: true,
+            platform: 'tenor',
+            mediaType: 'image',
+            mediaUrl: gifMatch[0],
+            title: 'Tenor Animation',
+            author: 'Tenor'
+          });
+        } else if (mp4Match) {
+          return res.json({
+            success: true,
+            platform: 'tenor',
+            mediaType: 'video',
+            mediaUrl: mp4Match[0],
+            title: 'Tenor Animation',
+            author: 'Tenor'
+          });
+        }
+      }
+    } catch (tenorErr: any) {
+      console.warn('[Social Resolver] Tenor scrape error:', tenorErr?.message);
+    }
+  }
+
+  // 3. Detect X (Twitter) status post URLs
   const xMatch = targetUrl.match(/(?:twitter\.com|x\.com)\/([a-zA-Z0-9_]+)\/status\/([0-9]+)/i);
   if (xMatch) {
     const [, user, tweetId] = xMatch;
@@ -5547,6 +5641,7 @@ app.get('/api/media/resolve-social', async (req: Request, res: Response) => {
               platform: 'x',
               mediaType: 'video',
               mediaUrl: vid.url,
+              streamUrl: `/api/video-cdn/stream?url=${encodeURIComponent(vid.url)}`,
               thumbnailUrl: vid.thumbnail_url || null,
               title: cleanText || `${tweet.author?.name || user}'s Video`,
               author: tweet.author?.name || user,
@@ -5579,6 +5674,7 @@ app.get('/api/media/resolve-social', async (req: Request, res: Response) => {
               platform: 'x',
               mediaType: isVid ? 'video' : 'image',
               mediaUrl: item.url,
+              streamUrl: isVid ? `/api/video-cdn/stream?url=${encodeURIComponent(item.url)}` : undefined,
               thumbnailUrl: item.thumbnail_url || null,
               title: cleanText || `${tweet.author?.name || user}'s Media`,
               author: tweet.author?.name || user,
@@ -5619,6 +5715,7 @@ app.get('/api/media/resolve-social', async (req: Request, res: Response) => {
             platform: 'x',
             mediaType: isVid ? 'video' : 'image',
             mediaUrl: directMedia,
+            streamUrl: isVid ? `/api/video-cdn/stream?url=${encodeURIComponent(directMedia)}` : undefined,
             title: cleanText || `${vxData.user_name || user}'s Media`,
             author: vxData.user_name || user,
             handle: user,
@@ -5636,7 +5733,7 @@ app.get('/api/media/resolve-social', async (req: Request, res: Response) => {
     });
   }
 
-  // 2. Direct Video / Image pass-through with metadata inference
+  // 4. Direct Video / Image pass-through with metadata inference
   const lower = targetUrl.toLowerCase();
   const isDirectVideo = lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.includes('video/mp4');
   return res.json({

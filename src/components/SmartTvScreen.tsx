@@ -646,7 +646,7 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
   const winningAd = currentSlot?.winningAd;
   const currentHouseAd = houseAdsCatalog[houseAdIndex % (houseAdsCatalog.length || 1)] || DEFAULT_HOUSE_ADS[0];
   const activeAd: BillboardAd = winningAd || currentHouseAd;
-  const isVideo = activeAd?.mediaType === 'video' || activeAd?.imageUrl?.startsWith('data:video/') || activeAd?.imageUrl?.includes('.mp4');
+  const isVideo = activeAd?.mediaType === 'video' || activeAd?.imageUrl?.startsWith('data:video/') || activeAd?.imageUrl?.includes('.mp4') || activeAd?.imageUrl?.includes('/video-cdn/');
 
   return (
     <div className="fixed inset-0 bg-black text-white z-50 flex flex-col justify-between font-sans select-none overflow-hidden animate-fade-in">
@@ -715,6 +715,8 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
             loop
             muted={isMuted}
             playsInline
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
             className="w-full h-full object-cover transition-opacity duration-700"
           />
         ) : (
@@ -722,7 +724,12 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
             key={activeAd.imageUrl}
             src={activeAd.imageUrl}
             alt={activeAd.title}
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
             className="w-full h-full object-cover transition-opacity duration-700"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+            }}
           />
         )}
 
