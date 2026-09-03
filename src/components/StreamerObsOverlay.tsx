@@ -463,13 +463,19 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
               </div>
 
               {showQr && (
-                <div className="bg-white p-1 rounded-xl shadow-2xl border border-white flex flex-col items-center gap-0.5">
+                <div className="bg-white p-2 rounded-2xl shadow-2xl border-2 border-white ring-4 ring-amber-400/80 flex flex-col items-center gap-1 shrink-0 animate-pulse">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(activeGameEvent.qrCodeUrl || `https://livebillboards.lol/r/stream_${creatorId || 'live'}`)}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+                      activeGameEvent.qrCodeUrl
+                        ? `${activeGameEvent.qrCodeUrl}${activeGameEvent.qrCodeUrl.includes('?') ? '&' : '?'}creator=${creatorId}&streamer=${creatorId}&city=${selectedCity}`
+                        : `https://livebillboards.lol/r/stream_${creatorId || 'live'}?creator=${creatorId}&streamer=${creatorId}&city=${selectedCity}`
+                    )}`}
                     alt="Scan Promo QR"
-                    className="w-8 h-8 object-contain"
+                    className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg"
                   />
-                  <span className="text-[7px] font-mono font-black text-slate-900 uppercase">CLAIM PROMO</span>
+                  <span className="text-[9px] sm:text-[10px] font-mono font-black text-slate-950 uppercase bg-gradient-to-r from-amber-400 to-yellow-300 px-2 py-0.5 rounded shadow">
+                    CLAIM $5.00 PROMO
+                  </span>
                 </div>
               )}
             </div>
@@ -620,13 +626,19 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
               </div>
 
               {showQr && (
-                <div className="bg-white/95 p-1 rounded-lg shadow-xl border border-white flex flex-col items-center gap-0.5 shrink-0">
+                <div className="bg-white p-1.5 rounded-xl shadow-2xl border-2 border-white ring-2 ring-cyan-400/60 flex flex-col items-center gap-0.5 shrink-0">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent((ad as any).qrCodeUrl || `https://livebillboards.lol/r/stream_${creatorId || 'live'}`)}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+                      ((ad as any).qrCodeUrl
+                        ? `${(ad as any).qrCodeUrl}${(ad as any).qrCodeUrl.includes('?') ? '&' : '?'}creator=${creatorId}&streamer=${creatorId}&city=${selectedCity}`
+                        : `https://livebillboards.lol/r/stream_${creatorId || 'live'}?creator=${creatorId}&streamer=${creatorId}&city=${selectedCity}`)
+                    )}`}
                     alt="Scan Ad QR"
-                    className="w-7 h-7 object-contain"
+                    className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-md"
                   />
-                  <span className="text-[7px] font-mono font-black text-slate-900 uppercase">SCAN</span>
+                  <span className="text-[8px] sm:text-[9px] font-mono font-black text-slate-950 uppercase tracking-tight bg-cyan-300 px-1.5 py-0.2 rounded shadow">
+                    SCAN TO VISIT
+                  </span>
                 </div>
               )}
             </div>

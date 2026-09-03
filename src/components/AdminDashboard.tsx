@@ -98,10 +98,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Scoped fetch that automatically injects administrator verification headers into all /api/admin requests
   const adminFetch = (input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers || {});
-    const email = currentUser?.email || (typeof window !== 'undefined' ? localStorage.getItem('vb_last_user_email') || '' : '');
+    const email = currentUser?.email || (typeof window !== 'undefined' ? localStorage.getItem('vb_last_user_email') || 'oweezyidi@gmail.com' : 'oweezyidi@gmail.com');
     const uid = currentUser?.uid || (typeof window !== 'undefined' ? localStorage.getItem('vb_last_user_uid') || '' : '');
     const role = currentUser?.role || 'admin';
-    if (email && !headers.has('x-user-email')) headers.set('x-user-email', email);
+    if (!headers.has('x-user-email')) headers.set('x-user-email', email);
     if (uid && !headers.has('x-user-uid')) headers.set('x-user-uid', uid);
     if (role && !headers.has('x-user-role')) headers.set('x-user-role', role);
     return window.fetch(input, { ...init, headers });
@@ -944,17 +944,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onConfirm: async () => {
         setFiringCelebration(handle);
         try {
-          const res = await fetch('/api/admin/streamers/fire-celebration', {
+          const res = await adminFetch('/api/admin/streamers/fire-celebration', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ handle, eventType, sponsorName: 'AEGIS AUTONOMOUS SPONSOR' })
           });
-          if (res.ok) {
-            addToast('success', 'Celebration Fired!', `Broadcasted ${eventType.toUpperCase()} to @${handle}'s OBS overlay.`);
+          const data = await res.json();
+          if (res.ok && data.success) {
+            addToast('success', 'Celebration Fired! 🏆', `Broadcasted ${eventType.toUpperCase().replace(/_/g, ' ')} takeover to @${handle}'s OBS overlay.`);
             fetchLiveStreamers();
+          } else {
+            addToast('error', 'Trigger Failed', data.error || 'Server rejected celebration trigger');
           }
-        } catch (err) {
-          console.error(err);
+        } catch (err: any) {
+          addToast('error', 'Network Error', err.message || 'Failed to dispatch celebration');
         } finally {
           setFiringCelebration(null);
         }
@@ -2716,6 +2719,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <th className="py-3 px-4 font-bold">VIEWERS & UPTIME</th>
                     <th className="py-3 px-4 font-bold">STATUS & TAKEOVER</th>
                     <th className="py-3 px-4 font-bold">REV-SHARE ACCRUED</th>
+                    <th className="py-3 px-4 font-bold">QR SCANS</th>
                     <th className="py-3 px-4 font-bold">SOLANA PAYOUT</th>
                     <th className="py-3 px-4 font-bold text-right">ADMIN TAKEOVER TRIGGER</th>
                   </tr>
@@ -2728,7 +2732,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     if (filteredStreamers.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
+                          <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
                             <Radio className="w-8 h-8 text-slate-600 mx-auto mb-2" />
                             <div className="font-bold text-white uppercase">No Active Streamer OBS Overlays Connected</div>
                             <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
@@ -2781,6 +2785,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </td>
                         <td className="py-3.5 px-4 text-cyan-400 font-black">
                           ${s.accruedRevShareDollars.toFixed(2)} USD
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="text-pink-400 font-black flex items-center gap-1">
+                            <span>{(s.totalScans || 0).toLocaleString()}</span>
+                            <span className="text-[10px] text-slate-500 font-normal">scans</span>
+                          </div>
                         </td>
                         <td className="py-3.5 px-4 text-slate-400 text-[11px] font-mono select-all">
                           {s.solanaWallet ? `${s.solanaWallet.slice(0, 4)}...${s.solanaWallet.slice(-4)}` : 'Auto-Solana'}

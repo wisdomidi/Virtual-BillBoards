@@ -1449,13 +1449,38 @@ app.get('/api/blueprint/data', (req, res) => {
 // ------------------------------------------------------------------------------
 // DYNAMIC 15S ROTATING QR CODE REDIRECT & ATTRIBUTION ROUTE
 // ------------------------------------------------------------------------------
-app.get('/r/:rotationToken', (req: Request, res: Response) => {
+app.get('/r/:rotationToken', async (req: Request, res: Response) => {
   const { rotationToken } = req.params;
+  const streamerHandle = (req.query.streamer as string) || (req.query.creator as string) || (rotationToken.startsWith('stream_') ? rotationToken.replace(/^stream_/, '') : '');
+  const cleanStreamer = streamerHandle.replace(/^@/, '').toLowerCase().trim();
+
+  // Attribution: If scan originated from a streamer's live overlay
+  if (cleanStreamer && cleanStreamer !== 'live' && cleanStreamer !== 'creator_obs' && cleanStreamer !== 'creator_anonymous') {
+    const streamer = liveStreamersRegistry.get(cleanStreamer);
+    if (streamer) {
+      streamer.totalScans = (streamer.totalScans || 0) + 1;
+      streamer.accruedRevShareDollars = Number(((streamer.accruedRevShareDollars || 0) + 0.10).toFixed(2));
+    }
+    if (db) {
+      try {
+        const streamerRef = doc(db, 'streamers', cleanStreamer);
+        await setDoc(streamerRef, {
+          totalScans: increment(1),
+          totalEarnedDollars: increment(0.10),
+          lastScanAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (fsErr) {
+        console.warn('Streamer QR scan attribution sync note:', fsErr);
+      }
+    }
+    logTelemetry('STREAMER_QR_SCAN', `📱 Fan scanned billboard QR on @${cleanStreamer}'s live overlay! Attributed +$0.10 conversion rev-share.`);
+  }
+
   const record = rotationScansStore.get(rotationToken);
   
   if (!record) {
-    // Fallback if token expired or not found
-    return res.redirect(302, 'https://livebillboards.lol');
+    // Graceful fallback to main landing page with streamer attribution
+    return res.redirect(302, `https://www.livebillboards.lol?source=streamer_${cleanStreamer || 'overlay'}`);
   }
 
   // Record scan event & unique device signature
@@ -1472,10 +1497,11 @@ app.get('/r/:rotationToken', (req: Request, res: Response) => {
     const rawDest = record.destinationUrl.startsWith('http') ? record.destinationUrl : `https://${record.destinationUrl}`;
     const targetUrl = new URL(rawDest);
     targetUrl.searchParams.set('utm_source', 'livebillboards');
-    targetUrl.searchParams.set('utm_medium', 'dooh_virtual_billboard');
+    targetUrl.searchParams.set('utm_medium', cleanStreamer ? 'streamer_overlay' : 'dooh_virtual_billboard');
     targetUrl.searchParams.set('utm_campaign', record.cityCode.toLowerCase());
     targetUrl.searchParams.set('utm_term', record.slotId);
     targetUrl.searchParams.set('utm_content', rotationToken);
+    if (cleanStreamer) targetUrl.searchParams.set('utm_creator', cleanStreamer);
     
     return res.redirect(302, targetUrl.toString());
   } catch {
@@ -8401,43 +8427,89 @@ app.get('/api/admin/streamers/live', async (req, res) => {
 // POST /api/admin/streamers/fire-celebration
 app.post('/api/admin/streamers/fire-celebration', async (req, res) => {
   const { handle, eventType = 'victory_royale', sponsorName = 'AEGIS GLOBAL SPONSOR' } = req.body;
-  const cleanHandle = (handle || '').replace(/^@/, '').toLowerCase();
+  const cleanHandle = (handle || '').replace(/^@/, '').toLowerCase().trim();
 
-  const streamer = liveStreamersRegistry.get(cleanHandle);
-  if (!streamer) {
-    return res.status(404).json({ success: false, error: `Streamer @${cleanHandle} not found in active fleet.` });
+  if (!cleanHandle) {
+    return res.status(400).json({ success: false, error: 'Missing streamer handle' });
   }
 
-  streamer.totalCelebrationsFired += 1;
-  streamer.accruedRevShareDollars += 35.00;
+  let streamer = liveStreamersRegistry.get(cleanHandle) || liveStreamersRegistry.get(`streamer_${cleanHandle}`);
+  if (!streamer) {
+    streamer = {
+      id: `conn_streamer_${cleanHandle}`,
+      handle: cleanHandle,
+      displayName: `@${cleanHandle} (OBS Live)`,
+      platform: 'streamlabs' as any,
+      cityCode: 'GLOBAL',
+      status: 'live',
+      viewersCount: 1,
+      uptimeMinutes: 1,
+      activeTakeover: null,
+      totalCelebrationsFired: 0,
+      accruedRevShareDollars: 0,
+      solanaWallet: 'Pending pairing / claim',
+      obsOverlayUrl: `https://www.livebillboards.lol/overlay?creator=${cleanHandle}`,
+      connectedAt: new Date().toISOString(),
+      isLiveConnected: true,
+      lastPingAt: new Date().toISOString()
+    } as any;
+    liveStreamersRegistry.set(cleanHandle, streamer);
+  }
+
+  streamer.totalCelebrationsFired = (streamer.totalCelebrationsFired || 0) + 1;
+  streamer.accruedRevShareDollars = Number(((streamer.accruedRevShareDollars || 0) + 35.00).toFixed(2));
   streamer.status = 'takeover_active';
   streamer.activeTakeover = `⚡ ${eventType.toUpperCase().replace(/_/g, ' ')} (${sponsorName})`;
 
   const eventId = `gme_admin_${Date.now()}`;
+  const emoji = eventType === 'victory_royale' ? '🏆' : eventType === 'kill_streak' ? '🔥' : '⚡';
   const payload = {
     eventId,
     streamerId: cleanHandle,
     eventType,
-    headline: `⚡ ${eventType.toUpperCase().replace(/_/g, ' ')} LIVE CELEBRATION!`,
-    subheadline: `Sponsored by ${sponsorName} • +$35.00 Rev-share to @${cleanHandle}`,
+    particlesEmoji: emoji,
+    headline: eventType === 'victory_royale' ? '🏆 VICTORY ROYALE #1 CHAMPION!' : '🔥 5X KILLSTREAK UNSTOPPABLE!',
+    subheadline: `Sponsored by ${sponsorName} • +$35.00 Ad Rev-share to @${cleanHandle}`,
     sponsorName,
     sponsorImageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    qrCodeUrl: `https://livebillboards.lol/r/stream_${cleanHandle}?streamer=${cleanHandle}`,
     bidAmountDollars: 50.00,
     durationSeconds: 12,
     timestamp: new Date().toISOString()
   };
 
+  // 1. Ledger push for HTTP polling clients
+  streamerEventsLedger.unshift(payload as any);
+  if (streamerEventsLedger.length > 100) streamerEventsLedger.pop();
+
+  // 2. Real-time WebSocket broadcast
   broadcastToAll({ type: 'GAME_STATE_EVENT_TRIGGER', payload });
+
+  // 3. Sync to Cloud Firestore
+  if (db) {
+    try {
+      await setDoc(doc(db, 'streamers', cleanHandle), {
+        totalCelebrationsFired: increment(1),
+        totalEarnedDollars: increment(35.00),
+        status: 'takeover_active',
+        activeTakeover: streamer.activeTakeover,
+        lastEventAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (fsErr) {
+      console.warn('Firestore streamer celebration sync note:', fsErr);
+    }
+  }
+
   logTelemetry('STREAMER_CELEBRATION_FIRED', `Admin fired [${eventType}] on @${cleanHandle}'s OBS overlay. Rev-share: +$35.00`);
 
   setTimeout(() => {
-    if (streamer.status === 'takeover_active') {
+    if (streamer && streamer.status === 'takeover_active') {
       streamer.status = 'live';
       streamer.activeTakeover = null;
     }
   }, 12000);
 
-  res.json({ success: true, message: `Celebration [${eventType}] broadcasted to @${cleanHandle}!`, streamer });
+  res.json({ success: true, message: `Celebration [${eventType}] broadcasted to @${cleanHandle}!`, streamer, payload });
 });
 
 // -----------------------------------------------------------------------------

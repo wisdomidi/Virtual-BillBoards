@@ -439,6 +439,63 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
     };
   }, [isPaired, pin, venueInfo]);
 
+  // --------------------------------------------------------------------------
+  // SMART TV ANTI-SLEEP & SCREEN KEEP-AWAKE ENGINE
+  // Prevents LG webOS, Samsung Tizen, Android TV, and Fire TV from sleeping
+  // --------------------------------------------------------------------------
+  const wakeVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+    };
+
+    requestWakeLock();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        requestWakeLock();
+        if (wakeVideoRef.current && wakeVideoRef.current.paused) {
+          wakeVideoRef.current.play().catch(() => {});
+        }
+      }
+    };
+
+    // User interaction or TV remote control button press re-engages keep-awake
+    const handleTvActivity = () => {
+      requestWakeLock();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('keydown', handleTvActivity);
+    window.addEventListener('click', handleTvActivity);
+
+    // Periodic 25s keep-alive tick to reset Smart TV OS idle power-saving timers
+    const keepAliveTimer = setInterval(() => {
+      requestWakeLock();
+      if (wakeVideoRef.current && wakeVideoRef.current.paused) {
+        wakeVideoRef.current.play().catch(() => {});
+      }
+    }, 25000);
+
+    return () => {
+      clearInterval(keepAliveTimer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('keydown', handleTvActivity);
+      window.removeEventListener('click', handleTvActivity);
+      if (wakeLock) {
+        wakeLock.release().catch(() => {});
+      }
+    };
+  }, []);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -451,6 +508,16 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
   if (!isPaired) {
     return (
       <div className="fixed inset-0 bg-slate-950 text-white z-50 flex flex-col justify-between p-8 sm:p-12 font-sans select-none overflow-hidden animate-fade-in">
+        {/* Anti-Sleep Hidden Video Loop: Blocks Samsung Tizen & LG webOS screensavers */}
+        <video
+          ref={wakeVideoRef}
+          autoPlay
+          muted
+          loop
+          playsInline
+          src="data:video/mp4;base64,AAAAHGZ0eXBpc29tAAAAAGlzb21tcDQxAAAACHZyZWUAAAAIZGF0YQAAAA=="
+          className="absolute opacity-0 pointer-events-none w-1 h-1 -top-10 -left-10"
+        />
         {/* Top Header */}
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-6">
           <div className="flex items-center gap-3">
@@ -583,6 +650,16 @@ export const SmartTvScreen: React.FC<SmartTvScreenProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black text-white z-50 flex flex-col justify-between font-sans select-none overflow-hidden animate-fade-in">
+      {/* Anti-Sleep Hidden Video Loop: Keeps Tizen / webOS awake during live ad playback */}
+      <video
+        ref={wakeVideoRef}
+        autoPlay
+        muted
+        loop
+        playsInline
+        src="data:video/mp4;base64,AAAAHGZ0eXBpc29tAAAAAGlzb21tcDQxAAAACHZyZWUAAAAIZGF0YQAAAA=="
+        className="absolute opacity-0 pointer-events-none w-1 h-1 -top-10 -left-10"
+      />
       {/* Top HUD: Venue Name, Live DOOH Status, 15s Countdown */}
       <div className="absolute top-4 inset-x-4 z-20 flex items-center justify-between pointer-events-none">
         <div className="flex items-center gap-3">
