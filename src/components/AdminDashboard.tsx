@@ -55,7 +55,8 @@ import {
   Coins,
   TrendingUp,
   Award,
-  PartyPopper
+  PartyPopper,
+  Pencil
 } from 'lucide-react';
 import { ArchitectureDiagram } from './ArchitectureDiagram';
 import { PostgresSchemaViewer } from './PostgresSchemaViewer';
@@ -166,6 +167,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newVoucherDesc, setNewVoucherDesc] = useState('');
   const [creatingVoucher, setCreatingVoucher] = useState(false);
   const [copiedVoucherCode, setCopiedVoucherCode] = useState<string | null>(null);
+
+  // Edit Voucher Modal State
+  const [editingVoucher, setEditingVoucher] = useState<any | null>(null);
+  const [editVoucherTokens, setEditVoucherTokens] = useState<number>(3000);
+  const [editVoucherMaxClaims, setEditVoucherMaxClaims] = useState<number>(500);
+  const [editVoucherDesc, setEditVoucherDesc] = useState<string>('');
+  const [updatingVoucher, setUpdatingVoucher] = useState<boolean>(false);
 
   // Creator & Venue Payout Requests State
   const [payoutsList, setPayoutsList] = useState<any[]>([]);
@@ -664,6 +672,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       }
     });
+  };
+
+  const handleOpenEditVoucher = (voucher: any) => {
+    setEditingVoucher(voucher);
+    setEditVoucherTokens(voucher.tokens || Math.round(Number(voucher.dollars || 1) * 1000));
+    setEditVoucherMaxClaims(voucher.maxClaims || 100);
+    setEditVoucherDesc(voucher.description || '');
+  };
+
+  const handleSaveEditVoucher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVoucher) return;
+
+    setUpdatingVoucher(true);
+    try {
+      const res = await adminFetch('/api/admin/vouchers/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: editingVoucher.code,
+          tokens: Number(editVoucherTokens),
+          dollars: Number(editVoucherTokens) / 1000,
+          maxClaims: Number(editVoucherMaxClaims),
+          description: editVoucherDesc
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addToast('success', 'Voucher Updated', `Promo code ${editingVoucher.code} updated to ${Number(editVoucherTokens).toLocaleString()} tokens & ${editVoucherMaxClaims} max claims.`);
+        setEditingVoucher(null);
+        fetchVouchers();
+      } else {
+        addToast('error', 'Update Failed', data.error || 'Failed to update voucher');
+      }
+    } catch (err: any) {
+      addToast('error', 'Update Error', err.message || 'Network error');
+    } finally {
+      setUpdatingVoucher(false);
+    }
   };
 
   const fetchPayouts = async () => {
@@ -2083,13 +2130,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </button>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => handleCopyShareablePromoLink(v.code)}
-                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer"
-                        >
-                          {copiedVoucherCode === v.code ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span>{copiedVoucherCode === v.code ? 'Copied Link!' : 'Copy Social Link'}</span>
-                        </button>
+                        <div className="inline-flex items-center gap-2 justify-end">
+                          <button
+                            onClick={() => handleOpenEditVoucher(v)}
+                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-pink-950/60 text-pink-300 hover:text-pink-200 border border-slate-700 hover:border-pink-500/50 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
+                            title="Edit Voucher Claims & Amount"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleCopyShareablePromoLink(v.code)}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            {copiedVoucherCode === v.code ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            <span>{copiedVoucherCode === v.code ? 'Copied Link!' : 'Copy Social Link'}</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -2097,6 +2154,90 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </table>
             </div>
           </div>
+
+          {/* Edit Promo Voucher Modal */}
+          {editingVoucher && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-pink-500/20 text-pink-400 rounded-xl border border-pink-500/40">
+                      <Gift className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase">Edit Promo Voucher</h3>
+                      <span className="text-xs font-mono font-bold text-pink-400">{editingVoucher.code}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setEditingVoucher(null)}
+                    className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveEditVoucher} className="space-y-3.5 text-xs">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-mono text-[11px]">
+                      Ad Tokens Value (USD: ${(Number(editVoucherTokens) / 1000).toFixed(2)})
+                    </label>
+                    <input
+                      type="number"
+                      step="100"
+                      min="100"
+                      value={editVoucherTokens}
+                      onChange={(e) => setEditVoucherTokens(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-amber-400 font-mono font-bold focus:outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-mono text-[11px]">
+                      Max Claims Limit (Already Claimed: {editingVoucher.claimedCount || 0})
+                    </label>
+                    <input
+                      type="number"
+                      min={editingVoucher.claimedCount || 1}
+                      value={editVoucherMaxClaims}
+                      onChange={(e) => setEditVoucherMaxClaims(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-cyan-400 font-mono font-bold focus:outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-mono text-[11px]">Description / Source</label>
+                    <input
+                      type="text"
+                      value={editVoucherDesc}
+                      onChange={(e) => setEditVoucherDesc(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-pink-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setEditingVoucher(null)}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={updatingVoucher}
+                      className="px-5 py-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white font-black rounded-xl cursor-pointer shadow-lg disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 fill-current" />
+                      <span>{updatingVoucher ? 'Saving Changes...' : 'Save Voucher Changes'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
           {/* Section 2: Creator & Venue Payout Requests Review Queue */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">

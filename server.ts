@@ -4965,6 +4965,48 @@ app.post('/api/admin/vouchers/toggle', async (req, res) => {
   res.json({ success: true, code: cleanCode, active: voucher.active });
 });
 
+// Admin: Update existing promo voucher details (claims, amount, description)
+app.post('/api/admin/vouchers/update', async (req, res) => {
+  const { code, tokens, dollars, maxClaims, description, expiresAt, active } = req.body;
+  const cleanCode = String(code || '').trim().toUpperCase();
+  const voucher = promoVouchersMap.get(cleanCode);
+  if (!voucher) return res.status(404).json({ success: false, error: `Voucher "${cleanCode}" not found` });
+
+  if (tokens !== undefined) {
+    voucher.tokens = Number(tokens);
+    voucher.dollars = dollars !== undefined ? Number(dollars) : Number(tokens) / 1000;
+  } else if (dollars !== undefined) {
+    voucher.dollars = Number(dollars);
+    voucher.tokens = Math.round(Number(dollars) * 1000);
+  }
+
+  if (maxClaims !== undefined) {
+    voucher.maxClaims = Math.max(voucher.claimedCount || 0, Number(maxClaims));
+  }
+  if (description !== undefined) {
+    voucher.description = String(description).trim();
+  }
+  if (expiresAt !== undefined) {
+    voucher.expiresAt = String(expiresAt);
+  }
+  if (active !== undefined) {
+    voucher.active = Boolean(active);
+  }
+
+  promoVouchersMap.set(cleanCode, voucher);
+
+  if (db) {
+    try {
+      await setDoc(doc(db, 'vouchers', cleanCode), voucher, { merge: true });
+    } catch (fsErr) {
+      console.warn('Firestore voucher update sync notice:', fsErr);
+    }
+  }
+
+  logTelemetry('PROMO_VOUCHER_UPDATED', `Admin updated promo voucher [${cleanCode}]: ${voucher.tokens} tokens ($${voucher.dollars}), maxClaims: ${voucher.maxClaims}`);
+  res.json({ success: true, voucher });
+});
+
 // ------------------------------------------------------------------------------
 // QR SCAN & AD CONVERSION ATTRIBUTION TRACKER
 // ------------------------------------------------------------------------------
