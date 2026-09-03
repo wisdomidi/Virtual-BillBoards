@@ -7321,6 +7321,76 @@ app.get('/api/overlay/events', (req, res) => {
   });
 });
 
+// POST /api/overlay/heartbeat - Live Streamer Node Registration & Active Ping
+app.post('/api/overlay/heartbeat', async (req, res) => {
+  const {
+    creatorId,
+    cityCode = 'GLOBAL',
+    countryCode = 'GLOBAL',
+    layout = 'corner_pip',
+    theme = 'cyberpunk',
+    userAgent = '',
+    platform = 'obs'
+  } = req.body;
+
+  const cleanHandle = (creatorId || '').replace(/^@/, '').toLowerCase().trim();
+  if (!cleanHandle || cleanHandle === 'creator_anonymous' || cleanHandle === 'creator_obs' || cleanHandle === 'all') {
+    return res.json({ success: true, registered: false });
+  }
+
+  const now = new Date();
+  const id = `conn_streamer_${cleanHandle}`;
+  const existing = liveStreamersRegistry.get(cleanHandle);
+
+  // Detect platform from User-Agent or client
+  let clientPlatform = platform;
+  const ua = (userAgent || req.headers['user-agent'] || '').toLowerCase();
+  if (ua.includes('streamlabs')) clientPlatform = 'Streamlabs Desktop';
+  else if (ua.includes('obs')) clientPlatform = 'OBS Studio';
+  else if (ua.includes('twitch')) clientPlatform = 'Twitch Studio';
+  else if (ua.includes('electron')) clientPlatform = 'Desktop Overlay';
+  else clientPlatform = 'OBS Browser Source';
+
+  const streamerNode: LiveStreamerNode = {
+    id,
+    handle: cleanHandle,
+    displayName: `@${cleanHandle} (${clientPlatform})`,
+    platform: (clientPlatform.toLowerCase().includes('streamlabs') ? 'streamlabs' : 'obs') as any,
+    cityCode: cityCode.toUpperCase(),
+    status: 'live',
+    viewersCount: existing?.viewersCount || 1,
+    uptimeMinutes: existing ? Math.max(1, Math.round((Date.now() - new Date(existing.connectedAt).getTime()) / 60000)) : 1,
+    activeTakeover: existing?.activeTakeover || null,
+    totalCelebrationsFired: existing?.totalCelebrationsFired || 0,
+    accruedRevShareDollars: existing?.accruedRevShareDollars || 0,
+    solanaWallet: existing?.solanaWallet || 'Pending pairing / claim',
+    obsOverlayUrl: `https://www.livebillboards.lol/overlay?creator=${cleanHandle}&layout=${layout}&theme=${theme}&city=${cityCode}`,
+    connectedAt: existing?.connectedAt || now.toISOString(),
+    isLiveConnected: true,
+    lastPingAt: now.toISOString(),
+    layout,
+    theme
+  } as any;
+
+  liveStreamersRegistry.set(cleanHandle, streamerNode);
+
+  // Sync to Cloud Firestore 'streamers' collection so it persists across container restarts and local dev
+  if (db) {
+    try {
+      await setDoc(doc(db, 'streamers', cleanHandle), {
+        ...streamerNode,
+        isLiveConnected: true,
+        lastActiveAt: now.toISOString()
+      }, { merge: true });
+    } catch (fsErr) {
+      console.warn('Firestore streamer heartbeat sync note:', fsErr);
+    }
+  }
+
+  logTelemetry('STREAMER_HEARTBEAT', `📡 Live Streamer @${cleanHandle} active on ${clientPlatform} in [${cityCode}].`);
+  return res.json({ success: true, registered: true, handle: cleanHandle, status: 'live' });
+});
+
 // -----------------------------------------------------------------------------
 // ADVANCED WEBMCP ANALYTICS & TELEMETRY ENDPOINTS
 // -----------------------------------------------------------------------------
@@ -8280,17 +8350,43 @@ const defaultStreamers: LiveStreamerNode[] = [
 defaultStreamers.forEach(s => liveStreamersRegistry.set(s.handle, s));
 
 // GET /api/admin/streamers/live
-app.get('/api/admin/streamers/live', (req, res) => {
+app.get('/api/admin/streamers/live', async (req, res) => {
   const isPure = req.query.pureProduction === 'true';
+
+  // Sync with Cloud Firestore streamers collection
+  if (db) {
+    try {
+      const snap = await getDocs(collection(db, 'streamers'));
+      snap.docs.forEach((d) => {
+        const data = d.data() as any;
+        if (data && data.handle) {
+          const cleanHandle = data.handle.toLowerCase().trim();
+          const existing = liveStreamersRegistry.get(cleanHandle);
+          const lastActiveMs = data.lastActiveAt ? new Date(data.lastActiveAt).getTime() : 0;
+          const isRecentlyActive = (Date.now() - lastActiveMs) < 600000; // active within last 10 mins
+          liveStreamersRegistry.set(cleanHandle, {
+            ...(existing || {}),
+            ...data,
+            id: data.id || `conn_streamer_${cleanHandle}`,
+            isLiveConnected: isRecentlyActive || data.isLiveConnected || existing?.isLiveConnected || false,
+            status: isRecentlyActive ? 'live' : (data.status || 'idle')
+          });
+        }
+      });
+    } catch (fsErr) {
+      console.warn('Firestore streamers admin sync note:', fsErr);
+    }
+  }
+
   const allStreamers = Array.from(liveStreamersRegistry.values());
   const streamers = isPure
-    ? allStreamers.filter(s => s.id.startsWith('conn_') || (s as any).isLiveConnected)
+    ? allStreamers.filter((s: any) => s.id?.startsWith('conn_') || s.isLiveConnected)
     : allStreamers;
 
   const totalConnected = streamers.length;
-  const totalConcurrentViewers = streamers.reduce((sum, s) => sum + s.viewersCount, 0);
-  const totalRevShareDollars = streamers.reduce((sum, s) => sum + s.accruedRevShareDollars, 0);
-  const totalCelebrations = streamers.reduce((sum, s) => sum + s.totalCelebrationsFired, 0);
+  const totalConcurrentViewers = streamers.reduce((sum, s) => sum + (s.viewersCount || 0), 0);
+  const totalRevShareDollars = streamers.reduce((sum, s) => sum + (s.accruedRevShareDollars || 0), 0);
+  const totalCelebrations = streamers.reduce((sum, s) => sum + (s.totalCelebrationsFired || 0), 0);
 
   res.json({
     success: true,

@@ -181,11 +181,36 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
       checkLatestEvents();
     }, 4000);
 
+    // Send Streamer Live Node Heartbeat (Registers live streamer in Admin Fleet)
+    const sendStreamerHeartbeat = async () => {
+      if (!creatorId || creatorId === 'creator_obs' || creatorId === 'creator_anonymous') return;
+      try {
+        await fetch('/api/overlay/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            creatorId,
+            cityCode: selectedCity,
+            countryCode: selectedCountry,
+            layout: layoutParam,
+            theme: themeParam,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Streamlabs/OBS'
+          })
+        });
+      } catch (err) {
+        // Safe silent fail
+      }
+    };
+
+    sendStreamerHeartbeat();
+    const heartbeatInterval = setInterval(sendStreamerHeartbeat, 25000);
+
     return () => {
       clearInterval(ticker);
       clearInterval(eventPoll);
+      clearInterval(heartbeatInterval);
     };
-  }, [selectedCity, selectedCountry, creatorId]);
+  }, [selectedCity, selectedCountry, creatorId, layoutParam, themeParam]);
 
   // WebSocket Connection
   useEffect(() => {
