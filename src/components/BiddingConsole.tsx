@@ -1428,6 +1428,20 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
           </div>
         )}
 
+        {/* Real-time AI Brand Safety Notice */}
+        <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl text-[11px] font-mono text-slate-400 flex items-start gap-2.5">
+          <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <div className="text-white font-bold flex items-center gap-1.5">
+              <span>🛡️ Real-time Gemini AI Brand Safety Moderation</span>
+              <span className="text-[9px] px-1.5 py-0.2 bg-cyan-950 text-cyan-300 rounded border border-cyan-500/30 font-bold">Active</span>
+            </div>
+            <p className="text-slate-400 leading-relaxed text-[10px]">
+              Every broadcast creative is audited instantly for safety. Adult content, scams, malware, hate speech, and copyright violations are strictly prohibited and immediately evicted.
+            </p>
+          </div>
+        </div>
+
         {/* SUBMIT BUTTON */}
         <button
           type="submit"

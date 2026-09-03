@@ -691,7 +691,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await fetch('/api/admin/screens');
       if (res.ok) {
         const data = await res.json();
-        if (data.screens && Array.isArray(data.screens)) {
+        if (data.screens && Array.isArray(data.screens) && data.screens.length > 0) {
           setScreensList(data.screens);
           setLoadingScreens(false);
           return;

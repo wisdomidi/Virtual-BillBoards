@@ -13,6 +13,7 @@ import { GoogleGenAI } from '@google/genai';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getFirestore,
+  initializeFirestore,
   doc,
   getDoc,
   setDoc,
@@ -77,9 +78,19 @@ const firebaseServerConfig = {
 
 const firebaseApp = !getApps().length ? initializeApp(firebaseServerConfig) : getApp();
 const databaseId = process.env.FIREBASE_DATABASE_ID || process.env.VITE_FIREBASE_DATABASE_ID;
-const db = databaseId && databaseId !== '(default)'
-  ? getFirestore(firebaseApp, databaseId)
-  : getFirestore(firebaseApp);
+const db = (() => {
+  try {
+    return initializeFirestore(
+      firebaseApp,
+      { experimentalAutoDetectLongPolling: true },
+      databaseId && databaseId !== '(default)' ? databaseId : undefined
+    );
+  } catch (e) {
+    return databaseId && databaseId !== '(default)'
+      ? getFirestore(firebaseApp, databaseId)
+      : getFirestore(firebaseApp);
+  }
+})();
 
 // Extend Express Request type to include resolved IP Geolocation data
 declare global {
