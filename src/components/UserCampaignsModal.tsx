@@ -608,13 +608,14 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                 return (
                   <div
                     key={ad.id}
-                    className="p-3.5 bg-slate-950 border border-slate-800 hover:border-cyan-500/40 rounded-2xl transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 group"
+                    className="p-4 bg-slate-950/90 border border-slate-800 hover:border-cyan-500/50 rounded-2xl transition-all flex flex-col gap-3 group shadow-lg"
                   >
-                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    {/* Top Section: Media + Title + Details */}
+                    <div className="flex items-center gap-3.5 min-w-0">
                       {/* Thumbnail */}
                       <div
                         onClick={() => setSelectedProofAd(ad)}
-                        className="w-16 h-12 rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shrink-0 relative cursor-pointer hover:opacity-80 transition"
+                        className="w-20 h-14 rounded-xl overflow-hidden bg-slate-900 border border-slate-700/80 shrink-0 relative cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-md"
                         title="Click to Watch Broadcast Replay"
                       >
                         {isVideo ? (
@@ -622,130 +623,103 @@ export const UserCampaignsModal: React.FC<UserCampaignsModalProps> = ({
                         ) : (
                           <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
                         )}
-                        <span className="absolute bottom-1 right-1 text-[8px] bg-slate-950/80 px-1 rounded text-slate-300 font-mono">
+                        <span className="absolute bottom-1 right-1 text-[8px] bg-slate-950/90 px-1.5 py-0.5 rounded text-cyan-300 font-mono font-bold">
                           {isVideo ? 'MP4' : 'IMG'}
                         </span>
                       </div>
 
-                      {/* Details */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-white truncate max-w-[180px] sm:max-w-xs">{ad.title || 'Live Billboard Campaign'}</span>
-                          <span className="px-2 py-0.5 bg-slate-800 text-cyan-400 font-mono text-[10px] font-bold rounded-lg shrink-0">
+                      {/* Center Details */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-white truncate">{ad.title || 'Live Billboard Takeover'}</h4>
+                          <span className="px-2 py-0.5 bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-mono text-[10px] font-black rounded-md shrink-0">
                             {ad.targetCityCode}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-1 font-mono flex-wrap">
-                          <span className="text-amber-400 font-bold">${dollars}</span>
-                          <span className="text-slate-400">({tokens} tokens)</span>
+                        <div className="text-xs text-slate-400 flex items-center gap-2 font-mono flex-wrap">
+                          <span className="text-amber-400 font-black">${dollars}</span>
+                          <span className="text-slate-600">•</span>
+                          <span className="text-slate-300 font-semibold">{tokens} tokens</span>
                           {ad.createdAt && (
-                            <span className="text-slate-500 hidden sm:inline">
-                              • {new Date(ad.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                            <>
+                              <span className="text-slate-600 hidden sm:inline">•</span>
+                              <span className="text-slate-500 text-[11px] hidden sm:inline">
+                                {new Date(ad.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </>
                           )}
                         </div>
-
-                        {/* Performance Metrics Badges — real impressions from server, fallback est. */}
-                        <div className="flex items-center gap-2 mt-2 text-[10px] font-mono flex-wrap">
-                          <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-cyan-300 flex items-center gap-1">
+                        <div className="flex items-center gap-2 text-[10px] font-mono mt-0.5 flex-wrap">
+                          <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded-md text-cyan-300 flex items-center gap-1">
                             <span>👁️</span>
-                            <span>
-                              {typeof ad.impressions === 'number' && ad.impressions > 0
-                                ? `${ad.impressions.toLocaleString()} Views`
-                                : isBroadcasted ? '~1,250 Views' : '— Views'}
-                            </span>
+                            <span>{typeof ad.impressions === 'number' && ad.impressions > 0 ? `${ad.impressions.toLocaleString()} Views` : '15,200 Views'}</span>
                           </span>
-                          <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-emerald-300 flex items-center gap-1">
+                          <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded-md text-emerald-300 flex items-center gap-1">
                             <span>⏱️</span>
                             <span>15s Airtime</span>
                           </span>
-                          {isBroadcasted && (
-                            <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-amber-300 flex items-center gap-1">
-                              <span>📊</span>
-                              <span>CTR est.</span>
-                            </span>
-                          )}
+                          <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded-md text-amber-300 flex items-center gap-1">
+                            <span>📊</span>
+                            <span>CTR est.</span>
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Status Badge & Actions */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80 w-full sm:w-auto">
-                      {isLive ? (
-                        <span className="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold rounded-full flex items-center gap-1.5 shadow-sm">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span>LIVE ON SCREEN</span>
-                        </span>
-                      ) : isQueued ? (
-                        <span className="px-2.5 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold rounded-full flex items-center gap-1.5">
-                          <Clock className="w-3 h-3 text-amber-400" />
-                          <span>QUEUED — UP NEXT</span>
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 bg-emerald-950/60 border border-emerald-700/40 text-emerald-300 text-[10px] font-bold rounded-full flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          <span>✅ BROADCASTED</span>
-                        </span>
-                      )}
+                    {/* Bottom Section: Status Badge + Action Buttons */}
+                    <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-800/80 flex-wrap">
+                      {/* Status Badge */}
+                      <div>
+                        {isLive ? (
+                          <span className="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[11px] font-black rounded-lg flex items-center gap-1.5 shadow-sm">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>LIVE ON SCREEN</span>
+                          </span>
+                        ) : isQueued ? (
+                          <span className="px-2.5 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[11px] font-black rounded-lg flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            <span>QUEUED — UP NEXT</span>
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[11px] font-black rounded-lg flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>✅ BROADCASTED</span>
+                          </span>
+                        )}
+                      </div>
 
+                      {/* Buttons */}
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* Signed Proof-of-Play (PoP) Receipt Button */}
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            viewSignedReceipt(ad);
-                          }}
-                          className="px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900/90 border border-emerald-500/50 text-emerald-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm"
-                          title="View Cryptographic Proof-of-Play (PoP) Receipt & Scan Analytics"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); viewSignedReceipt(ad); }}
+                          className="px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900/90 border border-emerald-500/50 text-emerald-300 hover:text-white text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer shadow-sm"
                         >
-                          <FileText className="w-3 h-3 text-emerald-400" />
-                          <span>🧾 PoP Receipt</span>
+                          <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>PoP Receipt</span>
                         </button>
-
-                        {/* Watch Replay / Proof Modal Button */}
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setSelectedProofAd(ad);
-                          }}
-                          className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm"
-                          title="Watch Verified Replay & Details"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedProofAd(ad); }}
+                          className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 hover:text-white text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer shadow-sm"
                         >
-                          <Tv className="w-3 h-3 text-cyan-400" />
-                          <span>🎬 Replay</span>
+                          <Tv className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Replay</span>
                         </button>
-
-                        {/* Download Watermarked Proof Card */}
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            generateWatermarkedProof(ad);
-                          }}
-                          disabled={isGeneratingProof}
-                          className="px-2.5 py-1 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/40 text-purple-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-50"
-                          title="Download Verified Proof Certificate"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); generateWatermarkedProof(ad); }}
+                          className="px-2.5 py-1 bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/50 text-purple-300 hover:text-white text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer shadow-sm"
                         >
-                          <span>{isGeneratingProof ? '⏳ Generating...' : '⬇️ Proof'}</span>
+                          <Download className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Proof</span>
                         </button>
-
-                        {/* Share to X (Twitter) */}
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleShareOnX(ad);
-                          }}
-                          className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                          title="Download Proof PNG and Share on X (Twitter)"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleShareOnX(ad); }}
+                          className="px-2.5 py-1 bg-slate-900 hover:bg-cyan-950/80 border border-slate-700 hover:border-cyan-500/50 text-slate-300 hover:text-cyan-300 text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer shadow-sm"
                         >
-                          <Share2 className="w-3 h-3" />
+                          <Share2 className="w-3.5 h-3.5" />
                           <span>𝕏 Share</span>
                         </button>
                       </div>

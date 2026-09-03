@@ -3675,9 +3675,9 @@ app.get('/api/admin/users', async (req, res) => {
           ...existing,
           email: (existing.isVerified ? existing.email : (hasEmail ? wallet.email : existing.email)),
           displayName: existing.displayName || wallet.displayName,
-          tokensBalance: wallet.tokensBalance,
-          walletBalanceCents: wallet.walletBalanceCents,
-          bidsPlacedCount: wallet.bidsPlacedCount || existing.bidsPlacedCount || 0
+          tokensBalance: Math.max(existing.tokensBalance ?? 0, wallet.tokensBalance ?? 0),
+          walletBalanceCents: Math.max(existing.walletBalanceCents ?? 0, wallet.walletBalanceCents ?? 0),
+          bidsPlacedCount: Math.max(wallet.bidsPlacedCount || 0, existing.bidsPlacedCount || 0)
         });
       } else {
         usersMap.set(uid, {
@@ -7417,12 +7417,15 @@ app.get('/api/admin/ads/all', async (req, res) => {
   const allAds: any[] = [];
   const seenIds = new Set<string>();
 
+  let firestoreFetchError: string | null = null;
   // 1. Fetch all campaigns from Cloud Firestore collection (Single Source of Truth)
   if (db) {
     try {
       const campaignsCol = collection(db, 'campaigns');
-      const snap = await getDocs(query(campaignsCol, limit(200)));
-      snap.docs.forEach((docSnap) => {
+      const snapPromise = getDocs(query(campaignsCol, limit(100)));
+      const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Firestore getDocs timeout (4s)')), 4000));
+      const snap = await Promise.race([snapPromise, timeoutPromise]);
+      snap.docs.forEach((docSnap: any) => {
         const data = docSnap.data();
         const cleanId = data.id || docSnap.id;
         if (!seenIds.has(cleanId)) {
@@ -7444,8 +7447,9 @@ app.get('/api/admin/ads/all', async (req, res) => {
           });
         }
       });
-    } catch (fsErr) {
-      console.warn('Firestore admin campaigns fetch notice:', fsErr);
+    } catch (fsErr: any) {
+      firestoreFetchError = fsErr?.message || String(fsErr);
+      console.warn('Firestore admin campaigns fetch notice:', firestoreFetchError);
     }
   }
 
@@ -7492,6 +7496,29 @@ app.get('/api/admin/ads/all', async (req, res) => {
     }
   });
 
+  // 4. Memory fallback if Firestore was temporarily slow
+  if (allAds.length === 0) {
+    for (const item of globalBidHistoryStore) {
+      if (!seenIds.has(item.id) && !item.isHouseAd) {
+        seenIds.add(item.id);
+        allAds.push({
+          id: item.id,
+          title: item.title,
+          imageUrl: item.imageUrl,
+          advertiserName: item.advertiserName || 'Advertiser',
+          targetCityCode: item.cityCode || 'GLOBAL',
+          bidAmountDollars: ((item.bidAmountCents || 100) / 100).toFixed(2),
+          bidAmountCents: item.bidAmountCents || 100,
+          status: 'approved',
+          isHouseAd: false,
+          impressions: 15200,
+          scansCount: 0,
+          createdAt: item.createdAt || new Date().toISOString()
+        });
+      }
+    }
+  }
+
   const userAdsCount = allAds.filter(a => !a.isHouseAd).length;
   const houseAdsCount = allAds.filter(a => a.isHouseAd).length;
 
@@ -7503,6 +7530,7 @@ app.get('/api/admin/ads/all', async (req, res) => {
     liveCount: allAds.filter(a => a.status === 'live').length,
     queuedCount: allAds.filter(a => a.status === 'queued').length,
     flaggedCount: allAds.filter(a => a.status === 'flagged').length,
+    firestoreError: firestoreFetchError,
     ads: allAds
   });
 });

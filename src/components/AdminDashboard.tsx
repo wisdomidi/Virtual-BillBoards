@@ -344,7 +344,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await fetch('/api/admin/ads/all');
       if (res.ok) {
         const data = await res.json();
-        if (data.ads && Array.isArray(data.ads)) {
+        if (data.ads && Array.isArray(data.ads) && data.ads.length > 0) {
           setAllAdminAds(data.ads.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
         }
       }
