@@ -595,23 +595,23 @@ export default function App() {
             : (typeof data.tokensBalance === 'number' ? Math.round(data.tokensBalance / 10) : 0);
 
           if (typeof newCents === 'number' && !isNaN(newCents)) {
-            setWalletBalanceCents(newCents);
-            setCachedBalance(uid, newCents);
+            setWalletBalanceCents((prev) => Math.max(prev || 0, newCents));
+            setCachedBalance(uid, Math.max(getCachedBalance(uid) || 0, newCents));
           }
           const isClaimed = data.starterGrantClaimed === true || data.hasClaimedFreeSlot === true;
           setHasClaimedStarter(isClaimed && (data.bidsPlacedCount || 0) > 0);
           setWalletTransactions(data.transactions || []);
-          setCurrentUser((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  tokensBalance: Math.round(newCents * 10),
-                  walletBalanceCents: newCents,
-                  hasClaimedFreeSlot: isClaimed || prev.hasClaimedFreeSlot,
-                  starterGrantClaimed: isClaimed || prev.starterGrantClaimed
-                }
-              : prev
-          );
+          setCurrentUser((prev) => {
+            if (!prev) return prev;
+            const resolvedCents = Math.max(prev.walletBalanceCents || 0, newCents);
+            return {
+              ...prev,
+              tokensBalance: Math.max(prev.tokensBalance || 0, Math.round(resolvedCents * 10)),
+              walletBalanceCents: resolvedCents,
+              hasClaimedFreeSlot: isClaimed || prev.hasClaimedFreeSlot,
+              starterGrantClaimed: isClaimed || prev.starterGrantClaimed
+            };
+          });
         } catch {
           // Safe fallback
         }

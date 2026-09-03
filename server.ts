@@ -433,8 +433,51 @@ async function getUserWalletFromFirestore(userId: string, userEmail?: string) {
   const defaultInitialCents = 0;
   const resolvedEmail = userEmail && userEmail.includes('@') ? userEmail : (isGuest ? 'guest@example.com' : 'user@example.com');
 
-  // 1. Immediate in-memory fast return (0ms execution)
   const cached = userWalletsMemoryMap.get(userId);
+
+  // 1. For registered users, ALWAYS query Cloud Firestore first (Single Source of Truth)
+  if (!isGuest && db) {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const snapPromise = getDoc(userRef);
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 6000));
+      const snap: any = await Promise.race([snapPromise, timeoutPromise]).catch(() => null);
+
+      if (snap && snap.exists && snap.exists()) {
+        const data = snap.data();
+        const bidsCount = typeof data.bidsPlacedCount === 'number' ? data.bidsPlacedCount : 0;
+        const hasClaimed = Boolean(data.starterGrantClaimed === true || data.freeSlotClaimed === true || bidsCount > 0);
+        
+        let tokensBalance = typeof data.tokensBalance === 'number'
+          ? data.tokensBalance
+          : (typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents * 10 : (hasClaimed ? 0 : 1000));
+
+        const walletBalanceCents = typeof data.walletBalanceCents === 'number'
+          ? data.walletBalanceCents
+          : Math.round(tokensBalance / 10);
+
+        userWalletsMemoryMap.set(userId, {
+          tokensBalance,
+          walletBalanceCents,
+          freeSlotClaimed: hasClaimed,
+          bidsPlacedCount: bidsCount
+        });
+
+        return {
+          uid: userId,
+          tokensBalance,
+          walletBalanceCents,
+          starterGrantClaimed: hasClaimed,
+          email: data.email || resolvedEmail,
+          role: data.role || 'advertiser'
+        };
+      }
+    } catch (fsErr) {
+      console.warn('Firestore user fetch notice:', fsErr);
+    }
+  }
+
+  // 2. Fast return from memory if user is guest or Firestore was unreachable
   if (cached) {
     return {
       uid: userId,
@@ -449,7 +492,7 @@ async function getUserWalletFromFirestore(userId: string, userEmail?: string) {
   try {
     const userRef = doc(db, 'users', userId);
     const snapPromise = getDoc(userRef);
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 1500));
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000));
     const snap: any = await Promise.race([snapPromise, timeoutPromise]).catch(() => null);
 
     if (snap && snap.exists && snap.exists()) {
