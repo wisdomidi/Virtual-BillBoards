@@ -88,7 +88,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               </p>
               <p className="text-[11px] text-slate-500">
                 VAT / Tax Entity ID: VB-GLOBAL-2026-991A<br />
-                hello@livebillboards.lol • https://www.livebillboards.lol
+                support@livebillboards.lol • https://www.livebillboards.lol
               </p>
             </div>
 

@@ -84,14 +84,7 @@ export function isUserAdmin(email?: string, role?: string): boolean {
   if (role === 'admin') return true;
   if (!email) return false;
   const cleanEmail = email.toLowerCase().trim();
-  return (
-    cleanEmail.includes('admin') ||
-    cleanEmail.includes('wisdom') ||
-    cleanEmail === 'wisdomidi@gmail.com' ||
-    cleanEmail.endsWith('@livebillboards.lol') ||
-    cleanEmail.endsWith('@antigravity.lol') ||
-    cleanEmail === 'admin@livebillboards.lol'
-  );
+  return cleanEmail === 'oweezyidi@gmail.com';
 }
 
 // Fetch or create user profile in Firestore (1,000 Tokens = $1.00 USD Starter / 1 Free 15s Slot for verified accounts)

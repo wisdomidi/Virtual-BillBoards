@@ -819,7 +819,7 @@ interface TransactionalEmailOptions {
 }
 
 async function sendRawTransactionalEmail(opts: TransactionalEmailOptions): Promise<boolean> {
-  const fromAddress = process.env.EMAIL_FROM_ADDRESS || 'notifications@livebillboards.lol';
+  const fromAddress = process.env.EMAIL_FROM_ADDRESS || 'support@livebillboards.lol';
   const fromName = process.env.EMAIL_FROM_NAME || 'Live Billboards Global';
   const resendApiKey = process.env.RESEND_API_KEY;
 
@@ -3435,14 +3435,7 @@ export function isUserAdmin(email?: string, role?: string): boolean {
   if (role === 'admin') return true;
   if (!email) return false;
   const cleanEmail = email.toLowerCase().trim();
-  return (
-    cleanEmail.includes('admin') ||
-    cleanEmail.includes('wisdom') ||
-    cleanEmail === 'wisdomidi@gmail.com' ||
-    cleanEmail.endsWith('@livebillboards.lol') ||
-    cleanEmail.endsWith('@antigravity.lol') ||
-    cleanEmail === 'admin@livebillboards.lol'
-  );
+  return cleanEmail === 'oweezyidi@gmail.com';
 }
 
 export function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
@@ -5201,7 +5194,7 @@ export async function sendTransactionalEmail(
 
   if (client) {
     try {
-      const fromEmail = process.env.FROM_EMAIL || 'LiveBillboards <notifications@livebillboards.lol>';
+      const fromEmail = process.env.FROM_EMAIL || 'LiveBillboards <support@livebillboards.lol>';
       const res = await client.emails.send({
         from: fromEmail,
         to: toEmail,
@@ -8537,7 +8530,7 @@ async function startServer() {
   // POST /api/admin/email/test - Send a live test transactional email
   app.post('/api/admin/email/test', async (req, res) => {
     const { targetEmail } = req.body;
-    const recipient = targetEmail || 'admin@livebillboards.lol';
+    const recipient = targetEmail || 'oweezyidi@gmail.com';
     const success = await sendRawTransactionalEmail({
       to: recipient,
       subject: '⚡ Live Billboards: Transactional Email Test Passed!',
