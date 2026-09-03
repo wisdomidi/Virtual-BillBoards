@@ -614,16 +614,16 @@ async function deductUserTokensInFirestore(
   if (userId && db) {
     try {
       const userRef = doc(db, 'users', userId);
-      setDoc(userRef, {
+      const updatePromise = setDoc(userRef, {
         tokensBalance: newTokens,
         walletBalanceCents: newCents,
         starterGrantClaimed: true,
         freeSlotClaimed: true,
         bidsPlacedCount: memoryRecord.bidsPlacedCount
-      }, { merge: true }).catch((err) => console.warn('Firestore user deduction sync notice:', err));
+      }, { merge: true });
 
       const txnsCol = collection(db, 'users', userId, 'transactions');
-      addDoc(txnsCol, {
+      const txnPromise = addDoc(txnsCol, {
         id: `tx_token_${Date.now()}`,
         type: 'slot_burn',
         tokens,
@@ -633,10 +633,12 @@ async function deductUserTokensInFirestore(
         cityCode: cityCode || 'GLOBAL',
         slotId: slotId || '',
         timestamp: new Date().toISOString()
-      }).catch(() => {});
+      });
+
+      const writePromises: Promise<any>[] = [updatePromise, txnPromise];
       if (slotId) {
         const burnsCol = collection(db, 'slot_burns');
-        addDoc(burnsCol, {
+        writePromises.push(addDoc(burnsCol, {
           userId,
           slotId,
           tokens,
@@ -645,8 +647,10 @@ async function deductUserTokensInFirestore(
           description,
           cityCode: cityCode || 'GLOBAL',
           timestamp: new Date().toISOString()
-        }).catch(() => {});
+        }));
       }
+
+      await Promise.all(writePromises).catch((err) => console.warn('Firestore user deduction sync notice:', err));
     } catch (fsErr) {
       console.warn('Firestore token deduction warning:', fsErr);
     }

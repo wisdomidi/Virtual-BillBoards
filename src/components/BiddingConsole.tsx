@@ -589,6 +589,14 @@ export const BiddingConsole: React.FC<BiddingConsoleProps> = ({
                 whatsappLink,
                 createdAt: new Date().toISOString()
               }, { merge: true }).catch(() => {});
+
+              if (uid && !uid.startsWith('guest_') && typeof data.newTokensBalance === 'number') {
+                const userRef = doc(db, 'users', uid);
+                setDoc(userRef, {
+                  tokensBalance: data.newTokensBalance,
+                  walletBalanceCents: data.newWalletBalanceCents
+                }, { merge: true }).catch(() => {});
+              }
             } catch {}
           }
 
