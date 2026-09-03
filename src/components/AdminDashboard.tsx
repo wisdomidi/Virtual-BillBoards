@@ -345,7 +345,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (res.ok) {
         const data = await res.json();
         if (data.ads && Array.isArray(data.ads) && data.ads.length > 0) {
-          setAllAdminAds(data.ads.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
+          const realAds = data.ads.filter((a: any) => !a.id?.startsWith('hist_'));
+          if (realAds.length > 0) {
+            setAllAdminAds(realAds.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
+          }
         }
       }
     } catch (err) {
@@ -474,9 +477,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               if (existing) {
                 mergedUsersMap.set(u.uid, {
                   ...existing,
-                  tokensBalance: u.tokensBalance !== undefined ? u.tokensBalance : existing.tokensBalance,
-                  walletBalanceCents: u.walletBalanceCents !== undefined ? u.walletBalanceCents : existing.walletBalanceCents,
-                  bidsPlacedCount: u.bidsPlacedCount || existing.bidsPlacedCount,
+                  tokensBalance: Math.max(existing.tokensBalance || 0, u.tokensBalance || 0),
+                  walletBalanceCents: Math.max(existing.walletBalanceCents || 0, u.walletBalanceCents || 0),
+                  bidsPlacedCount: Math.max(u.bidsPlacedCount || 0, existing.bidsPlacedCount || 0),
                   role: u.role || existing.role
                 });
               } else {

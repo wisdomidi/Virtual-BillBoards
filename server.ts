@@ -7434,7 +7434,7 @@ app.get('/api/admin/ads/all', async (req, res) => {
     try {
       const campaignsCol = collection(db, 'campaigns');
       const snapPromise = getDocs(query(campaignsCol, limit(100)));
-      const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Firestore getDocs timeout (4s)')), 4000));
+      const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Firestore getDocs timeout (12s)')), 12000));
       const snap = await Promise.race([snapPromise, timeoutPromise]);
       snap.docs.forEach((docSnap: any) => {
         const data = docSnap.data();
@@ -7506,29 +7506,6 @@ app.get('/api/admin/ads/all', async (req, res) => {
       });
     }
   });
-
-  // 4. Memory fallback if Firestore was temporarily slow
-  if (allAds.length === 0) {
-    for (const item of globalBidHistoryStore) {
-      if (!seenIds.has(item.id) && !item.isHouseAd) {
-        seenIds.add(item.id);
-        allAds.push({
-          id: item.id,
-          title: item.title,
-          imageUrl: item.imageUrl,
-          advertiserName: item.advertiserName || 'Advertiser',
-          targetCityCode: item.cityCode || 'GLOBAL',
-          bidAmountDollars: ((item.bidAmountCents || 100) / 100).toFixed(2),
-          bidAmountCents: item.bidAmountCents || 100,
-          status: 'approved',
-          isHouseAd: false,
-          impressions: 15200,
-          scansCount: 0,
-          createdAt: item.createdAt || new Date().toISOString()
-        });
-      }
-    }
-  }
 
   const userAdsCount = allAds.filter(a => !a.isHouseAd).length;
   const houseAdsCount = allAds.filter(a => a.isHouseAd).length;
