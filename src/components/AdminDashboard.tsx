@@ -68,6 +68,7 @@ interface AdminDashboardProps {
   addToast: (type: ToastMessage['type'], title: string, message: string) => void;
   selectedCity: string;
   selectedCountry: string;
+  currentUser?: { uid: string; email: string; displayName: string; role: any } | null;
 }
 
 const getInitialAdminSubTab = (): 'settings' | 'moderation' | 'users' | 'vouchers' | 'streamers' | 'attention' | 'solana' | 'affiliates' | 'screens' | 'house_ads' | 'creators' | 'overrides' | 'cities' | 'tech_tools' => {
@@ -90,8 +91,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   telemetryLogs,
   addToast,
   selectedCity,
-  selectedCountry
+  selectedCountry,
+  currentUser
 }) => {
+  // Scoped fetch that automatically injects administrator verification headers into all /api/admin requests
+  const adminFetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const headers = new Headers(init?.headers || {});
+    const email = currentUser?.email || (typeof window !== 'undefined' ? localStorage.getItem('vb_last_user_email') || '' : '');
+    const uid = currentUser?.uid || (typeof window !== 'undefined' ? localStorage.getItem('vb_last_user_uid') || '' : '');
+    const role = currentUser?.role || 'admin';
+    if (email && !headers.has('x-user-email')) headers.set('x-user-email', email);
+    if (uid && !headers.has('x-user-uid')) headers.set('x-user-uid', uid);
+    if (role && !headers.has('x-user-role')) headers.set('x-user-role', role);
+    return window.fetch(input, { ...init, headers });
+  };
+  const fetch = adminFetch;
   const [activeAdminSubTab, setActiveAdminSubTab] = useState<'settings' | 'moderation' | 'users' | 'vouchers' | 'streamers' | 'attention' | 'solana' | 'affiliates' | 'screens' | 'house_ads' | 'creators' | 'overrides' | 'cities' | 'tech_tools'>(() => getInitialAdminSubTab());
   const [techTool, setTechTool] = useState<'architecture' | 'postgres' | 'redis' | 'cascade' | 'ledger'>('architecture');
   const [creatorFilter, setCreatorFilter] = useState('');

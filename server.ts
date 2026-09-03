@@ -3431,13 +3431,50 @@ app.post('/api/cascade/simulate', (req, res) => {
 // ADMIN & DYNAMIC PLATFORM MANAGEMENT API ENDPOINTS
 // ------------------------------------------------------------------------------
 
+export function isUserAdmin(email?: string, role?: string): boolean {
+  if (role === 'admin') return true;
+  if (!email) return false;
+  const cleanEmail = email.toLowerCase().trim();
+  return (
+    cleanEmail.includes('admin') ||
+    cleanEmail.includes('wisdom') ||
+    cleanEmail === 'wisdomidi@gmail.com' ||
+    cleanEmail.endsWith('@livebillboards.lol') ||
+    cleanEmail.endsWith('@antigravity.lol') ||
+    cleanEmail === 'admin@livebillboards.lol'
+  );
+}
+
+export function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+  const email = (req.headers['x-user-email'] as string) || (req.query.adminEmail as string) || '';
+  const role = (req.headers['x-user-role'] as string) || '';
+  const adminKey = (req.headers['x-admin-key'] as string) || (req.query.adminKey as string) || '';
+  const secretKey = process.env.ADMIN_API_KEY || 'livebillboards_super_admin_2026';
+
+  if (adminKey && adminKey === secretKey) {
+    return next();
+  }
+
+  if (isUserAdmin(email, role)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    error: 'Access denied: Administrator privileges required to access /api/admin endpoints.'
+  });
+}
+
+// Enforce admin authentication across ALL /api/admin/* endpoints
+app.use('/api/admin', requireAdminAuth);
+
 // Get current dynamic platform settings
 app.get('/api/admin/settings', (req, res) => {
   res.json({ success: true, settings: platformSettings });
 });
 
 // Update dynamic platform settings
-app.post('/api/admin/settings', (req, res) => {
+app.post('/api/admin/settings', requireAdminAuth, (req, res) => {
   const newSettings = req.body;
   if (!newSettings || typeof newSettings !== 'object') {
     return res.status(400).json({ success: false, error: 'Invalid settings object' });
@@ -3525,7 +3562,6 @@ app.post('/api/admin/settings', (req, res) => {
         AUTO_SURGE_ENABLED: platformSettings.autoSurgeEnabled ? 'true' : 'false',
         PEAK_CONCURRENCY_THRESHOLD: platformSettings.peakConcurrencyThreshold
       };
-
       for (const [key, value] of Object.entries(envMap)) {
         const regex = new RegExp(`^${key}=.*$`, 'm');
         const valStr = String(value);
@@ -3542,11 +3578,16 @@ app.post('/api/admin/settings', (req, res) => {
   }
 
   // 2. Persist to Firestore asynchronously
-  try {
-    const settingsDocRef = doc(db, 'settings', 'platform');
-    setDoc(settingsDocRef, platformSettings, { merge: true }).catch(err => console.warn('Firestore settings save notice:', err));
-  } catch (fsErr) {
-    console.warn('Firestore settings doc error:', fsErr);
+  if (db) {
+    try {
+      const settingsRef = doc(db, 'settings', 'platform_config');
+      setDoc(settingsRef, {
+        ...platformSettings,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch((err) => console.warn('Firestore settings update notice:', err));
+    } catch (fsErr) {
+      console.warn('Firestore settings doc error:', fsErr);
+    }
   }
 
   logTelemetry('ADMIN_SETTINGS_UPDATED', 'Platform settings updated by Administrator, persisted to Firestore & synced to .env', platformSettings);
@@ -3554,20 +3595,6 @@ app.post('/api/admin/settings', (req, res) => {
 
   res.json({ success: true, settings: platformSettings, message: 'Settings saved to memory, synced to .env, and persisted to Firestore successfully.' });
 });
-
-export function isUserAdmin(email?: string, role?: string): boolean {
-  if (role === 'admin') return true;
-  if (!email) return false;
-  const cleanEmail = email.toLowerCase().trim();
-  return (
-    cleanEmail.includes('admin') ||
-    cleanEmail.includes('wisdom') ||
-    cleanEmail === 'wisdomidi@gmail.com' ||
-    cleanEmail.endsWith('@livebillboards.lol') ||
-    cleanEmail.endsWith('@antigravity.lol') ||
-    cleanEmail === 'admin@livebillboards.lol'
-  );
-}
 
 // POST /api/auth/sync - Sync client Firebase Auth session to backend memory & Firestore
 app.post('/api/auth/sync', async (req, res) => {
@@ -3624,7 +3651,7 @@ app.post('/api/auth/sync', async (req, res) => {
 });
 
 // GET /api/admin/users - Comprehensive registered user and wallet oversight
-app.get('/api/admin/users', async (req, res) => {
+app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
   try {
     const usersMap = new Map<string, any>();
 
@@ -3713,7 +3740,7 @@ app.get('/api/admin/users', async (req, res) => {
 });
 
 // POST /api/admin/user/adjust-balance - Adjust user tokens/balance or change role
-app.post('/api/admin/user/adjust-balance', async (req, res) => {
+app.post('/api/admin/user/adjust-balance', requireAdminAuth, async (req, res) => {
   const { targetUserId, addTokens, newRole, reason } = req.body;
   if (!targetUserId) {
     return res.status(400).json({ success: false, error: 'targetUserId is required' });
@@ -3903,7 +3930,7 @@ app.post('/api/wallet/claim-starter', async (req: Request, res: Response) => {
 });
 
 // POST /api/admin/clean-guest-users - Purge all placeholder guest_* docs from Firestore
-app.post('/api/admin/clean-guest-users', async (req: Request, res: Response) => {
+app.post('/api/admin/clean-guest-users', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const usersCol = collection(db, 'users');
     const snap = await getDocs(usersCol);
@@ -3933,81 +3960,163 @@ app.post('/api/admin/clean-guest-users', async (req: Request, res: Response) => 
   }
 });
 
-// City Real-time Telemetry & Live Crisis/Emergency Alerts Database
-const CITY_TELEMETRY_FEEDS: Record<string, {
-  tempC: number;
-  condition: string;
-  humidity: number;
-  aqi: number;
-  activeAlert?: {
-    severity: 'critical' | 'warning' | 'advisory';
-    headline: string;
-    description: string;
-    badge: string;
-  };
-}> = {
-  'TYO': { tempC: 28, condition: 'Clear Sky ☀️', humidity: 55, aqi: 24, activeAlert: { severity: 'advisory', headline: 'Shibuya Heatwave Advisory', description: 'Peak 34°C expected. Public mist cooling stations active across Shibuya Crossing.', badge: '🔥 HEAT ADVISORY' } },
-  'NYC': { tempC: 22, condition: 'Partly Cloudy ⛅', humidity: 62, aqi: 35, activeAlert: { severity: 'warning', headline: 'Times Square High Wind Warning', description: 'Gusts up to 45 mph across Broadway corridor. Billboard structural dampening active.', badge: '💨 WIND WARNING' } },
-  'LON': { tempC: 18, condition: 'Light Drizzle 🌦️', humidity: 78, aqi: 18 },
-  'PAR': { tempC: 24, condition: 'Sunny ☀️', humidity: 50, aqi: 28 },
-  'KUL': { tempC: 31, condition: 'Tropical Rain 🌧️', humidity: 85, aqi: 42, activeAlert: { severity: 'warning', headline: 'Flash Flood Watch: Bukit Bintang', description: 'Monsoon drainage active. SMART Tunnel operating in Mode 3 flood mitigation.', badge: '🌧️ FLOOD WATCH' } },
-  'SIN': { tempC: 30, condition: 'Scattered Clouds ⛅', humidity: 80, aqi: 30 },
-  'DXB': { tempC: 38, condition: 'Hot & Clear 🏜️', humidity: 40, aqi: 65, activeAlert: { severity: 'advisory', headline: 'Extreme Heat Index Alert', description: 'UV Index 11+ (Extreme). Indoor pedestrian concourses recommended.', badge: '☀️ EXTREME HEAT' } },
-  'SEL': { tempC: 23, condition: 'Clear 🌤️', humidity: 58, aqi: 32 },
-  'SYD': { tempC: 19, condition: 'Breezy 🌊', humidity: 65, aqi: 15, activeAlert: { severity: 'advisory', headline: 'Sydney Harbour Gale Alert', description: 'Ferry routes operating with caution. Swells up to 3.5m outside the Heads.', badge: '🌊 GALE ADVISORY' } },
-  'YTO': { tempC: 17, condition: 'Clear Sky 🌤️', humidity: 52, aqi: 20 },
-  'HKG': { tempC: 29, condition: 'Thunderstorm ⛈️', humidity: 88, aqi: 45, activeAlert: { severity: 'warning', headline: 'HKO Amber Rainstorm Signal', description: 'Heavy rain recorded over Hong Kong Island. Victoria Harbour marine warnings active.', badge: '⛈️ RAINSTORM ALERT' } },
-  'LAX': { tempC: 26, condition: 'Sunny ☀️', humidity: 45, aqi: 48, activeAlert: { severity: 'warning', headline: 'Red Flag Fire Weather Warning', description: 'Santa Ana winds and low humidity. Critical wildfire precautions across LA County.', badge: '🔥 FIRE WEATHER' } },
-  'BER': { tempC: 20, condition: 'Partly Cloudy ⛅', humidity: 60, aqi: 22 },
-  'AMS': { tempC: 19, condition: 'Breezy 💨', humidity: 70, aqi: 19 },
-  'BKK': { tempC: 33, condition: 'Humid 🌤️', humidity: 75, aqi: 52 },
-  'SHA': { tempC: 27, condition: 'Overcast ☁️', humidity: 68, aqi: 40 },
-  'SAO': { tempC: 25, condition: 'Sunny ☀️', humidity: 60, aqi: 38 },
-  'MEX': { tempC: 23, condition: 'Mild ⛅', humidity: 50, aqi: 55 },
-  'TPE': { tempC: 30, condition: 'Humid 🌤️', humidity: 82, aqi: 30 },
-  'MUM': { tempC: 32, condition: 'Monsoon Showers 🌧️', humidity: 90, aqi: 60, activeAlert: { severity: 'warning', headline: 'BMC High Tide Coastal Alert', description: 'High tide wave surge expected at Marine Drive Promenade. Seaface barricades deployed.', badge: '🌊 HIGH TIDE' } }
+// ------------------------------------------------------------------------------
+// LIVE DYNAMIC CITY WEATHER & TELEMETRY ENGINE (OPEN-METEO INTEGRATION)
+// ------------------------------------------------------------------------------
+
+const CITY_COORDINATES: Record<string, { lat: number; lon: number; name: string; tz: string }> = {
+  'TYO': { lat: 35.6762, lon: 139.6503, name: 'Tokyo', tz: 'Asia/Tokyo' },
+  'NYC': { lat: 40.7128, lon: -74.0060, name: 'New York', tz: 'America/New_York' },
+  'LON': { lat: 51.5074, lon: -0.1278, name: 'London', tz: 'Europe/London' },
+  'PAR': { lat: 48.8566, lon: 2.3522, name: 'Paris', tz: 'Europe/Paris' },
+  'KUL': { lat: 3.1390, lon: 101.6869, name: 'Kuala Lumpur', tz: 'Asia/Kuala_Lumpur' },
+  'SIN': { lat: 1.3521, lon: 103.8198, name: 'Singapore', tz: 'Asia/Singapore' },
+  'DXB': { lat: 25.2048, lon: 55.2708, name: 'Dubai', tz: 'Asia/Dubai' },
+  'SEL': { lat: 37.5665, lon: 126.9780, name: 'Seoul', tz: 'Asia/Seoul' },
+  'SYD': { lat: -33.8688, lon: 151.2093, name: 'Sydney', tz: 'Australia/Sydney' },
+  'YTO': { lat: 43.6532, lon: -79.3832, name: 'Toronto', tz: 'America/Toronto' },
+  'HKG': { lat: 22.3193, lon: 114.1694, name: 'Hong Kong', tz: 'Asia/Hong_Kong' },
+  'LAX': { lat: 34.0522, lon: -118.2437, name: 'Los Angeles', tz: 'America/Los_Angeles' },
+  'BER': { lat: 52.5200, lon: 13.4050, name: 'Berlin', tz: 'Europe/Berlin' },
+  'AMS': { lat: 52.3676, lon: 4.9041, name: 'Amsterdam', tz: 'Europe/Amsterdam' },
+  'BKK': { lat: 13.7563, lon: 100.5018, name: 'Bangkok', tz: 'Asia/Bangkok' },
+  'SHA': { lat: 31.2304, lon: 121.4737, name: 'Shanghai', tz: 'Asia/Shanghai' },
+  'SAO': { lat: -23.5505, lon: -46.6333, name: 'São Paulo', tz: 'America/Sao_Paulo' },
+  'MEX': { lat: 19.4326, lon: -99.1332, name: 'Mexico City', tz: 'America/Mexico_City' },
+  'TPE': { lat: 25.0330, lon: 121.5654, name: 'Taipei', tz: 'Asia/Taipei' },
+  'MUM': { lat: 19.0760, lon: 72.8777, name: 'Mumbai', tz: 'Asia/Kolkata' },
+  'GLOBAL': { lat: 3.1390, lon: 101.6869, name: 'Global Feed', tz: 'UTC' }
 };
 
-// GET /api/city-live-data?city=TYO - Live Weather, AQI & Crisis/Emergency Alerts
-app.get('/api/city-live-data', (req: Request, res: Response) => {
-  const city = ((req.query.city as string) || 'TYO').toUpperCase();
-  const data = CITY_TELEMETRY_FEEDS[city] || CITY_TELEMETRY_FEEDS['TYO'];
-  
-  // Calculate city local time
-  const timezones: Record<string, string> = {
-    'TYO': 'Asia/Tokyo',
-    'NYC': 'America/New_York',
-    'LON': 'Europe/London',
-    'PAR': 'Europe/Paris',
-    'KUL': 'Asia/Kuala_Lumpur',
-    'SIN': 'Asia/Singapore',
-    'DXB': 'Asia/Dubai',
-    'SEL': 'Asia/Seoul',
-    'SYD': 'Australia/Sydney',
-    'YTO': 'America/Toronto',
-    'HKG': 'Asia/Hong_Kong',
-    'LAX': 'America/Los_Angeles',
-    'BER': 'Europe/Berlin',
-    'AMS': 'Europe/Amsterdam',
-    'BKK': 'Asia/Bangkok',
-    'SHA': 'Asia/Shanghai',
-    'SAO': 'America/Sao_Paulo',
-    'MEX': 'America/Mexico_City',
-    'TPE': 'Asia/Taipei',
-    'MUM': 'Asia/Kolkata'
+function interpretWmoCode(code: number): { condition: string; icon: string } {
+  if (code === 0) return { condition: 'Clear Sky', icon: '☀️' };
+  if (code === 1) return { condition: 'Mainly Clear', icon: '🌤️' };
+  if (code === 2) return { condition: 'Partly Cloudy', icon: '⛅' };
+  if (code === 3) return { condition: 'Overcast', icon: '☁️' };
+  if (code === 45 || code === 48) return { condition: 'Fog & Mist', icon: '🌫️' };
+  if (code >= 51 && code <= 55) return { condition: 'Light Drizzle', icon: '🌦️' };
+  if (code >= 61 && code <= 65) return { condition: 'Rain', icon: '🌧️' };
+  if (code >= 71 && code <= 77) return { condition: 'Snowfall', icon: '❄️' };
+  if (code >= 80 && code <= 82) return { condition: 'Rain Showers', icon: '🌧️' };
+  if (code >= 95 && code <= 99) return { condition: 'Thunderstorm', icon: '⛈️' };
+  return { condition: 'Clear Sky', icon: '☀️' };
+}
+
+// 10-minute cache for live city weather & air quality
+const liveCityWeatherCache = new Map<string, { data: any; expiresAt: number }>();
+
+async function fetchLiveCityWeatherData(cityCode: string) {
+  const code = cityCode.toUpperCase();
+  const cached = liveCityWeatherCache.get(code);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  const coords = CITY_COORDINATES[code] || CITY_COORDINATES['GLOBAL'];
+  let tempC = 27;
+  let condition = 'Clear Sky ☀️';
+  let humidity = 65;
+  let aqi = 32;
+  let windSpeedKmH = 8;
+  let weatherCode = 0;
+
+  try {
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m`;
+    const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${coords.lat}&longitude=${coords.lon}&current=us_aqi`;
+
+    const weatherPromise = fetch(weatherUrl).then(r => r.json()).catch(() => null);
+    const aqiPromise = fetch(aqiUrl).then(r => r.json()).catch(() => null);
+    const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000));
+
+    const [weatherRes, aqiRes] = await Promise.race([
+      Promise.all([weatherPromise, aqiPromise]),
+      timeoutPromise
+    ]).catch(() => [null, null]);
+
+    if (weatherRes?.current) {
+      tempC = Math.round(Number(weatherRes.current.temperature_2m) || 27);
+      humidity = Math.round(Number(weatherRes.current.relative_humidity_2m) || 65);
+      windSpeedKmH = Math.round(Number(weatherRes.current.wind_speed_10m) || 8);
+      weatherCode = Number(weatherRes.current.weather_code) || 0;
+      const interp = interpretWmoCode(weatherCode);
+      condition = `${interp.condition} ${interp.icon}`;
+    }
+
+    if (aqiRes?.current?.us_aqi) {
+      aqi = Math.round(Number(aqiRes.current.us_aqi) || 32);
+    }
+  } catch (err) {
+    console.warn('Open-Meteo live weather fetch notice:', err);
+  }
+
+  // Generate dynamic crisis/emergency weather alerts ONLY when severe conditions truly exist
+  let activeAlert: any = undefined;
+  if (weatherCode >= 95) {
+    activeAlert = {
+      severity: 'warning',
+      headline: `${coords.name} Severe Thunderstorm Alert`,
+      description: `Active thunderstorm and lightning detected in ${coords.name}. Outdoor screens operating with surge protection.`,
+      badge: '⛈️ THUNDERSTORM'
+    };
+  } else if (windSpeedKmH >= 45) {
+    activeAlert = {
+      severity: 'warning',
+      headline: `${coords.name} High Wind Warning`,
+      description: `Surface gusts of ${windSpeedKmH} km/h recorded. Structural dampening active.`,
+      badge: '💨 WIND WARNING'
+    };
+  } else if (tempC >= 38) {
+    activeAlert = {
+      severity: 'advisory',
+      headline: `${coords.name} Extreme Heat Advisory`,
+      description: `Ambient temperature reached ${tempC}°C. Public hydration recommended.`,
+      badge: '☀️ HEAT ADVISORY'
+    };
+  } else if (aqi >= 150) {
+    activeAlert = {
+      severity: 'warning',
+      headline: `${coords.name} Unhealthy Air Quality (AQI ${aqi})`,
+      description: `Elevated particulate levels detected. Sensitive groups advised to minimize outdoor activity.`,
+      badge: '🌫️ AQI ALERT'
+    };
+  }
+
+  const result = {
+    tempC,
+    condition,
+    humidity,
+    aqi,
+    windSpeedKmH,
+    activeAlert
   };
+
+  // Cache for 10 minutes (600,000 ms)
+  liveCityWeatherCache.set(code, {
+    data: result,
+    expiresAt: now + 600000
+  });
+
+  return result;
+}
+
+// GET /api/city-live-data?city=KUL - Live Weather, AQI & Dynamic Crisis Alerts from Open-Meteo
+app.get('/api/city-live-data', async (req: Request, res: Response) => {
+  const city = ((req.query.city as string) || 'KUL').toUpperCase();
+  const coords = CITY_COORDINATES[city] || CITY_COORDINATES['GLOBAL'];
+  const weatherData = await fetchLiveCityWeatherData(city);
 
   let localTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   try {
-    const tz = timezones[city] || 'UTC';
-    localTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    localTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: coords.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
   } catch {}
 
   return res.json({
     success: true,
     cityCode: city,
+    cityName: coords.name,
     localTime: localTimeStr,
-    ...data,
+    ...weatherData,
     viewerTraffic: Math.floor(8500 + Math.random() * 4200),
     platformEmergencyOverride: platformSettings.emergencyAlertBanner || undefined
   });

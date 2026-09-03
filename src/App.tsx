@@ -39,7 +39,7 @@ import { HallOfFameModal } from './components/HallOfFameModal';
 import { InvoiceModal } from './components/InvoiceModal';
 import { SystemStatusModal } from './components/SystemStatusModal';
 import { browserNotifications } from './lib/browserNotifications';
-import { Sparkles, Globe, Radio, Tv, FileText } from 'lucide-react';
+import { Sparkles, Globe, Radio, Tv, FileText, Lock } from 'lucide-react';
 import {
   auth,
   db,
@@ -393,6 +393,7 @@ export default function App() {
   const safeWalletBalanceCents = Math.max(0, walletBalanceCents || 0);
   const safeWalletBalanceDollars = (safeWalletBalanceCents / 100).toFixed(2);
   const tokensBalance = Math.round(safeWalletBalanceCents * 10);
+  const isCurrentAdmin = userRole === 'admin' || currentUser?.role === 'admin' || isUserAdmin(currentUser?.email, currentUser?.role);
 
   // Real-time Firestore user balance listener (instant sync when admin credits user or bid is processed)
   useEffect(() => {
@@ -429,6 +430,7 @@ export default function App() {
           setWalletBalanceCents(cachedInstant);
         }
         localStorage.setItem('vb_last_user_uid', user.uid);
+        if (user.email) localStorage.setItem('vb_last_user_email', user.email);
 
         const isAdminUser = isUserAdmin(user.email || '');
         const profile = await syncUserProfile(user, isAdminUser ? 'admin' : 'advertiser');
@@ -1134,12 +1136,45 @@ export default function App() {
           <>
             {/* VIEW 1: ADMIN COMMAND CENTER (100% Platform Controls) */}
             {activeTab === 'admin' && (
-              <AdminDashboard
-                telemetryLogs={telemetryLogs}
-                addToast={addToast}
-                selectedCity={selectedCity}
-                selectedCountry={selectedCountry}
-              />
+              isCurrentAdmin ? (
+                <AdminDashboard
+                  telemetryLogs={telemetryLogs}
+                  addToast={addToast}
+                  selectedCity={selectedCity}
+                  selectedCountry={selectedCountry}
+                  currentUser={currentUser}
+                />
+              ) : (
+                <div className="bg-slate-900 border border-red-500/40 rounded-3xl p-8 max-w-md mx-auto text-center space-y-4 my-12 shadow-2xl animate-in fade-in duration-200">
+                  <div className="w-16 h-16 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center justify-center mx-auto text-red-400">
+                    <Lock className="w-8 h-8" />
+                  </div>
+                  <h2 className="text-xl font-black text-white">Administrator Access Required</h2>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    This command center is restricted to authorized platform administrators. Please sign in with an administrator account to access platform controls.
+                  </p>
+                  <div className="pt-2 flex flex-col gap-2">
+                    {!currentUser ? (
+                      <button
+                        onClick={() => setIsAuthModalOpen(true)}
+                        className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-cyan-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg hover:brightness-110 cursor-pointer"
+                      >
+                        Sign In as Administrator
+                      </button>
+                    ) : (
+                      <div className="text-xs text-amber-300 font-mono bg-amber-950/50 p-2.5 rounded-xl border border-amber-500/30">
+                        Signed in as: {currentUser.email} (Non-Admin)
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleNavigateTab('live')}
+                      className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-xl transition cursor-pointer"
+                    >
+                      Return to Live Billboard Feed
+                    </button>
+                  </div>
+                </div>
+              )
             )}
 
         {/* VIEW: AUTONOMOUS AI AGENTS & DYNAMIC YIELD HUB (ADVERTISER & ADMIN ONLY) */}
@@ -1213,30 +1248,7 @@ export default function App() {
 
         {/* VIEW 3: CLEAN HOMEPAGE LIVE BILLBOARD */}
         {activeTab === 'live' && (
-          <div className="space-y-6">
-            {/* Live Global Network Pulse Bar */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-cyan-500/30 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-4 text-xs font-mono shadow-lg flex-wrap">
-              <div className="flex items-center gap-2.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span className="font-bold text-white uppercase tracking-wider text-[11px]">
-                  Live Network Pulse:
-                </span>
-                <span className="text-cyan-300 font-bold">200+ Global City Feeds Active</span>
-              </div>
-
-              <div className="flex items-center gap-4 text-slate-400 text-[11px] flex-wrap">
-                <span className="flex items-center gap-1.5 text-slate-300">
-                  <span className="text-amber-400">⚡</span> 15s Guaranteed Rotations
-                </span>
-                <span className="hidden sm:inline text-slate-700">•</span>
-                <span className="flex items-center gap-1.5 text-slate-300">
-                  <span className="text-cyan-400">🛡️</span> Autonomous AI Safety Filter
-                </span>
-                <span className="hidden md:inline text-slate-700">•</span>
-                <span className="text-emerald-400 font-bold">99.99% Network Uptime</span>
-              </div>
-            </div>
-
+          <div className="space-y-4">
             <LiveBillboard
               slotData={slotData}
               selectedCity={selectedCity}
@@ -1246,6 +1258,7 @@ export default function App() {
               userRole={userRole}
               isPureViewerMode={userRole === 'viewer'}
               walletBalanceDollars={safeWalletBalanceDollars}
+              tokensBalance={tokensBalance}
               hasClaimedStarter={hasClaimedStarter || (currentUser?.hasClaimedFreeSlot ?? false)}
               onClaimStarter={handleClaimStarterCredit}
               onOpenWalletModal={() => setIsWalletModalOpen(true)}

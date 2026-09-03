@@ -58,6 +58,7 @@ interface LiveBillboardProps {
   userRole?: UserRole;
   isPureViewerMode?: boolean;
   walletBalanceDollars?: string;
+  tokensBalance?: number;
   hasClaimedStarter?: boolean;
   onClaimStarter?: () => Promise<void>;
   onOpenWalletModal?: () => void;
@@ -139,6 +140,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
   userRole = 'guest',
   isPureViewerMode = false,
   walletBalanceDollars = '0.00',
+  tokensBalance = 0,
   hasClaimedStarter = false,
   onClaimStarter,
   onOpenWalletModal,
@@ -649,77 +651,74 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
 
   return (
     <div className={`space-y-3.5 w-full max-w-full overflow-x-hidden ${fullscreen ? 'fixed inset-0 z-50 bg-slate-950 p-4 sm:p-6 overflow-y-auto' : ''}`}>
-      {/* Sleek Compact 2-Line Hero Pitch */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/80 to-slate-900 border border-cyan-500/30 px-3.5 sm:px-5 py-2.5 rounded-2xl flex flex-wrap items-center justify-between gap-2.5 text-white shadow-md">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-cyan-400 font-mono text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 rounded-lg">
+      {/* Consolidated High-Tech Global Billboard Command Ribbon */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/70 to-slate-900 border border-cyan-500/30 rounded-2xl overflow-hidden shadow-lg">
+        <div className="px-3.5 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-800/80">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-cyan-300 font-mono text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 rounded-lg">
               <Zap className="w-3 h-3 text-amber-400 animate-pulse fill-amber-400" />
               World's First 24/7 Virtual Billboard
             </span>
-            <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 hidden sm:inline">
-              • 200+ Cities • 15s Guaranteed Airtime
+            <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 hidden md:inline">
+              • 200+ Global Feeds • 15s Guaranteed RTB • 99.99% Uptime
             </span>
           </div>
-          <h1 className="text-[11px] sm:text-xs text-slate-300 mt-1 font-medium line-clamp-1">
-            Broadcast 15-second live ad takeovers across global city billboard feeds in real-time.
-          </h1>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {!hasClaimedStarter ? (
+              <span className="bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full uppercase shadow-md flex items-center gap-1">
+                <span>🎁 $1.00 Free Starter Slot</span>
+              </span>
+            ) : (
+              <span className="bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <span>✨ 24/7 Live Advertiser</span>
+              </span>
+            )}
+            {onOpenClaimModal && (
+              <button
+                onClick={onOpenClaimModal}
+                className="text-[10px] sm:text-xs font-bold text-purple-300 hover:text-white bg-purple-950/70 border border-purple-500/40 px-2.5 py-0.5 rounded-xl transition cursor-pointer flex items-center gap-1"
+              >
+                <Sparkles className="w-3 h-3 text-purple-400" />
+                <span>Claim Handle (80% Payout)</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {!hasClaimedStarter ? (
-            <span className="bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full uppercase shadow-md flex items-center gap-1">
-              <span>🎁 $1.00 Free Starter Slot</span>
-            </span>
-          ) : (
-            <span className="bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <span>✨ 24/7 Live Advertiser</span>
-            </span>
-          )}
-          {onOpenClaimModal && (
-            <button
-              onClick={onOpenClaimModal}
-              className="text-[10px] sm:text-xs font-bold text-purple-300 hover:text-white bg-purple-950/70 border border-purple-500/40 px-2.5 py-0.5 rounded-xl transition cursor-pointer flex items-center gap-1"
+        {/* Live Scrolling City Telemetry & News Marquee Strip */}
+        <div className="bg-slate-950/90 flex items-center gap-0 overflow-hidden text-[11px] font-mono h-[26px]">
+          <span className="bg-cyan-950 text-cyan-400 border-r border-cyan-500/30 text-[9px] font-black px-2 h-full flex items-center gap-1 shrink-0 uppercase tracking-wider">
+            📡 LIVE [{selectedCity}]
+          </span>
+          <div className="flex-1 overflow-hidden relative">
+            <div
+              className="flex items-center gap-0 whitespace-nowrap text-slate-300 text-[11px]"
+              style={{
+                animation: 'marquee-scroll 32s linear infinite',
+                willChange: 'transform'
+              }}
             >
-              <Sparkles className="w-3 h-3 text-purple-400" />
-              <span>Claim Handle (80% Payout)</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Animated Live City News + Traffic Marquee (no duplicate weather — already in Navbar) */}
-      <div className="bg-slate-950 border border-slate-800/90 rounded-xl flex items-center gap-0 overflow-hidden text-[11px] font-mono shadow-sm h-[28px]">
-        <span className="bg-cyan-950 text-cyan-400 border-r border-cyan-500/30 text-[9px] font-bold px-2 h-full flex items-center gap-1 shrink-0 uppercase">
-          📡 LIVE [{selectedCity}]
-        </span>
-        <div className="flex-1 overflow-hidden relative">
-          <div
-            className="flex items-center gap-0 whitespace-nowrap text-slate-300 text-[11px]"
-            style={{
-              animation: 'marquee-scroll 32s linear infinite',
-              willChange: 'transform'
-            }}
-          >
-            {(() => {
-              const cityData = CITY_LIVE_UPDATES[selectedCity];
-              const news = cityData?.newsHeadline || `Live 24/7 Billboard Feed active in ${currentCityConfig.cityName} • Verified RTB Rotations`;
-              const traffic = cityData?.traffic;
-              const trafficText = traffic
-                ? `🚗 ${traffic.status} — ${traffic.mainCorridor} (${traffic.avgSpeedKmH}km/h avg)`
-                : null;
-              return (
-                <>
-                  <span className="px-4 text-slate-200">📰 {news}</span>
-                  {trafficText && <span className="px-4 text-amber-300">{trafficText}</span>}
-                  <span className="px-4 text-emerald-400 font-bold">🌐 www.livebillboards.lol — Place Your 15s Ad Now</span>
-                  {/* repeat for seamless loop */}
-                  <span className="px-4 text-slate-200">📰 {news}</span>
-                  {trafficText && <span className="px-4 text-amber-300">{trafficText}</span>}
-                  <span className="px-4 text-emerald-400 font-bold">🌐 www.livebillboards.lol — Place Your 15s Ad Now</span>
-                </>
-              );
-            })()}
+              {(() => {
+                const cityData = CITY_LIVE_UPDATES[selectedCity];
+                const news = cityData?.newsHeadline || `Live 24/7 Billboard Feed active in ${currentCityConfig.cityName} • Verified RTB Rotations`;
+                const traffic = cityData?.traffic;
+                const trafficText = traffic
+                  ? `🚗 ${traffic.status} — ${traffic.mainCorridor} (${traffic.avgSpeedKmH}km/h avg)`
+                  : null;
+                return (
+                  <>
+                    <span className="px-4 text-slate-200">📰 {news}</span>
+                    {trafficText && <span className="px-4 text-amber-300">{trafficText}</span>}
+                    <span className="px-4 text-emerald-400 font-bold">⚡ RTB Live Takeovers (15s Slots) — Place Your Ad Now</span>
+                    {/* repeat for seamless loop */}
+                    <span className="px-4 text-slate-200">📰 {news}</span>
+                    {trafficText && <span className="px-4 text-amber-300">{trafficText}</span>}
+                    <span className="px-4 text-emerald-400 font-bold">⚡ RTB Live Takeovers (15s Slots) — Place Your Ad Now</span>
+                  </>
+                );
+              })()}
+            </div>
           </div>
         </div>
       </div>
@@ -869,8 +868,15 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 {/* Live City Telemetry HUD */}
                 <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
                   {cityTelemetry && (
-                    <span className="bg-slate-950/90 text-cyan-300 border border-slate-800 px-2 py-0.5 rounded-lg hidden sm:inline">
-                      {cityTelemetry.condition} {cityTelemetry.tempC}°C
+                    <span className="bg-slate-950/90 text-cyan-300 border border-slate-800 px-2 py-0.5 rounded-lg hidden sm:inline-flex items-center gap-1.5">
+                      <span>{cityTelemetry.condition} {cityTelemetry.tempC}°C</span>
+                      {cityTelemetry.activeAlert && (
+                        <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-wider ${
+                          cityTelemetry.activeAlert.severity === 'critical' ? 'bg-red-600 text-white animate-pulse' : 'bg-amber-500/30 text-amber-300'
+                        }`}>
+                          {cityTelemetry.activeAlert.badge}
+                        </span>
+                      )}
                     </span>
                   )}
                   <span className="text-amber-300 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800 hidden md:inline">
@@ -1043,7 +1049,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                               title: winningAd.title,
                               advertiser: winningAd.advertiserName || 'Live Billboard Sponsor'
                             })}
-                            className="flex items-center gap-1.5 bg-white text-slate-950 px-2 py-1 rounded-lg border border-cyan-400 shadow-md shadow-black/40 hover:bg-cyan-50 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 bg-white text-slate-950 px-2 py-1 rounded-lg border border-cyan-400 shadow-md shadow-black/40 hover:bg-cyan-50 hover:scale-105 active:scale-95 transition-all cursor-pointer ring-2 ring-cyan-400/50 animate-pulse"
                             title="Click to Enlarge Scannable QR Code"
                           >
                             <img
@@ -1141,25 +1147,6 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
             </div>
           </div>
 
-          {/* Live Crisis / Emergency Weather Alerts Banner */}
-          {cityTelemetry?.activeAlert && (
-            <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 shadow-lg animate-in fade-in duration-200 ${
-              cityTelemetry.activeAlert.severity === 'critical'
-                ? 'bg-red-950/85 border-red-500/60 text-red-200'
-                : 'bg-amber-950/85 border-amber-500/60 text-amber-200'
-            }`}>
-              <div className="flex items-center gap-2.5">
-                <div className="px-2 py-0.5 bg-red-600 text-white font-mono font-black text-[9px] rounded-md shrink-0 animate-pulse">
-                  {cityTelemetry.activeAlert.badge}
-                </div>
-                <div>
-                  <div className="font-bold text-xs text-white">{cityTelemetry.activeAlert.headline}</div>
-                  <p className="text-[11px] text-slate-300 line-clamp-1">{cityTelemetry.activeAlert.description}</p>
-                </div>
-              </div>
-              <span className="text-[10px] font-mono text-slate-400 shrink-0 hidden sm:inline">Municipal Feed</span>
-            </div>
-          )}
 
           {/* Live Slot Token Burn Ticker */}
           <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-md">
@@ -1216,7 +1203,7 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                 <div className="bg-slate-950 border border-emerald-500/30 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-xs font-mono">
                   <Wallet className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   <span className="font-black text-emerald-400 text-xs">
-                    ${Math.max(0, Number(walletBalanceDollars) || 0).toFixed(2)}
+                    {(tokensBalance || Math.round((Number(walletBalanceDollars) || 0) * 1000)).toLocaleString()} Tokens (${Math.max(0, Number(walletBalanceDollars) || 0).toFixed(2)})
                   </span>
                 </div>
                 <button
@@ -1666,8 +1653,8 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
                     {isSubmittingBid
                       ? 'Submitting Creative...'
                       : bidSlotsCount > 1
-                        ? `Place ${bidSlotsCount} Slots — $${(bidAmountDollars * bidSlotsCount).toFixed(2)} Total`
-                        : 'Place Bid in 2 Secs'}
+                        ? `⚡ Place ${bidSlotsCount} Slots (${Math.round(bidAmountDollars * bidSlotsCount * 1000).toLocaleString()} Tokens / $${(bidAmountDollars * bidSlotsCount).toFixed(2)})`
+                        : `⚡ Place Bid (${Math.round(bidAmountDollars * 1000).toLocaleString()} Tokens / $${bidAmountDollars.toFixed(2)})`}
                   </span>
                 </button>
               </div>
