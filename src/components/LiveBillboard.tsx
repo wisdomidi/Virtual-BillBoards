@@ -1026,15 +1026,20 @@ export const LiveBillboard: React.FC<LiveBillboardProps> = ({
 
                       {/* Universal Interactive Scannable Dynamic QR Code Button */}
                       {(() => {
-                        const resolvedTarget = (winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || ((winningAd as any).whatsappLink ? `https://wa.me/${((winningAd as any).whatsappLink || '').replace(/[^0-9]/g, '')}` : `https://livebillboards.lol/?city=${selectedCity}&ad=${winningAd.id}`);
-                        const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=6&data=${encodeURIComponent(resolvedTarget)}`;
+                        const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://www.livebillboards.lol';
+                        const trackableQrUrl = winningAd?.id
+                          ? `${origin}/api/qr-scan/${winningAd.id}?screen=web`
+                          : ((winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || `https://livebillboards.lol/?city=${selectedCity}`);
+                        const directUrl = (winningAd as any).ctaUrl || (winningAd as any).landingPageUrl || trackableQrUrl;
+                        const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=6&data=${encodeURIComponent(trackableQrUrl)}`;
 
                         return (
                           <button
                             type="button"
                             onClick={() => setActiveQrModalData({
                               isOpen: true,
-                              url: resolvedTarget,
+                              url: trackableQrUrl,
+                              targetUrl: directUrl,
                               title: winningAd.title,
                               advertiser: winningAd.advertiserName || 'Live Billboard Sponsor'
                             })}

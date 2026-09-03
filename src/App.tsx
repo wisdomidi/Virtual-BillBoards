@@ -470,7 +470,9 @@ export default function App() {
             email: profile.email || user.email,
             displayName: profile.displayName || user.displayName,
             photoURL: profile.photoURL || user.photoURL,
-            role: resolvedRole
+            role: resolvedRole,
+            tokensBalance: profile.tokensBalance,
+            walletBalanceCents: profile.walletBalanceCents
           })
         }).catch(() => {});
 
@@ -594,23 +596,26 @@ export default function App() {
             ? data.walletBalanceCents
             : (typeof data.tokensBalance === 'number' ? Math.round(data.tokensBalance / 10) : 0);
 
-          if (typeof newCents === 'number' && !isNaN(newCents)) {
+          const isSuspectFallback = newCents === 100 && (currentUser?.walletBalanceCents || 0) > 100;
+          if (typeof newCents === 'number' && !isNaN(newCents) && !isSuspectFallback) {
             setWalletBalanceCents(newCents);
             setCachedBalance(uid, newCents);
           }
           const isClaimed = data.starterGrantClaimed === true || data.hasClaimedFreeSlot === true;
           setHasClaimedStarter(isClaimed && (data.bidsPlacedCount || 0) > 0);
           setWalletTransactions(data.transactions || []);
-          setCurrentUser((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              tokensBalance: typeof data.tokensBalance === 'number' ? data.tokensBalance : Math.round(newCents * 10),
-              walletBalanceCents: newCents,
-              hasClaimedFreeSlot: isClaimed || prev.hasClaimedFreeSlot,
-              starterGrantClaimed: isClaimed || prev.starterGrantClaimed
-            };
-          });
+          if (!isSuspectFallback) {
+            setCurrentUser((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                tokensBalance: typeof data.tokensBalance === 'number' ? data.tokensBalance : Math.round(newCents * 10),
+                walletBalanceCents: newCents,
+                hasClaimedFreeSlot: isClaimed || prev.hasClaimedFreeSlot,
+                starterGrantClaimed: isClaimed || prev.starterGrantClaimed
+              };
+            });
+          }
         } catch {
           // Safe fallback
         }

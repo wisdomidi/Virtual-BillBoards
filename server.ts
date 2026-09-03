@@ -76,17 +76,13 @@ const firebaseServerConfig = {
   appId: process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID || parsedWebappConfig.appId || '1:956720374475:web:72b781216f12df6ef2314e',
 };
 
-const firebaseApp = !getApps().length ? initializeApp(firebaseServerConfig) : getApp();
-const databaseId = process.env.FIREBASE_DATABASE_ID || process.env.VITE_FIREBASE_DATABASE_ID;
+const firebaseApp = getApps().find(a => a.name === 'server-firestore')
+  || initializeApp(firebaseServerConfig, 'server-firestore');
 const db = (() => {
   try {
-    return databaseId && databaseId !== '(default)'
-      ? initializeFirestore(firebaseApp, { experimentalAutoDetectLongPolling: true }, databaseId)
-      : initializeFirestore(firebaseApp, { experimentalAutoDetectLongPolling: true });
+    return initializeFirestore(firebaseApp, { experimentalAutoDetectLongPolling: true });
   } catch (e) {
-    return databaseId && databaseId !== '(default)'
-      ? getFirestore(firebaseApp, databaseId)
-      : getFirestore(firebaseApp);
+    return getFirestore(firebaseApp);
   }
 })();
 
@@ -3576,22 +3572,27 @@ export function isUserAdmin(email?: string, role?: string): boolean {
 // POST /api/auth/sync - Sync client Firebase Auth session to backend memory & Firestore
 app.post('/api/auth/sync', async (req, res) => {
   try {
-    const { uid, email, displayName, photoURL, role } = req.body;
+    const { uid, email, displayName, photoURL, role, tokensBalance, walletBalanceCents } = req.body;
     if (!uid) return res.status(400).json({ success: false, error: 'Missing UID' });
 
     const isGuest = uid.startsWith('guest_') || !email || email.includes('example.com');
     const isAdmin = isUserAdmin(email, role);
     const resolvedRole = isAdmin ? 'admin' : (role || 'advertiser');
 
-    // 1. Update In-Memory Wallets Map
-    const existingWallet = userWalletsMemoryMap.get(uid) || {
-      tokensBalance: 1000,
-      walletBalanceCents: 100,
-      bidsPlacedCount: 0
-    };
+    // 1. Update In-Memory Wallets Map using real verified balances if passed
+    const existingWallet = userWalletsMemoryMap.get(uid);
+    const resolvedTokens = typeof tokensBalance === 'number'
+      ? tokensBalance
+      : (existingWallet?.tokensBalance !== undefined ? existingWallet.tokensBalance : (isGuest ? 0 : 1000));
+    const resolvedCents = typeof walletBalanceCents === 'number'
+      ? walletBalanceCents
+      : (existingWallet?.walletBalanceCents !== undefined ? existingWallet.walletBalanceCents : Math.round(resolvedTokens / 10));
 
     userWalletsMemoryMap.set(uid, {
-      ...existingWallet,
+      tokensBalance: resolvedTokens,
+      walletBalanceCents: resolvedCents,
+      bidsPlacedCount: existingWallet?.bidsPlacedCount || 0,
+      freeSlotClaimed: existingWallet?.freeSlotClaimed ?? !isGuest,
       email: email || (isGuest ? `Guest Visitor (${uid.slice(0, 8)})` : `User_${uid.slice(-4)}`),
       displayName: displayName || email?.split('@')[0] || (isGuest ? 'Guest Visitor' : 'User'),
       photoURL: photoURL || null,
@@ -4819,6 +4820,8 @@ app.get('/api/qr-scan/:campaignId', async (req, res) => {
   if (stats.scanLogs.length > 50) stats.scanLogs.shift();
   campaignQrScansMap.set(campaignId, stats);
 
+  const writePromises: Promise<any>[] = [];
+
   // 2. Update Screen Scans in Memory and Firestore
   if (screenPin) {
     const cleanPin = screenPin.replace(/[^0-9a-zA-Z]/g, '');
@@ -4830,12 +4833,12 @@ app.get('/api/qr-scan/:campaignId', async (req, res) => {
     if (db) {
       try {
         const screenRef = doc(db, 'screens', cleanPin);
-        setDoc(screenRef, {
+        writePromises.push(setDoc(screenRef, {
           totalScans: increment(1),
           scanCount: increment(1),
           verifiedVisits: increment(1),
           lastScannedAt: new Date().toISOString()
-        }, { merge: true }).catch(() => {});
+        }, { merge: true }));
       } catch {}
     }
   }
@@ -4844,12 +4847,16 @@ app.get('/api/qr-scan/:campaignId', async (req, res) => {
   if (db && campaignId && campaignId !== 'live' && campaignId !== 'default') {
     try {
       const campRef = doc(db, 'campaigns', campaignId);
-      setDoc(campRef, {
+      writePromises.push(setDoc(campRef, {
         scansCount: increment(1),
         scanCount: increment(1),
         lastScannedAt: new Date().toISOString()
-      }, { merge: true }).catch(() => {});
+      }, { merge: true }));
     } catch {}
+  }
+
+  if (writePromises.length > 0) {
+    await Promise.all(writePromises).catch((err) => console.warn('Firestore QR scan increment notice:', err));
   }
 
   logTelemetry('QR_CODE_SCANNED', `📱 Viewer scanned QR Code on screen [${screenPin || 'DOOH'}] for campaign [${campaignId}]! Total Scans: ${stats.scansCount}`);
