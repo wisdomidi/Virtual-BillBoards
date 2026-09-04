@@ -257,15 +257,21 @@ export const StreamerObsOverlay: React.FC<StreamerObsOverlayProps> = ({
             soundEffects.playKaChing();
           }
 
-          // Record verified impression for streamer rev-share
+          // Record verified impression for streamer rev-share (only monetized if paid advertiser winning ad)
           if (creatorId && creatorId !== 'streamer_live') {
+            const slotAd = msg.payload?.slot?.winningAd || currentSlot?.winningAd;
+            const isHouse = !slotAd || Boolean(slotAd.isHouseAd);
+            const paidBidCents = isHouse ? 0 : (slotAd.bidAmountCents || 0);
+
             fetch('/api/streamer/impression', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 streamerId: creatorId,
                 cityCode: selectedCity,
-                bidAmountCents: 100
+                bidAmountCents: paidBidCents,
+                isHouseAd: isHouse,
+                slotId: msg.payload?.slot?.id || currentSlot?.id
               })
             }).catch(() => {});
           }

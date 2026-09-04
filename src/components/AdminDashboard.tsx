@@ -191,6 +191,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [flaggedAds, setFlaggedAds] = useState<any[]>([]);
   const [loadingFlaggedAds, setLoadingFlaggedAds] = useState(false);
 
+  // Creative Inspection & Live Preview Modal State
+  const [selectedPreviewAd, setSelectedPreviewAd] = useState<any | null>(null);
+  const [previewMuted, setPreviewMuted] = useState<boolean>(true);
+  const [airingAdId, setAiringAdId] = useState<string | null>(null);
+
   // Pure Production Mode (Real Data Only vs Benchmark & Demo Data)
   const [productionDataOnly, setProductionDataOnly] = useState<boolean>(true);
 
@@ -448,6 +453,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       }
     });
+  };
+
+  const handleDeleteAd = async (adId: string, title?: string) => {
+    askConfirmation({
+      title: 'Permanently Delete Campaign?',
+      message: `Are you sure you want to delete "${title || adId}"? This will permanently purge this ad from Cloud Firestore, active broadcast queues, and historical analytics.`,
+      confirmLabel: 'Permanently Delete',
+      confirmVariant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/ads/${adId}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (data.success) {
+            addToast('success', 'Ad Deleted', data.message || 'Campaign permanently deleted.');
+            if (selectedPreviewAd?.id === adId) setSelectedPreviewAd(null);
+            fetchAllAdminAds();
+            fetchFlaggedAds();
+          } else {
+            addToast('error', 'Delete Failed', data.error || 'Could not delete ad.');
+          }
+        } catch (e: any) {
+          addToast('error', 'Error', e.message);
+        }
+      }
+    });
+  };
+
+  const handleAirAdNow = async (ad: any) => {
+    setAiringAdId(ad.id);
+    try {
+      const res = await fetch('/api/admin/ads/air-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adId: ad.id, cityCode: ad.targetCityCode || 'GLOBAL' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addToast('success', 'Aired Live on Screen', `"${ad.title}" has been broadcasted to ${data.targetCity} screen!`);
+        fetchAllAdminAds();
+      } else {
+        addToast('error', 'Air Failed', data.error || 'Could not air ad.');
+      }
+    } catch (e: any) {
+      addToast('error', 'Error', e.message);
+    } finally {
+      setAiringAdId(null);
+    }
   };
 
   const fetchUsers = async () => {
@@ -1637,6 +1689,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         const isLive = ad.status === 'live';
                         const isHouse = Boolean(ad.isHouseAd);
 
+                        const isVideo = ad.mediaType === 'video' ||
+                          ad.imageUrl?.toLowerCase().includes('.mp4') ||
+                          ad.imageUrl?.toLowerCase().includes('.webm') ||
+                          ad.imageUrl?.toLowerCase().includes('/video-cdn/') ||
+                          ad.imageUrl?.startsWith('data:video/');
+
                         return (
                           <div
                             key={ad.id}
@@ -1651,13 +1709,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             }`}
                           >
                         <div className="space-y-2.5">
-                          <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800">
-                            <img
-                              src={ad.imageUrl}
-                              alt={ad.title}
-                              loading="lazy"
-                              className="w-full h-full object-cover"
-                            />
+                          <div
+                            onClick={() => setSelectedPreviewAd(ad)}
+                            className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800 cursor-pointer group/thumb"
+                            title="Click to inspect & preview this creative"
+                          >
+                            {isVideo ? (
+                              <video
+                                key={ad.imageUrl}
+                                src={ad.imageUrl}
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                referrerPolicy="no-referrer"
+                                crossOrigin="anonymous"
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                              />
+                            ) : (
+                              <img
+                                key={ad.imageUrl}
+                                src={ad.imageUrl}
+                                alt={ad.title}
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                                crossOrigin="anonymous"
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80';
+                                }}
+                              />
+                            )}
+
+                            {/* Hover Overlay */}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="px-3 py-1.5 rounded-xl bg-cyan-500 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-xl">
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Inspect & Preview</span>
+                              </span>
+                            </div>
+
+                            {/* Top Badges */}
                             <div className="absolute top-2 left-2 flex flex-wrap gap-1">
                               <span className="px-2 py-0.5 bg-slate-950/90 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold rounded-md uppercase">
                                 📍 {ad.targetCityCode || 'GLOBAL'}
@@ -1678,6 +1770,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </span>
                               )}
                             </div>
+
+                            {/* Format Badge */}
+                            <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-slate-950/90 text-slate-300 border border-slate-700 text-[9px] font-mono font-bold rounded-md uppercase">
+                              {isVideo ? '🎬 VIDEO' : '🖼️ IMAGE'}
+                            </div>
+
                             {isFlagged && (
                               <span className="absolute top-2 right-2 px-2 py-0.5 bg-rose-950 text-rose-300 border border-rose-600 text-[10px] font-mono font-bold rounded-md">
                                 Safety: {ad.safetyScore || 45}/100
@@ -1725,19 +1823,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </>
                           ) : (
                             <>
+                              {/* Inspect & Preview Modal Trigger */}
+                              <button
+                                onClick={() => setSelectedPreviewAd(ad)}
+                                className="p-2 bg-slate-900 hover:bg-slate-800 text-cyan-300 hover:text-cyan-200 border border-slate-700/80 rounded-xl transition-all cursor-pointer"
+                                title="Inspect & Preview on 3D Screen"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+
+                              {/* Force Air on Billboard Now */}
+                              <button
+                                onClick={() => handleAirAdNow(ad)}
+                                disabled={airingAdId === ad.id}
+                                className="flex-1 py-2 bg-cyan-600/80 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50"
+                                title="Broadcast this ad immediately to live screen"
+                              >
+                                <Radio className={`w-3.5 h-3.5 ${airingAdId === ad.id ? 'animate-spin' : ''}`} />
+                                <span>{airingAdId === ad.id ? 'Airing...' : 'Air on Screen'}</span>
+                              </button>
+
+                              {/* Reject / Ban */}
                               <button
                                 onClick={() => handleRejectLiveAd(ad.id)}
-                                className="flex-1 py-2 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-1"
+                                className="p-2 bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-600/50 rounded-xl transition-all cursor-pointer"
+                                title="Force Reject & Ban"
                               >
-                                <X className="w-3.5 h-3.5" />
-                                <span>Force Reject & Ban</span>
+                                <X className="w-4 h-4" />
                               </button>
+
+                              {/* Permanently Delete from DB */}
                               <button
-                                onClick={() => window.open(`/?city=${ad.targetCityCode || 'GLOBAL'}`, '_blank')}
-                                className="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-xl transition-all cursor-pointer"
-                                title="Watch on Live Screen"
+                                onClick={() => handleDeleteAd(ad.id, ad.title)}
+                                className="p-2 bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-600/50 rounded-xl transition-all cursor-pointer"
+                                title="Permanently Delete Campaign from Database"
                               >
-                                <ExternalLink className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </>
                           )}
@@ -1769,6 +1890,143 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <span>Next</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
+                  </div>
+                )}
+
+                {/* LIVE CREATIVE INSPECTOR & AIR CONTROLS MODAL */}
+                {selectedPreviewAd && (
+                  <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-slate-900 border border-cyan-500/40 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                            <Tv className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className="text-base font-black text-white">{selectedPreviewAd.title}</h3>
+                            <p className="text-xs text-slate-400 font-mono">
+                              Advertiser: {selectedPreviewAd.advertiserName} • City: {selectedPreviewAd.targetCityCode || 'GLOBAL'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setSelectedPreviewAd(null)}
+                          className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* 3D Billboard Simulated Screen */}
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-black border-2 border-cyan-500/40 shadow-2xl shadow-cyan-500/10 group">
+                        {selectedPreviewAd.mediaType === 'video' ||
+                        selectedPreviewAd.imageUrl?.toLowerCase().includes('.mp4') ||
+                        selectedPreviewAd.imageUrl?.toLowerCase().includes('.webm') ||
+                        selectedPreviewAd.imageUrl?.toLowerCase().includes('/video-cdn/') ||
+                        selectedPreviewAd.imageUrl?.startsWith('data:video/') ? (
+                          <video
+                            key={selectedPreviewAd.imageUrl}
+                            src={selectedPreviewAd.imageUrl}
+                            autoPlay
+                            loop
+                            muted={previewMuted}
+                            playsInline
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            key={selectedPreviewAd.imageUrl}
+                            src={selectedPreviewAd.imageUrl}
+                            alt={selectedPreviewAd.title}
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+
+                        {/* Audio Toggle for Video */}
+                        {(selectedPreviewAd.mediaType === 'video' || selectedPreviewAd.imageUrl?.includes('.mp4') || selectedPreviewAd.imageUrl?.includes('/video-cdn/')) && (
+                          <button
+                            onClick={() => setPreviewMuted(!previewMuted)}
+                            className="absolute bottom-3 right-3 p-2 bg-slate-950/80 hover:bg-slate-900 border border-slate-700 text-cyan-300 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer"
+                          >
+                            {previewMuted ? '🔇 Unmute Video' : '🔊 Mute Video'}
+                          </button>
+                        )}
+
+                        <div className="absolute top-3 left-3 flex items-center gap-2">
+                          <span className="px-2.5 py-1 bg-slate-950/90 text-cyan-300 border border-cyan-500/50 text-xs font-mono font-bold rounded-lg uppercase">
+                            📍 {selectedPreviewAd.targetCityCode || 'GLOBAL'}
+                          </span>
+                          <span className="px-2.5 py-1 bg-amber-950/90 text-amber-300 border border-amber-500/50 text-xs font-mono font-bold rounded-lg">
+                            💰 ${selectedPreviewAd.bidAmountDollars} USD
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Details */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                        <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                          <div className="text-slate-500">FORMAT</div>
+                          <div className="text-white font-bold uppercase">{selectedPreviewAd.mediaType || 'Image'}</div>
+                        </div>
+                        <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                          <div className="text-slate-500">STATUS</div>
+                          <div className="text-cyan-400 font-bold uppercase">{selectedPreviewAd.status || 'Active'}</div>
+                        </div>
+                        <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                          <div className="text-slate-500">IMPRESSIONS</div>
+                          <div className="text-emerald-400 font-bold">{selectedPreviewAd.impressions?.toLocaleString() || 0}</div>
+                        </div>
+                        <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                          <div className="text-slate-500">QR SCANS</div>
+                          <div className="text-purple-400 font-bold">{selectedPreviewAd.scansCount || 0}</div>
+                        </div>
+                      </div>
+
+                      {selectedPreviewAd.ctaUrl && (
+                        <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between text-xs font-mono">
+                          <span className="text-slate-400">Target CTA Link:</span>
+                          <a
+                            href={selectedPreviewAd.ctaUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-cyan-400 hover:underline flex items-center gap-1 font-bold truncate max-w-xs"
+                          >
+                            <span>{selectedPreviewAd.ctaUrl}</span>
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Control Buttons */}
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
+                        <button
+                          onClick={() => handleAirAdNow(selectedPreviewAd)}
+                          disabled={airingAdId === selectedPreviewAd.id}
+                          className="flex-1 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs rounded-xl transition shadow cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          <Radio className="w-4 h-4" />
+                          <span>{airingAdId === selectedPreviewAd.id ? 'Broadcasting...' : '⚡ Air on Live Billboard Now'}</span>
+                        </button>
+                        <button
+                          onClick={() => window.open(`/?city=${selectedPreviewAd.targetCityCode || 'GLOBAL'}`, '_blank')}
+                          className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>Open Live Stream</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAd(selectedPreviewAd.id, selectedPreviewAd.title)}
+                          className="py-2.5 px-4 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-700/80 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Campaign</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

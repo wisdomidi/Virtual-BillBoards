@@ -7451,8 +7451,13 @@ app.get('/api/streamer/stats/:streamerId', async (req, res) => {
 
 // Streamer Live Impression & 70% Rev-Share Ingestion
 app.post('/api/streamer/impression', async (req, res) => {
-  const { streamerId = 'creator_anonymous', cityCode = 'TYO', slotId, bidAmountCents = 100 } = req.body;
-  const revShareCents = Math.round(Number(bidAmountCents) * 0.70); // 70% rev-share to creator
+  const { streamerId = 'creator_anonymous', cityCode = 'TYO', slotId, bidAmountCents = 0, isHouseAd = false } = req.body;
+  
+  // INDUSTRY STANDARD MONETIZATION RULE:
+  // House ads, platform promos, and unsold inventory DO NOT accrue rev-share liability.
+  // Rev-share only accrues when a verified advertiser paid bid is served on the screen.
+  const isPaidAdvertiserAd = !isHouseAd && Number(bidAmountCents) > 0;
+  const revShareCents = isPaidAdvertiserAd ? Math.round(Number(bidAmountCents) * 0.70) : 0;
   const earnedDollars = revShareCents / 100;
 
   try {
@@ -7484,8 +7489,16 @@ app.post('/api/streamer/impression', async (req, res) => {
     console.warn('Firestore streamer impression write error:', e);
   }
 
-  logTelemetry('STREAMER_IMPRESSION', `Streamer [${streamerId}] served 15s billboard ad in [${cityCode}]. Earned +$${earnedDollars.toFixed(2)} (70% rev-share).`);
-  return res.json({ success: true, streamerId, earnedDollars: earnedDollars.toFixed(2) });
+  if (isPaidAdvertiserAd) {
+    logTelemetry('STREAMER_IMPRESSION', `Streamer [${streamerId}] served paid 15s billboard ad ($${(Number(bidAmountCents)/100).toFixed(2)} USD) in [${cityCode}]. Earned +$${earnedDollars.toFixed(2)} (70% rev-share).`);
+  }
+  return res.json({
+    success: true,
+    streamerId,
+    earnedDollars: earnedDollars.toFixed(2),
+    isPaidAd: isPaidAdvertiserAd,
+    notice: isPaidAdvertiserAd ? undefined : 'House promo / non-monetized impression logged (no rev-share accrued)'
+  });
 });
 
 // ------------------------------------------------------------------------------
@@ -7977,17 +7990,26 @@ app.get('/api/admin/ads/all', async (req, res) => {
         if (!seenIds.has(cleanId)) {
           seenIds.add(cleanId);
           const cents = data.bidAmountCents || (data.bidAmountTokens ? Math.round(data.bidAmountTokens / 10) : 100);
+          const img = data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80';
+          const isVid = data.mediaType === 'video' ||
+            img.toLowerCase().includes('.mp4') ||
+            img.toLowerCase().includes('.webm') ||
+            img.toLowerCase().includes('/video-cdn/') ||
+            img.startsWith('data:video/');
           allAds.push({
             id: cleanId,
             title: data.title || 'User Campaign',
-            imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+            imageUrl: img,
+            mediaType: data.mediaType || (isVid ? 'video' : 'image'),
+            ctaType: data.ctaType || 'website',
+            ctaUrl: data.ctaUrl || data.landingPageUrl || '',
             advertiserName: data.advertiserName || data.displayName || 'Verified Advertiser',
             targetCityCode: (data.targetCityCode || 'GLOBAL').toUpperCase(),
             bidAmountDollars: (cents / 100).toFixed(2),
             bidAmountCents: cents,
             status: data.status || 'approved',
             isHouseAd: Boolean(data.isHouseAd),
-            impressions: data.impressions || 15200,
+            impressions: data.impressions !== undefined ? data.impressions : 0,
             scansCount: data.scansCount || data.scanCount || 0,
             createdAt: data.createdAt || new Date().toISOString()
           });
@@ -8004,10 +8026,19 @@ app.get('/api/admin/ads/all', async (req, res) => {
     (queue || []).forEach((adItem) => {
       if (!seenIds.has(adItem.id) && !adItem.isHouseAd && adItem.userId && !adItem.userId.startsWith('system_')) {
         seenIds.add(adItem.id);
+        const img = adItem.imageUrl || '';
+        const isVid = adItem.mediaType === 'video' ||
+          img.toLowerCase().includes('.mp4') ||
+          img.toLowerCase().includes('.webm') ||
+          img.toLowerCase().includes('/video-cdn/') ||
+          img.startsWith('data:video/');
         allAds.push({
           id: adItem.id,
           title: adItem.title,
-          imageUrl: adItem.imageUrl,
+          imageUrl: img,
+          mediaType: adItem.mediaType || (isVid ? 'video' : 'image'),
+          ctaType: adItem.ctaType || 'website',
+          ctaUrl: adItem.ctaUrl || adItem.landingPageUrl || '',
           advertiserName: adItem.advertiserName || 'Real Advertiser',
           targetCityCode: (adItem.targetCityCode || 'GLOBAL').toUpperCase(),
           bidAmountDollars: ((adItem.bidAmountCents || 100) / 100).toFixed(2),
@@ -8026,10 +8057,17 @@ app.get('/api/admin/ads/all', async (req, res) => {
   Array.from(flaggedAdsStore.values()).forEach((flagged) => {
     if (!seenIds.has(flagged.id)) {
       seenIds.add(flagged.id);
+      const img = flagged.imageUrl || '';
+      const isVid = flagged.mediaType === 'video' ||
+        img.toLowerCase().includes('.mp4') ||
+        img.toLowerCase().includes('.webm') ||
+        img.toLowerCase().includes('/video-cdn/') ||
+        img.startsWith('data:video/');
       allAds.push({
         id: flagged.id,
         title: flagged.title,
-        imageUrl: flagged.imageUrl,
+        imageUrl: img,
+        mediaType: flagged.mediaType || (isVid ? 'video' : 'image'),
         advertiserName: flagged.advertiserName,
         targetCityCode: (flagged.targetCityCode || 'GLOBAL').toUpperCase(),
         bidAmountDollars: flagged.bidAmountDollars,
@@ -8059,20 +8097,125 @@ app.get('/api/admin/ads/all', async (req, res) => {
 });
 
 // POST /api/admin/ads/reject - Force reject an active or queued ad
-app.post('/api/admin/ads/reject', (req, res) => {
-  const { adId, reason } = req.body;
+app.post('/api/admin/ads/reject', async (req, res) => {
+  const { adId, reason = 'Violation of content policy' } = req.body;
   if (!adId) return res.status(400).json({ success: false, error: 'adId is required' });
 
-  // Remove from queues
-  let foundAndRemoved = false;
+  // 1. Remove from in-memory queues
   Object.keys(redisQueues).forEach(qKey => {
-    const beforeLen = redisQueues[qKey].length;
     redisQueues[qKey] = redisQueues[qKey].filter(a => a.id !== adId);
-    if (redisQueues[qKey].length < beforeLen) foundAndRemoved = true;
   });
 
-  logTelemetry('ADMIN_AD_FORCE_REJECTED', `Admin rejected ad [${adId}]: ${reason || 'Violation of content policy'}`);
+  // 2. Mark as rejected in Cloud Firestore
+  if (db) {
+    try {
+      const campRef = doc(db, 'campaigns', adId);
+      await updateDoc(campRef, {
+        status: 'rejected',
+        rejectedAt: new Date().toISOString(),
+        rejectReason: reason
+      });
+    } catch (fsErr) {
+      console.warn('Firestore reject update note:', fsErr);
+    }
+  }
+
+  logTelemetry('ADMIN_AD_FORCE_REJECTED', `Admin rejected ad [${adId}]: ${reason}`);
   res.json({ success: true, message: `Ad [${adId}] rejected and removed from rotation.` });
+});
+
+// DELETE /api/admin/ads/:adId - Permanently delete an ad from Firestore and queues
+app.delete('/api/admin/ads/:adId', async (req, res) => {
+  const { adId } = req.params;
+  if (!adId) return res.status(400).json({ success: false, error: 'adId is required' });
+
+  // 1. Remove from in-memory queues
+  Object.keys(redisQueues).forEach(qKey => {
+    redisQueues[qKey] = redisQueues[qKey].filter(a => a.id !== adId);
+  });
+
+  // 2. Remove from flagged ads store
+  flaggedAdsStore.delete(adId);
+
+  // 3. Remove from historyBidsStore
+  const histIdx = historyBidsStore.findIndex(h => h.id === adId);
+  if (histIdx !== -1) historyBidsStore.splice(histIdx, 1);
+
+  // 4. Permanently delete from Cloud Firestore
+  if (db) {
+    try {
+      const campRef = doc(db, 'campaigns', adId);
+      await deleteDoc(campRef);
+    } catch (fsErr) {
+      console.warn('Firestore campaign delete notice:', fsErr);
+    }
+  }
+
+  logTelemetry('ADMIN_AD_PERMANENTLY_DELETED', `Admin permanently purged ad [${adId}] from database and queues.`);
+  res.json({ success: true, message: `Ad [${adId}] permanently deleted from database and queues.` });
+});
+
+// POST /api/admin/ads/air-now - Force immediate live billboard broadcast of any ad
+app.post('/api/admin/ads/air-now', async (req, res) => {
+  const { adId, cityCode = 'GLOBAL' } = req.body;
+  if (!adId) return res.status(400).json({ success: false, error: 'adId is required' });
+
+  let targetAd: any = null;
+  if (db) {
+    try {
+      const snap = await getDoc(doc(db, 'campaigns', adId));
+      if (snap.exists()) {
+        targetAd = { id: snap.id, ...snap.data() };
+      }
+    } catch (e) {}
+  }
+  if (!targetAd) {
+    Object.values(redisQueues).forEach(q => {
+      const found = q.find(a => a.id === adId);
+      if (found) targetAd = found;
+    });
+  }
+
+  if (!targetAd) {
+    return res.status(404).json({ success: false, error: 'Ad creative not found' });
+  }
+
+  const targetCity = (targetAd.targetCityCode || cityCode || 'GLOBAL').toUpperCase();
+  const queueKey = `${targetCity}:GLOBAL`;
+
+  if (!redisQueues[queueKey]) redisQueues[queueKey] = [];
+  const img = targetAd.imageUrl || '';
+  const isVid = targetAd.mediaType === 'video' ||
+    img.toLowerCase().includes('.mp4') ||
+    img.toLowerCase().includes('.webm') ||
+    img.toLowerCase().includes('/video-cdn/') ||
+    img.startsWith('data:video/');
+
+  redisQueues[queueKey].unshift({
+    id: targetAd.id,
+    userId: targetAd.userId || 'admin_override',
+    title: targetAd.title,
+    shortTitle: targetAd.title?.substring(0, 18) || 'Admin Air',
+    imageUrl: targetAd.imageUrl,
+    mediaType: targetAd.mediaType || (isVid ? 'video' : 'image'),
+    ctaType: targetAd.ctaType || 'website',
+    ctaUrl: targetAd.ctaUrl || targetAd.landingPageUrl || '',
+    bidAmountCents: targetAd.bidAmountCents || 500,
+    bidAmountTokens: (targetAd.bidAmountCents || 500) * 10,
+    advertiserName: targetAd.advertiserName || 'Admin Live Takeover',
+    targetCityCode: targetCity,
+    targetCountryCode: 'GLOBAL',
+    status: 'active',
+    isHouseAd: false,
+    createdAt: new Date().toISOString()
+  });
+
+  logTelemetry('ADMIN_AIR_NOW', `Admin forced live takeover of ad [${targetAd.title}] on city [${targetCity}]`);
+  res.json({
+    success: true,
+    message: `Ad "${targetAd.title}" has been placed at the top of ${targetCity} live queue!`,
+    targetCity
+  });
 });
 
 // GET /api/telemetry/recent - Returns initial server telemetry events on page load
